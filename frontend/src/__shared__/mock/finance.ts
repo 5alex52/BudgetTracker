@@ -4,48 +4,21 @@
  * источник данных; бизнес-логика бэкенда не затрагивается.
  */
 
-export type Currency = 'BYN' | 'RUB' | 'USD' | 'EUR'
-
-export type AccountKind = 'checking' | 'savings' | 'cash' | 'general'
-
-export interface Account {
-  id: string
-  name: string
-  kind: AccountKind
-  balance: number
-  currency: Currency
-  /** Цветовой маркер счёта (точка в списке записей, полоса карточки) */
-  tint: string
-  /** Исключён из статистики */
-  excluded?: boolean
-  archived?: boolean
-  /** Данные доступны только на чтение */
-  locked?: boolean
-}
-
-export interface Category {
-  id: string
-  name: string
-  /** Иконка lucide по имени из набора */
-  icon: string
-  color: string
-}
-
-export interface RecordItem {
-  id: string
-  type: 'income' | 'expense' | 'transfer'
-  category: string
-  categoryIcon: string
-  categoryColor: string
-  account: string
-  accountTint: string
-  amount: number
-  currency: Currency
-  date: string
-  time: string
-  note?: string
-  payer?: string
-}
+/**
+ * Демонстрационные данные для витрины компонентов (`/design`).
+ *
+ * Рабочие экраны берут данные из API, а витрине нужны стабильные примеры,
+ * поэтому здесь остаётся фиксированный набор. Типы общие — из `types/models`,
+ * чтобы компоненты не знали, откуда пришли объекты.
+ */
+import type {
+  Account,
+  AnalyticsRow,
+  Currency,
+  CurrencyRate,
+  RecordItem,
+  Subcategory,
+} from '@/__shared__/types/models'
 
 export const CURRENCY_LABEL: Record<Currency, string> = {
   BYN: 'BYN',
@@ -59,7 +32,7 @@ export const accounts: Account[] = [
   { id: 'alfa-safe', name: 'Alfa Сейф', kind: 'savings', balance: 11759.91, currency: 'BYN', tint: '#e06fa0' },
   { id: 'cash', name: 'Наличные', kind: 'cash', balance: 370, currency: 'BYN', tint: '#2ba7d6' },
   { id: 'alfa-rub', name: 'Alfa RUB', kind: 'checking', balance: 0, currency: 'RUB', tint: '#e08a3c', locked: true },
-  { id: 'tinkoff', name: 'Tinkoff', kind: 'general', balance: 109401.99, currency: 'RUB', tint: '#e0873c', locked: true },
+  { id: 'tinkoff', name: 'Tinkoff', kind: 'cash', balance: 109401.99, currency: 'RUB', tint: '#e0873c', locked: true },
   {
     id: 'alfa-usd',
     name: 'Alfa USD',
@@ -73,7 +46,7 @@ export const accounts: Account[] = [
   {
     id: 'cash-usd',
     name: 'Cash USD',
-    kind: 'general',
+    kind: 'cash',
     balance: 5345,
     currency: 'USD',
     tint: '#3aa76d',
@@ -93,7 +66,7 @@ export const accounts: Account[] = [
   {
     id: 'tinkoff-usd',
     name: 'Tinkoff USD',
-    kind: 'general',
+    kind: 'cash',
     balance: 0,
     currency: 'USD',
     tint: '#e0873c',
@@ -121,7 +94,15 @@ export const accounts: Account[] = [
   },
 ]
 
-export const categories: Category[] = [
+/** Категории витрины: короткие примеры для иконок и цветов, без id из БД. */
+export interface CategorySample {
+  id: string
+  name: string
+  icon: string
+  color: string
+}
+
+export const categories: CategorySample[] = [
   { id: 'food', name: 'Еда и напитки', icon: 'utensils', color: '#e0913c' },
   { id: 'life', name: 'Жизнь и развлечения', icon: 'theater', color: '#8b6fd6' },
   { id: 'shopping', name: 'Покупки', icon: 'shopping-bag', color: '#3aa76d' },
@@ -136,7 +117,7 @@ export const categories: Category[] = [
   { id: 'income', name: 'Доход', icon: 'arrow-down-left', color: '#2b9a6d' },
 ]
 
-export const records: RecordItem[] = [
+const rawRecords: Array<Omit<RecordItem, 'categoryId' | 'accountId' | 'iso' | 'tags' | 'isExcluded'>> = [
   {
     id: 'r1',
     type: 'income',
@@ -271,6 +252,19 @@ export const records: RecordItem[] = [
 ]
 
 /** Строки отчёта «Аналитика»: 6 месяцев, суммы как в референсе. */
+/**
+ * Записи витрины: в UI-модели нужны id категории и счёта, полная ISO-дата и метки.
+ * Сами примеры остаются короткими — недостающие поля добавляются здесь.
+ */
+export const records: RecordItem[] = rawRecords.map((item) => ({
+  ...item,
+  categoryId: 0,
+  accountId: '0',
+  iso: `${item.date}T${item.time}:00`,
+  tags: [],
+  isExcluded: false,
+}))
+
 export const analyticsMonths = [
   { key: '2025-10', label: 'октябрь 2025', labelEn: 'October 2025' },
   { key: '2025-09', label: 'сентябрь 2025', labelEn: 'September 2025' },
@@ -279,15 +273,6 @@ export const analyticsMonths = [
   { key: '2025-06', label: 'июнь 2025', labelEn: 'June 2025' },
   { key: '2025-05', label: 'май 2025', labelEn: 'May 2025' },
 ] as const
-
-export interface AnalyticsRow {
-  id: string
-  name: string
-  icon?: string
-  color?: string
-  values: number[]
-  trends: number[]
-}
 
 export const analyticsRows: AnalyticsRow[] = [
   {
@@ -427,23 +412,24 @@ export const periodComparison = [
 
 /* ------------------- валюты, категории, метки, правила -------------------- */
 
-export interface CurrencyRate {
-  code: string
-  name: string
-  /** Курс к базовой валюте: 1 базовая = X этой валюты */
-  rate: number
-  base?: boolean
-}
-
 /** Порядок и значения — как в референсе «Валюты». */
-export const currencies: CurrencyRate[] = [
-  { code: 'USD', name: 'United States Dollar', rate: 2.97 },
-  { code: 'RUB', name: 'Russian Ruble', rate: 0.03542 },
-  { code: 'EUR', name: 'Euro', rate: 3.477 },
-  { code: 'BYN', name: 'New Belarusian Ruble', rate: 1, base: true },
+const CURRENCY_NAMES: Array<[string, string, string, number, boolean]> = [
+  ['USD', 'United States Dollar', '$', 2.97, false],
+  ['RUB', 'Russian Ruble', '₽', 0.03542, false],
+  ['EUR', 'Euro', '€', 3.477, false],
+  ['BYN', 'New Belarusian Ruble', 'Br', 1, true],
 ]
 
-export interface Subcategory {
+export const currencies: CurrencyRate[] = CURRENCY_NAMES.map(([code, name, symbol, rate, base]) => ({
+  code,
+  name,
+  symbol,
+  rate,
+  base,
+}))
+
+/** Подкатегории по родительским категориям — как в референсе «Категории». */
+const rawSubcategories: Array<{
   id: string
   name: string
   parent: string
@@ -451,10 +437,7 @@ export interface Subcategory {
   color: string
   character: 'essential' | 'optional' | 'income'
   hidden?: boolean
-}
-
-/** Подкатегории по родительским категориям — как в референсе «Категории». */
-export const subcategories: Subcategory[] = [
+}> = [
   { id: 'sc-bar', name: 'Бар, кафе', parent: 'food', icon: 'utensils', color: '#e0913c', character: 'optional' },
   { id: 'sc-fastfood', name: 'Ресторан, фаст-фуд', parent: 'food', icon: 'chef-hat', color: '#e06fa0', character: 'optional' },
   { id: 'sc-grocery', name: 'Продукты', parent: 'food', icon: 'shopping-cart', color: '#3aa76d', character: 'essential' },
@@ -466,6 +449,16 @@ export const subcategories: Subcategory[] = [
   { id: 'sc-books', name: 'Книги и аудио', parent: 'books', icon: 'book', color: '#c26bd6', character: 'optional' },
   { id: 'sc-salary', name: 'Зарплата', parent: 'income', icon: 'arrow-down-left', color: '#2b9a6d', character: 'income' },
 ]
+
+/** Подкатегории витрины: строковые ключи превращаются в числовые id модели. */
+export const subcategories: Subcategory[] = rawSubcategories.map((item, index) => ({
+  id: index + 1,
+  name: item.name,
+  parent: ((rawSubcategories.findIndex((parent) => parent.id === item.parent) % 1000) + 1) || null,
+  icon: item.icon,
+  color: item.color,
+  type: (item.character === 'income' ? 'income' : 'expense') as Subcategory['type'],
+}))
 
 export interface TagItem {
   id: string

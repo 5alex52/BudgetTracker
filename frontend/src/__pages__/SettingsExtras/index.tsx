@@ -1,36 +1,72 @@
-import { useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
-import { useI18n } from '@/i18n'
-import { rules as initialRules, tags as initialTags, type RuleItem, type TagItem } from '@/__shared__/mock/finance'
+import { useMemo, useState } from 'react'
+import { Plus, Play, Trash2 } from 'lucide-react'
+import { useI18n, type TranslationKey } from '@/i18n'
+import { cn } from '@/__shared__/utils/cn'
+import type { RuleFieldValue, RuleOperatorValue } from '@/api/types'
+import { ApiError, rulesApi, templatesApi, usersApi } from '@/api'
+import { useFinanceStore } from '@/store/finance'
+import { useAuthStore } from '@/store/auth'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { Switch } from '@/components/ui/toggles'
+import { FilterSelect } from '@/components/ui/overlays'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { useToast } from '@/components/ui/toast'
-import { useAccountsStore } from '@/store/accounts'
-import { useRecordsStore } from '@/store/records'
+
+/** Цвета меток: сервер хранит hex, палитра фиксирована. */
+const TAG_COLORS = ['#5b8fd6', '#3aa76d', '#e0913c', '#e06fa0', '#8b6fd6', '#d94b4b']
 
 /**
- * «Настройки → Метки», «Шаблоны», «Автоматические правила», «Личные данные».
- * Содержимое взято из референсов; то, чего там нет, помечено как заготовка.
+ * «Настройки → Метки».
+ *
+ * Метка живёт на сервере и связана с записями через `transaction_tags`,
+ * поэтому счётчик использования считает сервис, а не клиент.
  */
-
 export function SettingsTagsPage() {
   const { t } = useI18n()
   const { toast } = useToast()
-  const [list, setList] = useState<TagItem[]>(initialTags)
+  const tags = useFinanceStore((state) => state.tags)
+  const createTag = useFinanceStore((state) => state.createTag)
+  const deleteTag = useFinanceStore((state) => state.deleteTag)
+
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
+  const [color, setColor] = useState(TAG_COLORS[0])
+  const [pending, setPending] = useState(false)
 
-  const add = () => {
+  const add = async () => {
     if (!name.trim()) return
-    const tag: TagItem = { id: `t-${Date.now()}`, name: name.trim(), color: '#5b8fd6', usage: 0 }
-    setList((prev) => [...prev, tag])
-    setName('')
-    setOpen(false)
-    toast({ title: t('settings.tags.add'), description: tag.name, tone: 'success' })
+    setPending(true)
+    try {
+      await createTag({ name: name.trim(), color })
+      toast({ title: t('settings.tags.add'), description: name.trim(), tone: 'success' })
+      setName('')
+      setColor(TAG_COLORS[0])
+      setOpen(false)
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const remove = async (id: number, label: string) => {
+    try {
+      await deleteTag(id)
+      toast({ title: t('state.deleted'), description: label, tone: 'info' })
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
   }
 
   return (
@@ -44,22 +80,34 @@ export function SettingsTagsPage() {
       }
     >
       <Card className="overflow-hidden p-0">
+        {tags.length === 0 && (
+          <p className="px-4 py-8 text-center text-label text-fg-tertiary">{t('state.empty')}</p>
+        )}
         <ul>
-          {list.map((tag, index) => (
+          {tags.map((tag, index) => (
             <li
               key={tag.id}
-              className={`flex items-center gap-3 px-4 py-2.5 ${index > 0 ? 'border-t border-stroke-subtle' : ''}`}
+              className={cn(
+                'flex items-center gap-3 px-4 py-2.5',
+                index > 0 && 'border-t border-stroke-subtle',
+              )}
             >
-              <span className="size-2.5 rounded-pill" style={{ backgroundColor: tag.color }} aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate text-label font-medium text-fg-primary">{tag.name}</span>
+              <span
+                className="size-2.5 rounded-pill"
+                style={{ backgroundColor: tag.color }}
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 truncate text-label font-medium text-fg-primary">
+                {tag.name}
+              </span>
               <span className="text-caption text-fg-tertiary">
-                {t('settings.tags.usage')}: {tag.usage}
+                {t('settings.tags.usage')}: {tag.transactions_count}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 aria-label={t('common.delete')}
-                onClick={() => setList((prev) => prev.filter((row) => row.id !== tag.id))}
+                onClick={() => void remove(tag.id, tag.name)}
               >
                 <Trash2 className="size-4 text-fg-tertiary" aria-hidden="true" />
               </Button>
@@ -76,112 +124,211 @@ export function SettingsTagsPage() {
               <Button variant="subtle" onClick={() => setOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button onClick={add} disabled={!name.trim()}>
-                {t('common.save')}
+              <Button onClick={() => void add()} disabled={!name.trim() || pending}>
+                {pending ? t('state.saving') : t('common.save')}
               </Button>
             </div>
           }
         >
-          <Field label={t('settings.categories.name')}>
-            <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
-          </Field>
+          <div className="space-y-3">
+            <Field label={t('settings.categories.name')}>
+              <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
+            </Field>
+            <div>
+              <p className="mb-2 text-label font-medium text-fg-primary">
+                {t('settings.categories.color')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {TAG_COLORS.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setColor(item)}
+                    aria-label={item}
+                    aria-pressed={color === item}
+                    className={cn(
+                      'size-6 rounded-pill border-2 transition-transform',
+                      color === item ? 'scale-110 border-fg-primary' : 'border-transparent',
+                    )}
+                    style={{ backgroundColor: item }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </SettingsLayout>
   )
 }
 
-const TEMPLATES = [
-  { id: 'tpl-1', name: 'Продукты', detail: 'Расход · Продукты · Alfa' },
-  { id: 'tpl-2', name: 'Такси', detail: 'Расход · Такси · наличные' },
-  { id: 'tpl-3', name: 'Зарплата', detail: 'Доход · Зарплата · Alfa' },
-]
-
+/**
+ * «Настройки → Шаблоны».
+ *
+ * Шаблон хранит сумму, счёт, категорию и метки. Кнопка «Создать запись»
+ * вызывает `POST /templates/{id}/apply` — сервис сам создаёт запись и
+ * увеличивает счётчик использования.
+ */
 export function SettingsTemplatesPage() {
   const { t } = useI18n()
-  const [list, setList] = useState(TEMPLATES)
+  const { toast } = useToast()
+  const templates = useFinanceStore((state) => state.templates)
+  const accounts = useFinanceStore((state) => state.accounts)
+  const categories = useFinanceStore((state) => state.categories)
+  const deleteTemplate = useFinanceStore((state) => state.deleteTemplate)
+  const createTemplate = useFinanceStore((state) => state.createTemplate)
+  const reloadTemplates = useFinanceStore((state) => state.reloadTemplates)
+
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
-  const [detail, setDetail] = useState('')
-  /** Шаблон, который правим: null — создаём новый */
-  const [editing, setEditing] = useState<{ id: string; name: string; detail: string } | null>(null)
+  const [amount, setAmount] = useState('')
+  const [accountId, setAccountId] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [pending, setPending] = useState(false)
+
+  const accountById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
+  )
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  )
 
   const openCreate = () => {
-    setEditing(null)
     setName('')
-    setDetail('')
+    setAmount('')
+    setAccountId(accounts[0]?.id ?? '')
+    setCategoryId(categories[0] ? String(categories[0].id) : '')
     setOpen(true)
   }
-  const openEdit = (item: { id: string; name: string; detail: string }) => {
-    setEditing(item)
-    setName(item.name)
-    setDetail(item.detail)
-    setOpen(true)
+
+  const save = async () => {
+    const parsed = Number(amount.replace(',', '.'))
+    const category = categoryById.get(Number(categoryId))
+    if (!name.trim() || !Number.isFinite(parsed) || parsed <= 0 || !category || !accountId) return
+    setPending(true)
+    try {
+      await createTemplate({
+        name: name.trim(),
+        type: category.type,
+        amount: parsed,
+        currency_id: accountById.get(accountId)?.currency ?? 'BYN',
+        account_id: Number(accountId),
+        category_id: category.id,
+        note: null,
+      })
+      toast({ title: t('settings.templates.add'), description: name.trim(), tone: 'success' })
+      setOpen(false)
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
   }
-  const save = () => {
-    const value = { name: name.trim(), detail: detail.trim() || '—' }
-    setList((prev) =>
-      editing
-        ? prev.map((row) => (row.id === editing.id ? { ...row, ...value } : row))
-        : [...prev, { id: `tpl-${Date.now()}`, ...value }],
-    )
-    setOpen(false)
+
+  const apply = async (id: number) => {
+    try {
+      await templatesApi.applyTemplate(id)
+      toast({ title: t('templates.applied'), tone: 'success' })
+      await reloadTemplates()
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
+  }
+
+  const remove = async (id: number, label: string) => {
+    try {
+      await deleteTemplate(id)
+      toast({ title: t('state.deleted'), description: label, tone: 'info' })
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
   }
 
   return (
     <SettingsLayout
       title={t('settings.templates')}
       actions={
-        <Button className="gap-1.5" onClick={openCreate}>
+        <Button className="gap-1.5" onClick={openCreate} disabled={accounts.length === 0}>
           <Plus className="size-4" aria-hidden="true" />
           {t('settings.templates.add')}
         </Button>
       }
     >
       <Card className="overflow-hidden p-0">
+        {templates.length === 0 && (
+          <p className="px-4 py-8 text-center text-label text-fg-tertiary">{t('state.empty')}</p>
+        )}
         <ul>
-          {list.map((item, index) => (
-            <li
-              key={item.id}
-              className={`flex items-center gap-3 px-4 py-2.5 ${index > 0 ? 'border-t border-stroke-subtle' : ''}`}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-label font-medium text-fg-primary">{item.name}</p>
-                <p className="truncate text-caption text-fg-tertiary">{item.detail}</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-caption text-accent"
-                onClick={() => openEdit(item)}
+          {templates.map((item, index) => {
+            const account = accountById.get(String(item.account_id))
+            const category = categoryById.get(item.category_id)
+            return (
+              <li
+                key={item.id}
+                className={cn(
+                  'flex flex-wrap items-center gap-3 px-4 py-2.5',
+                  index > 0 && 'border-t border-stroke-subtle',
+                )}
               >
-                {t('common.edit')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('common.delete')}
-                className="text-fg-tertiary hover:text-[var(--negative)]"
-                onClick={() => setList((prev) => prev.filter((row) => row.id !== item.id))}
-              >
-                <Trash2 className="size-4" aria-hidden="true" />
-              </Button>
-            </li>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-label font-medium text-fg-primary">{item.name}</p>
+                  <p className="truncate text-caption text-fg-tertiary">
+                    {item.type === 'income' ? t('recordForm.income') : t('recordForm.expense')} ·{' '}
+                    {category?.name ?? '—'} · {account?.name ?? '—'} · {item.amount} {item.currency_id}
+                  </p>
+                </div>
+                <span className="text-caption text-fg-tertiary">
+                  {t('templates.usage', { count: item.usage_count })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-caption text-accent"
+                  onClick={() => void apply(item.id)}
+                >
+                  <Play className="size-3.5" aria-hidden="true" />
+                  {t('templates.apply')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('common.delete')}
+                  className="text-fg-tertiary hover:text-[var(--negative)]"
+                  onClick={() => void remove(item.id, item.name)}
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </Button>
+              </li>
+            )
+          })}
         </ul>
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-          title={editing ? t('settings.templates.edit') : t('settings.templates.add')}
-          description={editing ? editing.name : t('settings.templates.addHint')}
+          title={t('settings.templates.add')}
+          description={t('settings.templates.addHint')}
           footer={
             <div className="flex justify-end gap-2">
               <Button variant="subtle" onClick={() => setOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button disabled={!name.trim()} onClick={save}>
-                {t('common.save')}
+              <Button onClick={() => void save()} disabled={!name.trim() || pending}>
+                {pending ? t('state.saving') : t('common.save')}
               </Button>
             </div>
           }
@@ -190,13 +337,32 @@ export function SettingsTemplatesPage() {
             <Field label={t('settings.templates.name')}>
               <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
             </Field>
-            <Field label={t('settings.templates.detail')} hint={t('settings.templates.detailHint')}>
+            <Field label={t('recordForm.amount')}>
               <Input
-                value={detail}
-                onChange={(event) => setDetail(event.target.value)}
-                placeholder={t('settings.templates.detailPlaceholder')}
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                inputMode="decimal"
+                placeholder="0,00"
               />
             </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={t('recordForm.account')}>
+                <FilterSelect
+                  ariaLabel={t('recordForm.account')}
+                  value={accountId}
+                  onValueChange={setAccountId}
+                  options={accounts.map((item) => ({ value: item.id, label: item.name }))}
+                />
+              </Field>
+              <Field label={t('recordForm.category')}>
+                <FilterSelect
+                  ariaLabel={t('recordForm.category')}
+                  value={categoryId}
+                  onValueChange={setCategoryId}
+                  options={categories.map((item) => ({ value: String(item.id), label: item.name }))}
+                />
+              </Field>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -204,164 +370,345 @@ export function SettingsTemplatesPage() {
   )
 }
 
+const RULE_FIELDS: Array<{ value: RuleFieldValue; key: TranslationKey }> = [
+  { value: 'note', key: 'rules.field.note' },
+  { value: 'amount', key: 'rules.field.amount' },
+]
+
+const RULE_OPERATORS: Array<{ value: RuleOperatorValue; key: TranslationKey }> = [
+  { value: 'contains', key: 'rules.operator.contains' },
+  { value: 'equals', key: 'rules.operator.equals' },
+  { value: 'greater', key: 'rules.operator.greater' },
+  { value: 'less', key: 'rules.operator.less' },
+]
+
+/**
+ * «Настройки → Автоматические правила».
+ *
+ * Правило: условие (поле + оператор + значение) → действие (категория, метка,
+ * исключение из статистики). Новые записи правило подхватывает сразу, а к старым
+ * применяется кнопкой «Применить правила» — сначала лучше в режиме проверки.
+ */
 export function SettingsRulesPage() {
   const { t } = useI18n()
-  const [ruleOpen, setRuleOpen] = useState(false)
-  const [ruleMatch, setRuleMatch] = useState('')
-  const [ruleCategory, setRuleCategory] = useState('')
-  const [list, setList] = useState<RuleItem[]>(initialRules)
+  const { toast } = useToast()
+  const rules = useFinanceStore((state) => state.rules)
+  const categories = useFinanceStore((state) => state.categories)
+  const tags = useFinanceStore((state) => state.tags)
+  const createRule = useFinanceStore((state) => state.createRule)
+  const updateRule = useFinanceStore((state) => state.updateRule)
+  const deleteRule = useFinanceStore((state) => state.deleteRule)
+
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [field, setField] = useState<RuleFieldValue>('note')
+  const [operator, setOperator] = useState<RuleOperatorValue>('contains')
+  const [value, setValue] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [tagId, setTagId] = useState('')
+  const [exclude, setExclude] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [runOpen, setRunOpen] = useState(false)
+  const [dryRun, setDryRun] = useState(true)
+  const [runPending, setRunPending] = useState(false)
+  const [runResult, setRunResult] = useState<number | null>(null)
+
+  const save = async () => {
+    if (!name.trim() || !value.trim()) return
+    setPending(true)
+    try {
+      await createRule({
+        name: name.trim(),
+        field,
+        operator,
+        value: value.trim(),
+        set_category_id: categoryId ? Number(categoryId) : null,
+        add_tag_id: tagId ? Number(tagId) : null,
+        exclude_from_statistics: exclude,
+        is_active: true,
+      })
+      toast({ title: t('settings.rules.add'), description: name.trim(), tone: 'success' })
+      setName('')
+      setValue('')
+      setCategoryId('')
+      setTagId('')
+      setExclude(false)
+      setOpen(false)
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const run = async () => {
+    setRunPending(true)
+    try {
+      const result = await rulesApi.applyRules({ dryRun })
+      setRunResult(result.updated_transactions)
+      toast({
+        title: t('rules.runTitle'),
+        description: t('rules.result', { count: result.updated_transactions }),
+        tone: result.updated_transactions > 0 ? 'success' : 'info',
+      })
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setRunPending(false)
+    }
+  }
 
   return (
-    <SettingsLayout title={t('settings.rules')} subtitle={t('settings.rules.hint')}>
+    <SettingsLayout
+      title={t('settings.rules')}
+      subtitle={t('settings.rules.hint')}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="subtle" className="gap-1.5" onClick={() => setRunOpen(true)}>
+            <Play className="size-4" aria-hidden="true" />
+            {t('rules.run')}
+          </Button>
+          <Button className="gap-1.5" onClick={() => setOpen(true)}>
+            <Plus className="size-4" aria-hidden="true" />
+            {t('settings.rules.add')}
+          </Button>
+        </div>
+      }
+    >
       <div className="space-y-3">
-        {list.map((rule) => (
+        {rules.length === 0 && (
+          <Card>
+            <p className="text-label text-fg-secondary">{t('state.empty')}</p>
+          </Card>
+        )}
+
+        {rules.map((rule) => (
           <Card key={rule.id} className="flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-0 flex-1">
-              <p className="text-label font-medium text-fg-primary">{rule.field}</p>
-              <p className="text-caption text-fg-tertiary">{rule.match}</p>
+              <p className="text-label font-medium text-fg-primary">{rule.name}</p>
+              <p className="text-caption text-fg-tertiary">
+                {t(RULE_FIELDS.find((entry) => entry.value === rule.field)?.key ?? 'rules.field.note')}{' '}
+                {t(
+                  RULE_OPERATORS.find((entry) => entry.value === rule.operator)?.key ??
+                    'rules.operator.contains',
+                )}{' '}
+                «{rule.value}»
+              </p>
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-caption text-fg-tertiary">{t('settings.rules.then')}</p>
               <p className="text-label text-fg-primary">
-                {rule.action}: {rule.value}
+                {rule.set_category_id &&
+                  `${t('rules.action.category')}: ${rule.category_name ?? rule.set_category_id}`}
+                {rule.add_tag_id &&
+                  ` ${t('rules.action.tag')}: ${rule.tag_name ?? rule.add_tag_id}`}
+                {rule.exclude_from_statistics && ` ${t('rules.action.hide')}`}
               </p>
             </div>
             <Switch
-              checked={rule.enabled}
-              onCheckedChange={(next) =>
-                setList((prev) => prev.map((row) => (row.id === rule.id ? { ...row, enabled: next } : row)))
-              }
-              label={rule.enabled ? t('settings.on') : t('settings.off')}
+              checked={rule.is_active}
+              onCheckedChange={(next) => void updateRule(rule.id, { is_active: next })}
+              label={rule.is_active ? t('settings.on') : t('settings.off')}
             />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('common.delete')}
+              className="text-fg-tertiary hover:text-[var(--negative)]"
+              onClick={() => void deleteRule(rule.id)}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+            </Button>
           </Card>
         ))}
-        <Card className="flex flex-wrap items-center justify-between gap-3 border-dashed">
-          <p className="text-label text-fg-secondary">{t('settings.rules.hint')}</p>
-          <Button variant="subtle" className="gap-1.5" onClick={() => setRuleOpen(true)}>
-            <Plus className="size-4" aria-hidden="true" />
-            {t('settings.rules.add')}
-          </Button>
-        </Card>
+      </div>
 
-        <Dialog open={ruleOpen} onOpenChange={setRuleOpen}>
-          <DialogContent
-            title={t('settings.rules.add')}
-            description={t('settings.rules.formHint')}
-            footer={
-              <div className="flex justify-end gap-2">
-                <Button variant="subtle" onClick={() => setRuleOpen(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  disabled={!ruleMatch.trim() || !ruleCategory.trim()}
-                  onClick={() => {
-                    setList((prev) => [
-                      ...prev,
-                      {
-                        id: `rule-${Date.now()}`,
-                        field: 'description',
-                        match: ruleMatch.trim(),
-                        action: 'category',
-                        value: ruleCategory.trim(),
-                        enabled: true,
-                      },
-                    ])
-                    setRuleMatch('')
-                    setRuleCategory('')
-                    setRuleOpen(false)
-                  }}
-                >
-                  {t('common.add')}
-                </Button>
-              </div>
-            }
-          >
-            <div className="space-y-3">
-              <Field label={t('settings.rules.match')} hint={t('settings.rules.matchHint')}>
-                <Input
-                  value={ruleMatch}
-                  onChange={(event) => setRuleMatch(event.target.value)}
-                  placeholder="PYATEROCHKA"
-                  autoFocus
+      {/* Создание правила */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          title={t('settings.rules.add')}
+          description={t('settings.rules.formHint')}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="subtle" onClick={() => setOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={() => void save()} disabled={!name.trim() || !value.trim() || pending}>
+                {pending ? t('state.saving') : t('common.add')}
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <Field label={t('settings.categories.name')}>
+              <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={t('settings.rules.field')}>
+                <FilterSelect
+                  ariaLabel={t('settings.rules.field')}
+                  value={field}
+                  onValueChange={(next) => setField(next as RuleFieldValue)}
+                  options={RULE_FIELDS.map((entry) => ({ value: entry.value, label: t(entry.key) }))}
                 />
               </Field>
-              <Field label={t('settings.rules.assign')}>
-                <Input
-                  value={ruleCategory}
-                  onChange={(event) => setRuleCategory(event.target.value)}
-                  placeholder={t('settings.rules.assignPlaceholder')}
+              <Field label={t('rules.operator.contains')}>
+                <FilterSelect
+                  ariaLabel={t('rules.operator.contains')}
+                  value={operator}
+                  onValueChange={(next) => setOperator(next as RuleOperatorValue)}
+                  options={RULE_OPERATORS.map((entry) => ({ value: entry.value, label: t(entry.key) }))}
                 />
               </Field>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <Field label={t('settings.rules.value')}>
+              <Input
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                placeholder="PYATEROCHKA"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={t('rules.action.category')}>
+                <FilterSelect
+                  ariaLabel={t('rules.action.category')}
+                  value={categoryId}
+                  onValueChange={setCategoryId}
+                  options={[
+                    { value: '', label: '—' },
+                    ...categories.map((item) => ({ value: String(item.id), label: item.name })),
+                  ]}
+                />
+              </Field>
+              <Field label={t('rules.action.tag')}>
+                <FilterSelect
+                  ariaLabel={t('rules.action.tag')}
+                  value={tagId}
+                  onValueChange={setTagId}
+                  options={[
+                    { value: '', label: '—' },
+                    ...tags.map((item) => ({ value: String(item.id), label: item.name })),
+                  ]}
+                />
+              </Field>
+            </div>
+            <Switch checked={exclude} onCheckedChange={setExclude} label={t('rules.action.hide')} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Прогон правил по существующим записям */}
+      <Dialog open={runOpen} onOpenChange={setRunOpen}>
+        <DialogContent
+          title={t('rules.runTitle')}
+          description={t('rules.runHint')}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="subtle" onClick={() => setRunOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={() => void run()} disabled={runPending}>
+                {runPending ? t('state.saving') : t('rules.run')}
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <Switch checked={dryRun} onCheckedChange={setDryRun} label={t('rules.dryRun')} />
+            {runResult !== null && (
+              <p className="text-label text-fg-secondary">{t('rules.result', { count: runResult })}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </SettingsLayout>
   )
 }
 
+/**
+ * «Настройки → Личные данные и конфиденциальность».
+ *
+ * Выгрузка данных — серверная (`GET /users/me/export`), поэтому в архив попадает
+ * всё, включая записи и подписку. Удаление аккаунта требует пароль: без него
+ * сервис отвечает 400, и это защита от случайного нажатия.
+ */
 export function SettingsPrivacyPage() {
   const { t } = useI18n()
   const { toast } = useToast()
-  const [messages, setMessages] = useState(true)
-  const [dpoOpen, setDpoOpen] = useState(false)
+  const signOut = useAuthStore((state) => state.signOut)
 
-  /** Выгрузка данных: тот же клиентский экспорт, что и в «Записях». */
-  const exportDataArchive = () => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      records: useRecordsStore.getState().items,
-      accounts: useAccountsStore.getState().items,
-      tags: initialTags,
-      rules: initialRules,
+  const [exporting, setExporting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [pending, setPending] = useState(false)
+
+  const exportData = async () => {
+    setExporting(true)
+    try {
+      const payload = await usersApi.exportAccountData()
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'budgettracker-export.json'
+      link.click()
+      URL.revokeObjectURL(url)
+      toast({ title: t('privacy.exported'), description: 'budgettracker-export.json', tone: 'success' })
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setExporting(false)
     }
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'budgettracker-data.json'
-    link.click()
-    URL.revokeObjectURL(url)
-    toast({ title: t('privacy.exportData'), description: 'budgettracker-data.json', tone: 'success' })
+  }
+
+  const destroyAccount = async () => {
+    if (!password) return
+    setPending(true)
+    try {
+      await usersApi.deleteAccount(password)
+      await signOut()
+      toast({ title: t('privacy.deleted'), tone: 'info' })
+    } catch (caught) {
+      toast({
+        title: t('privacy.deleteFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
     <SettingsLayout title={t('privacy.title')}>
       <div className="space-y-4">
         <Card>
-          <h2 className="text-label font-semibold text-fg-primary">{t('privacy.documents')}</h2>
-          <ul className="mt-2 space-y-2">
-            <li>
-              <a href="#privacy" className="text-label text-accent hover:underline">
-                {t('settings.privacy')}
-              </a>
-            </li>
-            <li>
-              <a href="#terms" className="text-label text-accent hover:underline">
-                {t('privacy.terms')}
-              </a>
-            </li>
-          </ul>
-        </Card>
-
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-label font-semibold text-fg-primary">{t('privacy.messages')}</h2>
-            <Switch checked={messages} onCheckedChange={setMessages} label={messages ? t('settings.on') : t('settings.off')} />
-          </div>
-          <p className="mt-2 text-label text-fg-secondary">{t('privacy.messagesHint')}</p>
-        </Card>
-
-        <Card>
           <h2 className="text-label font-semibold text-fg-primary">{t('privacy.portability')}</h2>
+          <p className="mt-2 text-label text-fg-secondary">{t('privacy.exportHint')}</p>
           <p className="mt-2 text-label text-fg-secondary">{t('privacy.portabilityText')}</p>
-          <p className="mt-2 text-label text-fg-secondary">{t('privacy.forgotten')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="subtle" onClick={() => exportDataArchive()}>
-              {t('privacy.exportData')}
+            <Button variant="subtle" onClick={() => void exportData()} disabled={exporting}>
+              {exporting ? t('state.loading') : t('privacy.export')}
             </Button>
-            <Button variant="ghost" className="text-accent" onClick={() => setDpoOpen(true)}>
-              {t('privacy.dpo')}
+            <Button
+              variant="ghost"
+              className="gap-1.5 text-[var(--negative)]"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+              {t('privacy.deleteTitle')}
             </Button>
           </div>
         </Card>
@@ -372,24 +719,33 @@ export function SettingsPrivacyPage() {
         </Card>
       </div>
 
-      <Dialog open={dpoOpen} onOpenChange={setDpoOpen}>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent
-          title={t('privacy.dpo')}
-          description={t('privacy.dpoHint')}
+          title={t('privacy.deleteTitle')}
+          description={t('privacy.deleteHint')}
           footer={
             <div className="flex justify-end gap-2">
-              <Button variant="subtle" onClick={() => setDpoOpen(false)}>
-                {t('privacy.dpoClose')}
+              <Button variant="subtle" onClick={() => setDeleteOpen(false)}>
+                {t('common.cancel')}
               </Button>
-              <Button onClick={() => window.open('mailto:dpo@budgettracker.example', '_self')}>dpo@budgettracker.example</Button>
+              <Button
+                className="bg-[var(--negative)] hover:bg-[var(--negative)]/90"
+                disabled={!password || pending}
+                onClick={() => void destroyAccount()}
+              >
+                {pending ? t('state.saving') : t('privacy.deleteTitle')}
+              </Button>
             </div>
           }
         >
-          <ul className="space-y-2 text-label text-fg-secondary">
-            <li>{t('privacy.dpoRequest1')}</li>
-            <li>{t('privacy.dpoRequest2')}</li>
-            <li>{t('privacy.dpoRequest3')}</li>
-          </ul>
+          <Field label={t('privacy.passwordPrompt')}>
+            <Input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoFocus
+            />
+          </Field>
         </DialogContent>
       </Dialog>
     </SettingsLayout>

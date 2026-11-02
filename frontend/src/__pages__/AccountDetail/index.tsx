@@ -1,14 +1,19 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
-import { useI18n } from '@/i18n'
+import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
-import { balanceSeries, type RecordItem } from '@/__shared__/mock/finance'
-import { useAccountsStore } from '@/store/accounts'
+import type { AccountKind, RecordItem } from '@/__shared__/types/models'
+import { ApiError } from '@/api'
+import { analyticsApi } from '@/api'
+import { useApiQuery } from '@/hooks/useApi'
+import { toBalancePoints } from '@/api/mappers'
+import { useFinanceStore } from '@/store/finance'
+import { transactionsApi } from '@/api'
+import { toRecordItem } from '@/api/mappers'
 import { AccountDialog } from '@/components/accounts/AccountDialog'
 import { ExportMenu } from '@/components/data/ExportMenu'
 import { useToast } from '@/components/ui/toast'
-import { useRecordsStore } from '@/store/records'
 import { useRecordDialog } from '@/components/records/RecordDialogContext'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card } from '@/components/ui/card'
@@ -17,46 +22,71 @@ import { Amount } from '@/components/data/Amount'
 import { Checkbox, SegmentedControl } from '@/components/ui/toggles'
 import { LineChart } from '@/components/charts/charts'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/overlays'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/overlays'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
 
-const KIND_LABEL = {
+const KIND_LABEL: Record<AccountKind, TranslationKey> = {
   checking: 'accounts.type.checking',
   savings: 'accounts.type.savings',
   cash: 'accounts.type.cash',
-  general: 'accounts.type.general',
-} as const
+  credit_card: 'accounts.type.credit_card',
+  investment: 'accounts.type.investment',
+}
 
 /**
- * «Детали счёта» — экран, которого не было в первой партии макетов.
+ * «Детали счёта».
  *
- * Из референса: хлебная крошка «‹ Детали счета», кнопки «Редактировать» и
- * «Удалить», блок с названием, типом и переключателем «Баланс / Записи»,
- * крупный остаток, сравнение с прошлым периодом и график за месяц.
- * Во вкладке «Записи» — «Найдено N записей», массовые действия и список по дням.
+ * Баланс, обороты за период и график берутся из `/accounts/{id}/summary` и
+ * `/analytics/timeseries` (остаток по всем счетам — отдельная метрика сервиса),
+ * записи — из общего стора с фильтром по счёту.
  */
 export function AccountDetailPage() {
   const { openCreate: onAddRecord, openEdit: onEditRecord } = useRecordDialog()
-  const accounts = useAccountsStore((state) => state.items)
-  const removeAccount = useAccountsStore((state) => state.remove)
-  const allRecords = useRecordsStore((state) => state.items)
-  const removeRecord = useRecordsStore((state) => state.remove)
-  const { toast } = useToast()
   const navigate = useNavigate()
+  const { toast } = useToast()
+  const { t, locale } = useI18n()
+  const { accountId } = useParams()
+
+  const accounts = useFinanceStore((state) => state.accounts)
+  const deleteAccount = useFinanceStore((state) => state.deleteAccount)
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmDedupe, setConfirmDedupe] = useState(false)
-  const { t, locale } = useI18n()
-  const { accountId } = useParams()
   const [tab, setTab] = useState<'balance' | 'records'>('balance')
   const [selected, setSelected] = useState<string[]>([])
 
-  const account = accounts.find((item) => item.id === accountId)
+  const account = accounts.find((item) => item.id === String(accountId))
 
-  const accountRecords = useMemo(
-    () => (account ? allRecords.filter((item) => item.account === account.name) : []),
-    [account, allRecords],
+  /* Записи именно этого счёта: страница открывается и по прямой ссылке,
+     поэтому список грузим здесь, а не берём из общего стора «Записей» */
+  const recordsQuery = useApiQuery(
+    () =>
+      transactionsApi
+        .listTransactions({ account_ids: [Number(accountId)], sort: 'date_desc', limit: 100 })
+        .then((result) => result.items.map((dto) => toRecordItem(dto, { accounts: new Map() }))),
+    [accountId],
   )
+
+  /* Обороты счёта и график остатка: два независимых запроса под вкладкой «Баланс» */
+  const summary = useApiQuery(
+    () => (accountId ? analyticsApi.getByAccount() : Promise.resolve({ items: [], total: 0 })),
+    [accountId],
+  )
+  const balanceSeries = useApiQuery(
+    () => analyticsApi.getTimeseries({ metric: 'balance', groupBy: 'day' }),
+    [accountId],
+  )
+
+  const accountSummary = summary.data?.items.find((item) => String(item.account_id) === String(accountId))
+  const points = balanceSeries.data ? toBalancePoints(balanceSeries.data, locale) : []
+
+  const accountRecords = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
   const groups = useMemo(() => {
     const byDate = new Map<string, RecordItem[]>()
@@ -79,12 +109,40 @@ export function AccountDetailPage() {
     )
   }
 
+  const remove = async () => {
+    try {
+      await deleteAccount(account.id)
+      setConfirmDelete(false)
+      toast({ title: t('accounts.deleted'), description: account.name, tone: 'info' })
+      navigate('/accounts')
+    } catch (caught) {
+      toast({
+        title: t('accounts.deleteFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
+  }
+
+  const removeRecordById = async (id: string) => {
+    try {
+      await transactionsApi.deleteTransaction(Number(id))
+      await recordsQuery.reload()
+      toast({ title: t('state.deleted'), tone: 'info' })
+    } catch {
+      toast({ title: t('records.deleteFailed'), tone: 'error' })
+    }
+  }
+
   return (
     <AppShell
       context={t('account.detail')}
       header={
         <div className="space-y-3">
-          <Link to="/accounts" className="inline-flex items-center gap-1 text-caption text-fg-secondary hover:text-fg-primary">
+          <Link
+            to="/accounts"
+            className="inline-flex items-center gap-1 text-caption text-fg-secondary hover:text-fg-primary"
+          >
             <ChevronLeft className="size-3.5" aria-hidden="true" />
             {t('account.detail')}
           </Link>
@@ -123,7 +181,11 @@ export function AccountDetailPage() {
               <div>
                 <dt className="text-caption uppercase tracking-wide text-fg-tertiary">{t('account.type')}</dt>
                 <dd className="mt-0.5 flex items-center gap-2 text-label font-medium text-fg-primary">
-                  <span className="size-2 rounded-pill" style={{ backgroundColor: account.tint }} aria-hidden="true" />
+                  <span
+                    className="size-2 rounded-pill"
+                    style={{ backgroundColor: account.tint }}
+                    aria-hidden="true"
+                  />
                   {t(KIND_LABEL[account.kind])}
                 </dd>
               </div>
@@ -145,18 +207,40 @@ export function AccountDetailPage() {
               <p className="text-caption uppercase tracking-wide text-fg-tertiary">{t('dashboard.balance')}</p>
               <Amount value={account.balance} currency={account.currency} size="lg" className="mt-1" />
             </div>
-            <p className="text-caption text-fg-tertiary">
-              {t('account.vsPrevious')}: <span className="text-fg-secondary">0%</span>
-            </p>
+            {accountSummary && (
+              <p className="flex flex-wrap items-center gap-3 text-caption text-fg-tertiary">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-pill bg-positive" aria-hidden="true" />
+                  {t('dashboard.incomes')}
+                  <Amount value={accountSummary.income} currency={account.currency} size="xs" tone="positive" />
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-pill bg-negative" aria-hidden="true" />
+                  {t('dashboard.expenses')}
+                  <Amount value={-accountSummary.expense} currency={account.currency} size="xs" tone="negative" />
+                </span>
+                <span>
+                  {t('records.found', { count: accountSummary.transactions_count })}
+                </span>
+              </p>
+            )}
           </div>
 
           {tab === 'balance' && (
-            <LineChart
-              points={balanceSeries}
-              height={200}
-              ariaLabel={`${t('dashboard.balance')} — ${account.name}`}
-              className="mt-4"
-            />
+            <>
+              {points.length > 1 ? (
+                <LineChart
+                  points={points}
+                  height={200}
+                  ariaLabel={`${t('dashboard.balance')} — ${account.name}`}
+                  className="mt-4"
+                />
+              ) : (
+                <p className="mt-4 text-caption text-fg-tertiary">
+                  {balanceSeries.loading ? t('state.loading') : t('state.empty')}
+                </p>
+              )}
+            </>
           )}
         </Card>
 
@@ -169,16 +253,12 @@ export function AccountDetailPage() {
                   onCheckedChange={(next) => setSelected(next ? accountRecords.map((item) => item.id) : [])}
                   label={t('records.selectAll')}
                 />
-                <p className="text-label text-fg-secondary">{t('account.found', { count: 955 })}</p>
+                <p className="text-label text-fg-secondary">
+                  {t('records.found', { count: accountRecords.length })}
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button variant="ghost" size="sm">
-                  {t('common.edit')}
-                </Button>
                 <ExportMenu items={accountRecords} />
-                <Button variant="ghost" size="sm" className="text-[var(--negative)]">
-                  {t('common.delete')}
-                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setConfirmDedupe(true)}>
                   {t('account.dedupe')}
                 </Button>
@@ -204,51 +284,58 @@ export function AccountDetailPage() {
                     <Amount value={dayTotal} currency={account.currency} size="xs" />
                   </div>
                   <ul>
-              {items.map((item: RecordItem, index) => (
-                <li
-                  key={item.id}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-2.5 transition-colors duration-fast hover:bg-surface-2/70',
-                    index > 0 && 'border-t border-stroke-subtle',
-                  )}
-                >
-                  <span className="hidden sm:block">
-                    <Checkbox
-                      checked={selected.includes(item.id)}
-                      onCheckedChange={(next) =>
-                        setSelected((prev) => (next ? [...prev, item.id] : prev.filter((id) => id !== item.id)))
-                      }
-                      aria-label={item.category}
-                    />
-                  </span>
-                  <span
-                    className="grid size-8 shrink-0 place-items-center rounded-pill"
-                    style={{ backgroundColor: `${item.categoryColor}22`, color: item.categoryColor }}
-                  >
-                    <CategoryIcon name={item.categoryIcon} className="size-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-label font-medium text-fg-primary">{item.category}</p>
-                    <p className="truncate text-caption text-fg-tertiary">
-                      {item.date} · {item.time}
-                    </p>
-                  </div>
-                  <Amount value={item.amount} currency={item.currency} size="sm" className="shrink-0" />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" aria-label={t('records.rowMenu')}>
-                        <MoreHorizontal className="size-4" aria-hidden="true" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => onEditRecord?.(item)}>{t('common.edit')}</DropdownMenuItem>
-                      <DropdownMenuItem className="text-[var(--negative)]" onSelect={() => removeRecord(item.id)}>
-                        {t('common.delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </li>
-              ))}
+                    {items.map((item, index) => (
+                      <li
+                        key={item.id}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-2.5 transition-colors duration-fast hover:bg-surface-2/70',
+                          index > 0 && 'border-t border-stroke-subtle',
+                        )}
+                      >
+                        <span className="hidden sm:block">
+                          <Checkbox
+                            checked={selected.includes(item.id)}
+                            onCheckedChange={(next) =>
+                              setSelected((prev) =>
+                                next ? [...prev, item.id] : prev.filter((id) => id !== item.id),
+                              )
+                            }
+                            aria-label={item.category}
+                          />
+                        </span>
+                        <span
+                          className="grid size-8 shrink-0 place-items-center rounded-pill"
+                          style={{ backgroundColor: `${item.categoryColor}22`, color: item.categoryColor }}
+                        >
+                          <CategoryIcon name={item.categoryIcon} className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-label font-medium text-fg-primary">{item.category}</p>
+                          <p className="truncate text-caption text-fg-tertiary">
+                            {item.date} · {item.time}
+                          </p>
+                        </div>
+                        <Amount value={item.amount} currency={item.currency} size="sm" className="shrink-0" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-sm" aria-label={t('records.rowMenu')}>
+                              <MoreHorizontal className="size-4" aria-hidden="true" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => onEditRecord?.(item)}>
+                              {t('common.edit')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-[var(--negative)]"
+                              onSelect={() => void removeRecordById(item.id)}
+                            >
+                              {t('common.delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )
@@ -270,12 +357,7 @@ export function AccountDetailPage() {
               </Button>
               <Button
                 className="bg-[var(--negative)] hover:bg-[var(--negative)]/90"
-                onClick={() => {
-                  removeAccount(account.id)
-                  setConfirmDelete(false)
-                  toast({ title: t('accounts.deleted'), description: account.name, tone: 'info' })
-                  navigate('/accounts')
-                }}
+                onClick={() => void remove()}
               >
                 {t('common.delete')}
               </Button>

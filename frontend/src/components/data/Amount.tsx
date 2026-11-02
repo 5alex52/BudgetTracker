@@ -1,13 +1,16 @@
-import type { Currency } from '@/__shared__/mock/finance'
+import type { Currency } from '@/__shared__/types/models'
 import { useI18n } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 
-const SUFFIX: Record<Currency, string> = {
+/** Значки валют; для остальных кодов показываем сам код. */
+const SUFFIX: Record<string, string> = {
   BYN: 'BYN',
   RUB: '₽',
   USD: '$',
   EUR: '€',
 }
+
+const symbolOf = (currency: Currency) => SUFFIX[currency] ?? currency
 
 export interface AmountProps {
   value: number
@@ -61,14 +64,14 @@ export function Amount({
         resolvedTone === 'neutral' && 'text-fg-primary',
         className,
       )}
-      aria-label={`${sign}${formatted} ${SUFFIX[currency]}`}
+      aria-label={`${sign}${formatted} ${symbolOf(currency)}`}
     >
       <span aria-hidden="true">
         {sign}
         {formatted}
       </span>
       <span className="text-[0.78em] font-normal text-fg-tertiary" aria-hidden="true">
-        {SUFFIX[currency]}
+        {symbolOf(currency)}
       </span>
     </span>
   )

@@ -1,38 +1,87 @@
-import { useState } from 'react'
-import { Languages, Palette, Shield, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Languages, Palette, SlidersHorizontal, Wallet } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { useTheme, type ThemeMode } from '@/hooks/useTheme'
+import { ApiError, usersApi } from '@/api'
+import { useAuthStore } from '@/store/auth'
+import { useFinanceStore } from '@/store/finance'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { SegmentedControl, Switch } from '@/components/ui/toggles'
 import { FilterSelect } from '@/components/ui/overlays'
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialogs'
 import { useToast } from '@/components/ui/toast'
 
-
 /**
- * «Настройки»: две группы навигации (WALLET / ОБЩИЕ), форма профиля
- * и общие предпочтения. Всё состояние локальное — бизнес-логика не затрагивается.
+ * «Настройки»: профиль, оформление, язык и базовая валюта.
+ *
+ * Профиль пишется на сервер через `PATCH /users/me`; тема и язык дублируются
+ * в профиле, чтобы настройки переезжали между устройствами, но интерфейс
+ * реагирует мгновенно — локально, без ожидания ответа.
  */
 export function SettingsPage() {
   const { t, locale, setLocale } = useI18n()
   const { mode, setMode } = useTheme()
   const { toast } = useToast()
 
-  const [firstName, setFirstName] = useState('Алексей')
-  const [lastName, setLastName] = useState('Курковский')
-  const [email, setEmail] = useState('alexey.kurkovsky@example.com')
-  const [hideDecimals, setHideDecimals] = useState(false)
-  const [autoLogout, setAutoLogout] = useState(false)
-  const [interval, setInterval] = useState('thisMonth')
+  const user = useAuthStore((state) => state.user)
+  const setUser = useAuthStore((state) => state.setUser)
+  const baseCurrency = useFinanceStore((state) => state.baseCurrency)
+  const rates = useFinanceStore((state) => state.rates)
+
+  const [firstname, setFirstname] = useState('')
+  const [lastname, setLastname] = useState('')
+  const [email, setEmail] = useState('')
+  const [currency, setCurrency] = useState(baseCurrency)
+  const [pending, setPending] = useState(false)
+
+  /* Профиль приходит асинхронно: заполняем форму, когда он появился */
+  useEffect(() => {
+    if (!user) return
+    setFirstname(user.firstname ?? '')
+    setLastname(user.lastname ?? '')
+    setEmail(user.email)
+  }, [user])
+
+  useEffect(() => setCurrency(baseCurrency), [baseCurrency])
+
+  const save = async () => {
+    setPending(true)
+    try {
+      const updated = await usersApi.updateProfile({
+        firstname: firstname.trim(),
+        lastname: lastname.trim(),
+        email: email.trim(),
+        base_currency: currency,
+      })
+      setUser(updated)
+      toast({ title: t('profile.saved'), tone: 'success' })
+      // Базовая валюта влияет на суммы в аналитике — перечитываем курсы
+      await useFinanceStore.getState().reloadRates()
+    } catch (caught) {
+      toast({
+        title: t('profile.saveFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const changeLocale = (next: 'ru' | 'en') => {
+    setLocale(next)
+    void usersApi.updateProfile({ locale: next }).catch(() => undefined)
+  }
+
+  const changeTheme = (next: ThemeMode) => {
+    setMode(next)
+    void usersApi.updateProfile({ theme: next }).catch(() => undefined)
+  }
 
   return (
-    <SettingsLayout
-      title={t('settings.title')}
-      subtitle={t('settings.profile')}
-    >
+    <SettingsLayout title={t('settings.title')} subtitle={t('settings.profile')}>
       <div className="space-y-4">
         <Card id="general">
           <CardHeader title={t('settings.profile')} subtitle={t('settings.general')} />
@@ -40,20 +89,33 @@ export function SettingsPage() {
             className="mt-4 grid gap-3 sm:grid-cols-2"
             onSubmit={(event) => {
               event.preventDefault()
-              toast({ title: t('settings.update'), tone: 'success' })
+              void save()
             }}
           >
             <Field label={t('settings.firstName')}>
-              <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+              <Input value={firstname} onChange={(event) => setFirstname(event.target.value)} />
             </Field>
             <Field label={t('settings.lastName')}>
-              <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
+              <Input value={lastname} onChange={(event) => setLastname(event.target.value)} />
             </Field>
             <Field label={t('settings.email')} className="sm:col-span-2">
               <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
             </Field>
-            <div className="sm:col-span-2">
-              <Button type="submit">{t('settings.update')}</Button>
+            <Field label={t('profile.baseCurrency')} hint={t('settings.baseCurrencyHint')}>
+              <FilterSelect
+                ariaLabel={t('profile.baseCurrency')}
+                value={currency}
+                onValueChange={setCurrency}
+                options={rates.map((rate) => ({
+                  value: rate.code,
+                  label: `${rate.code} · ${rate.name}`,
+                }))}
+              />
+            </Field>
+            <div className="flex items-end sm:col-span-2">
+              <Button type="submit" disabled={pending || !email.trim()}>
+                {pending ? t('state.saving') : t('settings.update')}
+              </Button>
             </div>
           </form>
         </Card>
@@ -66,7 +128,7 @@ export function SettingsPage() {
                 className="[&>*]:px-2.5 [&>*]:text-caption sm:[&>*]:px-3 sm:[&>*]:text-label"
                 aria-label={t('settings.appearance')}
                 value={mode}
-                onValueChange={(value) => setMode(value as ThemeMode)}
+                onValueChange={(value) => changeTheme(value as ThemeMode)}
                 items={[
                   { value: 'system', label: t('settings.appearance.system') },
                   { value: 'light', label: t('settings.appearance.light') },
@@ -80,7 +142,7 @@ export function SettingsPage() {
                 <FilterSelect
                   ariaLabel={t('settings.language')}
                   value={locale}
-                  onValueChange={(value) => setLocale(value as 'ru' | 'en')}
+                  onValueChange={(value) => changeLocale(value as 'ru' | 'en')}
                   options={[
                     { value: 'ru', label: 'Русский' },
                     { value: 'en', label: 'English' },
@@ -89,52 +151,45 @@ export function SettingsPage() {
               </div>
             </SettingRow>
 
-            <SettingRow label={t('settings.dashboardInterval')} icon={<SlidersHorizontal className="size-4" />}>
+            <SettingRow label={t('profile.baseCurrency')} icon={<Wallet className="size-4" />}>
               <div className="w-44">
                 <FilterSelect
-                  ariaLabel={t('settings.dashboardInterval')}
-                  value={interval}
-                  onValueChange={setInterval}
-                  options={[
-                    { value: 'thisMonth', label: t('settings.interval.thisMonth') },
-                    { value: 'prevMonth', label: t('dashboard.monthPrev') },
-                  ]}
+                  ariaLabel={t('profile.baseCurrency')}
+                  value={currency}
+                  onValueChange={setCurrency}
+                  options={rates.map((rate) => ({ value: rate.code, label: rate.code }))}
                 />
               </div>
             </SettingRow>
 
-            <SettingRow label={t('settings.numberFormat')} icon={<SlidersHorizontal className="size-4" />}>
-              <Switch checked={hideDecimals} onCheckedChange={setHideDecimals} label={t('settings.hideDecimals')} />
+            <SettingRow
+              label={t('settings.numberFormat')}
+              icon={<SlidersHorizontal className="size-4" />}
+            >
+              <HideDecimalsSwitch />
             </SettingRow>
-
-            <SettingRow label={t('settings.autoLogout')} icon={<Shield className="size-4" />} hint={t('settings.autoLogoutHint')}>
-              <Switch checked={autoLogout} onCheckedChange={setAutoLogout} label={t('settings.autoLogout')} />
-            </SettingRow>
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title={t('settings.privacy')} subtitle={t('settings.deleteLocalHint')} />
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="max-w-md text-label text-fg-secondary">{t('settings.deleteLocalHint')}</p>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="danger" className="gap-1.5">
-                  <Trash2 className="size-4" aria-hidden="true" />
-                  {t('settings.deleteLocalAction')}
-                </Button>
-              </DialogTrigger>
-              <DialogContent title={t('settings.deleteLocal')} description={t('settings.deleteLocalHint')}>
-                <div className="mt-6 flex justify-end gap-2">
-                  <Button variant="subtle">{t('common.cancel')}</Button>
-                  <Button variant="danger">{t('settings.deleteLocalAction')}</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </Card>
       </div>
     </SettingsLayout>
+  )
+}
+
+/** «Скрывать копейки» — клиентская настройка отображения, живёт в localStorage. */
+function HideDecimalsSwitch() {
+  const { t } = useI18n()
+  const key = 'bt-hide-decimals'
+  const [hide, setHide] = useState(() => localStorage.getItem(key) === '1')
+
+  return (
+    <Switch
+      checked={hide}
+      onCheckedChange={(next) => {
+        setHide(next)
+        localStorage.setItem(key, next ? '1' : '0')
+      }}
+      label={t('settings.hideDecimals')}
+    />
   )
 }
 

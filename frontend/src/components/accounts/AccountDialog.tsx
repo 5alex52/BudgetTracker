@@ -1,30 +1,46 @@
 import { useEffect, useState } from 'react'
-import { Archive, Eye, Lock, Trash2 } from 'lucide-react'
-import { useI18n } from '@/i18n'
+import { Archive, Eye, Trash2 } from 'lucide-react'
+import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
-import type { Account } from '@/__shared__/mock/finance'
-import {
-  ACCOUNT_CURRENCIES,
-  ACCOUNT_KINDS,
-  ACCOUNT_TINTS,
-  KIND_LABEL_KEY,
-  emptyAccount,
-  useAccountsStore,
-} from '@/store/accounts'
+import type { Account, AccountKind } from '@/__shared__/types/models'
+import { ACCOUNT_TINTS } from '@/api/mappers'
+import { useFinanceStore } from '@/store/finance'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { SegmentedControl, Switch } from '@/components/ui/toggles'
 import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
+import { ApiError } from '@/api'
+
+/** Типы счетов, которые поддерживает сервис. */
+const ACCOUNT_KINDS: AccountKind[] = ['checking', 'savings', 'cash', 'credit_card', 'investment']
+
+const KIND_LABEL_KEY: Record<AccountKind, TranslationKey> = {
+  checking: 'accounts.type.checking',
+  savings: 'accounts.type.savings',
+  cash: 'accounts.type.cash',
+  credit_card: 'accounts.type.credit_card',
+  investment: 'accounts.type.investment',
+}
+
+/** Пустой счёт для формы создания. */
+const emptyAccount = (currency: string): Account => ({
+  id: '',
+  name: '',
+  kind: 'checking',
+  balance: 0,
+  currency,
+  tint: ACCOUNT_TINTS[4],
+})
 
 /**
  * Форма счёта: создание и редактирование.
  *
- * Поля повторяют то, что есть в референсе на плитках и в деталях счёта:
- * название, тип, валюта, начальный баланс и цветовой маркер. Дополнительно —
- * три состояния, которые в референсе показаны только иконками в списке:
- * «исключить из статистики», «архив», «только чтение».
+ * Название, тип, валюта и остаток уходят на сервер; маркер цвета живёт только
+ * на клиенте (в API такого поля нет) и запоминается в localStorage. Валюта после
+ * создания не меняется: остаток уже посчитан в ней, а конвертацию баланса сервис
+ * не делает — поле блокируется, чтобы не переписать историю.
  */
 export function AccountDialog({
   open,
@@ -40,44 +56,80 @@ export function AccountDialog({
 }) {
   const { t } = useI18n()
   const { toast } = useToast()
-  const { upsert, remove, nextId } = useAccountsStore()
+  const baseCurrency = useFinanceStore((state) => state.baseCurrency)
+  const currencyCodes = useFinanceStore((state) => state.currencyCodes)
+  const createAccount = useFinanceStore((state) => state.createAccount)
+  const updateAccount = useFinanceStore((state) => state.updateAccount)
+  const deleteAccount = useFinanceStore((state) => state.deleteAccount)
 
   const editing = Boolean(account?.id)
-  const [draft, setDraft] = useState<Account>(account ?? emptyAccount())
+  const [draft, setDraft] = useState<Account>(account ?? emptyAccount(baseCurrency))
   const [touched, setTouched] = useState(false)
+  const [pending, setPending] = useState(false)
 
   useEffect(() => {
     if (open) {
-      setDraft(account ?? emptyAccount())
+      setDraft(account ?? emptyAccount(baseCurrency))
       setTouched(false)
     }
-  }, [open, account])
+  }, [open, account, baseCurrency])
 
   const nameInvalid = touched && !draft.name.trim()
+  const balanceValue = Number(String(draft.balance).replace(',', '.'))
 
-  const save = () => {
+  const save = async () => {
     setTouched(true)
     if (!draft.name.trim()) return
-    const next: Account = {
-      ...draft,
-      id: draft.id || nextId(draft.name),
-      balance: Number(String(draft.balance).replace(',', '.')) || 0,
+    setPending(true)
+    try {
+      const payload = {
+        name: draft.name.trim(),
+        type: draft.kind,
+        currency_id: draft.currency,
+        balance: Number.isFinite(balanceValue) ? balanceValue : 0,
+        is_archived: Boolean(draft.archived),
+        is_excluded: Boolean(draft.excluded),
+      }
+      if (editing && account) {
+        await updateAccount(account.id, payload, draft.tint)
+        toast({ title: t('state.saved'), description: draft.name, tone: 'success' })
+      } else {
+        await createAccount(payload, draft.tint)
+        toast({
+          title: t('accounts.created'),
+          description: `${draft.name} · ${payload.balance} ${draft.currency}`,
+          tone: 'success',
+        })
+      }
+      onOpenChange(false)
+    } catch (caught) {
+      toast({
+        title: editing ? t('accounts.updateFailed') : t('accounts.createFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
     }
-    upsert(next)
-    toast({
-      title: editing ? t('common.save') : t('accounts.created'),
-      description: `${next.name} · ${next.balance} ${next.currency}`,
-      tone: 'success',
-    })
-    onOpenChange(false)
   }
 
-  const destroy = () => {
+  const destroy = async () => {
     if (!draft.id) return
-    remove(draft.id)
-    toast({ title: t('accounts.deleted'), description: draft.name, tone: 'info' })
-    onOpenChange(false)
-    onDeleted?.()
+    setPending(true)
+    try {
+      await deleteAccount(draft.id)
+      toast({ title: t('accounts.deleted'), description: draft.name, tone: 'info' })
+      onOpenChange(false)
+      onDeleted?.()
+    } catch (caught) {
+      toast({
+        title: t('accounts.deleteFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
@@ -89,7 +141,12 @@ export function AccountDialog({
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
             {editing ? (
-              <Button variant="ghost" className="gap-1.5 text-[var(--negative)]" onClick={destroy}>
+              <Button
+                variant="ghost"
+                className="gap-1.5 text-[var(--negative)]"
+                onClick={() => void destroy()}
+                disabled={pending}
+              >
                 <Trash2 className="size-4" aria-hidden="true" />
                 {t('common.delete')}
               </Button>
@@ -100,8 +157,8 @@ export function AccountDialog({
               <Button variant="subtle" onClick={() => onOpenChange(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button onClick={save} disabled={!draft.name.trim()}>
-                {editing ? t('common.save') : t('common.add')}
+              <Button onClick={() => void save()} disabled={!draft.name.trim() || pending}>
+                {pending ? t('state.saving') : editing ? t('common.save') : t('common.add')}
               </Button>
             </div>
           </div>
@@ -120,12 +177,15 @@ export function AccountDialog({
               />
             </Field>
 
-            <Field label={t('accounts.currency')}>
+            <Field
+              label={t('accounts.currency')}
+              hint={editing ? t('accounts.currencyLocked') : undefined}
+            >
               <FilterSelect
                 ariaLabel={t('accounts.currency')}
                 value={draft.currency}
-                onValueChange={(value) => setDraft({ ...draft, currency: value as Account['currency'] })}
-                options={ACCOUNT_CURRENCIES.map((code) => ({ value: code, label: code }))}
+                onValueChange={(value) => setDraft({ ...draft, currency: value })}
+                options={currencyCodes().map((code) => ({ value: code, label: code }))}
               />
             </Field>
           </div>
@@ -135,7 +195,7 @@ export function AccountDialog({
             <SegmentedControl
               aria-label={t('account.type')}
               value={draft.kind}
-              onValueChange={(value) => setDraft({ ...draft, kind: value as Account['kind'] })}
+              onValueChange={(value) => setDraft({ ...draft, kind: value as AccountKind })}
               items={ACCOUNT_KINDS.map((kind) => ({ value: kind, label: t(KIND_LABEL_KEY[kind]) }))}
             />
           </div>
@@ -146,9 +206,12 @@ export function AccountDialog({
           >
             <Input
               value={String(draft.balance).replace('.', ',')}
-              onChange={(event) => setDraft({ ...draft, balance: event.target.value as unknown as number })}
+              onChange={(event) =>
+                setDraft({ ...draft, balance: event.target.value as unknown as number })
+              }
               inputMode="decimal"
               placeholder="0,00"
+              disabled={editing}
             />
           </Field>
 
@@ -164,7 +227,9 @@ export function AccountDialog({
                   aria-pressed={draft.tint === tint}
                   className={cn(
                     'size-6 rounded-pill border-2 transition-transform',
-                    draft.tint === tint ? 'scale-110 border-fg-primary' : 'border-transparent hover:scale-105',
+                    draft.tint === tint
+                      ? 'scale-110 border-fg-primary'
+                      : 'border-transparent hover:scale-105',
                   )}
                   style={{ backgroundColor: tint }}
                 />
@@ -190,16 +255,6 @@ export function AccountDialog({
                 <span className="flex items-center gap-1.5">
                   <Archive className="size-3.5 text-fg-tertiary" aria-hidden="true" />
                   {t('accounts.archived')}
-                </span>
-              }
-            />
-            <Switch
-              checked={Boolean(draft.locked)}
-              onCheckedChange={(next) => setDraft({ ...draft, locked: next })}
-              label={
-                <span className="flex items-center gap-1.5">
-                  <Lock className="size-3.5 text-fg-tertiary" aria-hidden="true" />
-                  {t('accounts.locked')}
                 </span>
               }
             />

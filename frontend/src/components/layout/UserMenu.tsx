@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/store/auth'
 import { ChevronDown, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { useI18n, type Locale } from '@/i18n'
 import { useTheme, type ThemeMode } from '@/hooks/useTheme'
@@ -29,15 +30,27 @@ export function UserMenu() {
   const { t, locale, setLocale } = useI18n()
   const { mode, setMode } = useTheme()
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+  const signOut = useAuthStore((state) => state.signOut)
+
+  // Инициалы вместо аватара: сервер отдаёт только ссылку на фото, а её может не быть
+  const fullName = user?.fullname || user?.firstname || user?.email || '—'
+  const initials =
+    (user?.firstname?.[0] ?? '') + (user?.lastname?.[0] ?? '') || fullName.slice(0, 2).toUpperCase()
+
+  const logout = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" pill className="gap-2 pl-1 pr-2">
-          <span className="grid size-6 place-items-center rounded-pill bg-accent-soft text-caption font-semibold text-accent-on-soft">
-            АК
+          <span className="grid size-6 place-items-center rounded-pill bg-accent-soft text-caption font-semibold text-accent-on-soft uppercase">
+            {initials}
           </span>
-          <span className="hidden text-label text-fg-primary lg:inline">Алексей Курковский</span>
+          <span className="hidden max-w-40 truncate text-label text-fg-primary lg:inline">{fullName}</span>
           <ChevronDown className="size-3.5 text-fg-tertiary" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
@@ -71,9 +84,9 @@ export function UserMenu() {
           <Settings className="size-4" aria-hidden="true" />
           {t('nav.settings')}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => navigate('/login')}>
+        <DropdownMenuItem onSelect={() => void logout()}>
           <LogOut className="size-4" aria-hidden="true" />
-          {t('login.submit')}
+          {t('login.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

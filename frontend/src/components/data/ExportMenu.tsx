@@ -1,6 +1,6 @@
 import { Download, FileDown, FileJson, FileSpreadsheet, FileText } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
-import type { RecordItem } from '@/__shared__/mock/finance'
+import type { RecordItem } from '@/__shared__/types/models'
 import { exportRecords, type ExportFormat } from '@/__shared__/utils/export-records'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/overlays'

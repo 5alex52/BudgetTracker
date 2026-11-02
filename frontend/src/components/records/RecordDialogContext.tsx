@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import type { RecordItem } from '@/__shared__/mock/finance'
+import type { RecordItem } from '@/__shared__/types/models'
 
 /**
  * Доступ к модалу записи из любого места приложения.

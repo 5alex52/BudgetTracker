@@ -1,24 +1,29 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowDownUp, Filter, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
-import type { RecordItem } from '@/__shared__/mock/finance'
+import type { RecordItem } from '@/__shared__/types/models'
 import { useRecordsStore } from '@/store/records'
 import { useRecordDialog } from '@/components/records/RecordDialogContext'
 import { readableOnTint } from '@/__shared__/utils/contrast'
 import { useTheme } from '@/hooks/useTheme'
+import { useDebounced } from '@/hooks/useApi'
 import { AppShell } from '@/components/layout/AppShell'
-import { FilterPanel } from '@/components/filters/FilterPanel'
+import { EMPTY_FILTERS, FilterPanel, type RecordFilters } from '@/components/filters/FilterPanel'
 import { Amount } from '@/components/data/Amount'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/field'
 import { Checkbox } from '@/components/ui/toggles'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, FilterSelect } from '@/components/ui/overlays'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  FilterSelect,
+} from '@/components/ui/overlays'
 import { ExportMenu } from '@/components/data/ExportMenu'
 import { useToast } from '@/components/ui/toast'
-
-
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/dialogs'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 
@@ -32,6 +37,14 @@ const SORT_LABEL_KEYS: Record<SortKey, TranslationKey> = {
   amountAsc: 'records.sortByAmountAsc',
 }
 
+/** Порядок в интерфейсе → параметр `sort` сервера. */
+const SORT_PARAM = {
+  timeDesc: 'date_desc',
+  timeAsc: 'date_asc',
+  amountDesc: 'amount_desc',
+  amountAsc: 'amount_asc',
+} as const
+
 function formatDay(date: string, locale: 'ru' | 'en') {
   const parsed = new Date(`${date}T00:00:00`)
   return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
@@ -41,66 +54,80 @@ function formatDay(date: string, locale: 'ru' | 'en') {
   }).format(parsed)
 }
 
-/** «Записи»: фильтры слева, список, сгруппированный по дням, итог за период. */
+/**
+ * «Записи»: фильтры в сайдбаре, список по дням, итог за период.
+ *
+ * Фильтрация, поиск и сортировка выполняются на сервере: клиент держит только
+ * текущую страницу. Поэтому счётчик «найдено» — это `X-Total-Count`, а не длина
+ * загруженного куска.
+ */
 export function RecordsPage() {
   const { openCreate: onAddRecord, openEdit: onEditRecord } = useRecordDialog()
   const { toast } = useToast()
-  const records = useRecordsStore((state) => state.items)
-  const removeRecord = useRecordsStore((state) => state.remove)
   const { t, locale } = useI18n()
+
+  const records = useRecordsStore((state) => state.items)
+  const total = useRecordsStore((state) => state.total)
+  const loading = useRecordsStore((state) => state.loading)
+  const error = useRecordsStore((state) => state.error)
+  const load = useRecordsStore((state) => state.load)
+  const removeRecord = useRecordsStore((state) => state.remove)
+
   const [query, setQuery] = useState('')
+  const debouncedQuery = useDebounced(query)
   const [sort, setSort] = useState<SortKey>('timeDesc')
+  const [filters, setFilters] = useState<RecordFilters>(EMPTY_FILTERS)
   const [selected, setSelected] = useState<string[]>([])
   const [filterOpen, setFilterOpen] = useState(false)
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    const found = needle
-      ? records.filter(
-          (item) =>
-            item.category.toLowerCase().includes(needle) ||
-            item.account.toLowerCase().includes(needle) ||
-            (item.note ?? '').toLowerCase().includes(needle),
-        )
-      : records
-
-    return [...found].sort((a, b) => {
-      switch (sort) {
-        case 'amountDesc':
-          return Math.abs(b.amount) - Math.abs(a.amount)
-        case 'amountAsc':
-          return Math.abs(a.amount) - Math.abs(b.amount)
-        case 'timeAsc':
-          return `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)
-        default:
-          return `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`)
-      }
+  /* Первая загрузка и любое изменение фильтров/поиска/сортировки — один запрос */
+  useEffect(() => {
+    void load({
+      q: debouncedQuery.trim() || undefined,
+      sort: SORT_PARAM[sort],
+      account_ids: filters.accountIds.map(Number),
+      category_ids: filters.categoryIds,
+      tag_ids: filters.tagIds,
+      currency_ids: filters.currencies,
+      types: filters.types,
+      amount_min: filters.amountMin,
+      amount_max: filters.amountMax,
     })
-  }, [records, query, sort])
+    setSelected([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, sort, filters])
 
+  /* Группировка по дням: сервер отдаёт плоский список с сортировкой */
   const grouped = useMemo(() => {
     const map = new Map<string, RecordItem[]>()
-    filtered.forEach((item) => {
+    records.forEach((item) => {
       const list = map.get(item.date) ?? []
       list.push(item)
       map.set(item.date, list)
     })
     return [...map.entries()]
-  }, [filtered])
+  }, [records])
 
-  const total = filtered.reduce((sum, item) => sum + item.amount, 0)
-  const allSelected = filtered.length > 0 && selected.length === filtered.length
+  const totalAmount = records.reduce((sum, item) => sum + item.amount, 0)
+  const allSelected = records.length > 0 && selected.length === records.length
+
+  const removeOne = async (id: string) => {
+    try {
+      await removeRecord(id)
+      toast({ title: t('state.deleted'), tone: 'info' })
+    } catch {
+      toast({ title: t('records.deleteFailed'), tone: 'error' })
+    }
+  }
 
   return (
     <AppShell
       onAddRecord={onAddRecord}
       sidebar={
         <FilterPanel
-          onReset={() => {
-            setSelected([])
-            setQuery('')
-            toast({ title: t('filters.reset'), description: t('filters.resetDone'), tone: 'info' })
-          }}
+          value={filters}
+          onChange={setFilters}
+          onReset={() => toast({ title: t('filters.reset'), description: t('filters.resetDone'), tone: 'info' })}
         />
       }
       header={
@@ -117,7 +144,8 @@ export function RecordsPage() {
               </SheetTrigger>
               <SheetContent side="left" title={t('filters.title')}>
                 <FilterPanel
-                  onReset={() => setFilterOpen(false)}
+                  value={filters}
+                  onChange={setFilters}
                   className="border-0 bg-transparent p-0 shadow-none"
                 />
               </SheetContent>
@@ -162,10 +190,10 @@ export function RecordsPage() {
         <div className="flex flex-wrap items-center gap-3 border-b border-stroke-subtle px-4 py-2.5">
           <Checkbox
             checked={allSelected ? true : selected.length > 0 ? 'indeterminate' : false}
-            onCheckedChange={(value) => setSelected(value === true ? filtered.map((item) => item.id) : [])}
+            onCheckedChange={(value) => setSelected(value === true ? records.map((item) => item.id) : [])}
             aria-label={t('records.selectAll')}
           />
-          <span className="text-caption text-fg-tertiary">{t('records.found', { count: filtered.length })}</span>
+          <span className="text-caption text-fg-tertiary">{t('records.found', { count: total })}</span>
           {selected.length > 0 && (
             <span className="text-caption text-accent">
               {t('records.selectedCount', { count: selected.length })}
@@ -173,11 +201,28 @@ export function RecordsPage() {
           )}
           <span className="ml-auto flex items-center gap-1 text-caption text-fg-tertiary">
             {t('records.total')}:
-            <Amount value={total} size="sm" tone="neutral" />
+            <Amount value={totalAmount} size="sm" tone="neutral" />
           </span>
         </div>
 
-        {grouped.length === 0 && (
+        {loading && records.length === 0 && (
+          <p className="px-4 py-10 text-center text-label text-fg-tertiary" role="status">
+            {t('state.loading')}
+          </p>
+        )}
+
+        {error && (
+          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+            <p className="text-label text-fg-secondary">
+              {t('records.loadFailed')}: {error}
+            </p>
+            <Button variant="subtle" size="sm" onClick={() => void load()}>
+              {t('state.retry')}
+            </Button>
+          </div>
+        )}
+
+        {!loading && !error && grouped.length === 0 && (
           <p className="px-4 py-10 text-center text-label text-fg-tertiary">{t('common.none')}</p>
         )}
 
@@ -195,7 +240,7 @@ export function RecordsPage() {
                     <RecordRow
                       item={item}
                       onEdit={() => onEditRecord?.(item)}
-                      onDelete={() => removeRecord(item.id)}
+                      onDelete={() => void removeOne(item.id)}
                       checked={selected.includes(item.id)}
                       onToggle={() =>
                         setSelected((prev) =>
@@ -210,6 +255,20 @@ export function RecordsPage() {
             </section>
           )
         })}
+
+        {/* Догрузка: сервер отдаёт страницы по 100 записей */}
+        {records.length < total && (
+          <div className="border-t border-stroke-subtle px-4 py-3 text-center">
+            <Button
+              variant="subtle"
+              size="sm"
+              disabled={loading}
+              onClick={() => void load(undefined, { append: true })}
+            >
+              {loading ? t('state.loading') : t('records.showMore')}
+            </Button>
+          </div>
+        )}
       </Card>
     </AppShell>
   )
@@ -271,6 +330,11 @@ function RecordRow({
               <span aria-hidden="true">·</span>
               <span className="truncate">{item.note}</span>
             </>
+          )}
+          {item.isExcluded && (
+            <span className="rounded-xs bg-surface-2 px-1.5 py-0.5 text-fg-tertiary">
+              {t('records.excluded')}
+            </span>
           )}
         </p>
       </div>

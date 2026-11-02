@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, RotateCcw } from 'lucide-react'
 import { useI18n } from '@/i18n'
-import { currencies as initialCurrencies, type CurrencyRate } from '@/__shared__/mock/finance'
+import { ApiError } from '@/api'
+import { useFinanceStore } from '@/store/finance'
+import type { CurrencyRate } from '@/__shared__/types/models'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
-import { Card, CardHeader } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
@@ -12,83 +14,114 @@ import { useToast } from '@/components/ui/toast'
 /**
  * «Настройки → Валюты».
  *
- * Как в референсе: сверху форма добавления новой валюты, ниже таблица ваших
- * валют с двусторонним курсом. Базовая валюта помечена и не удаляется.
- * Добавление работает локально — пишем в состояние демо-данных.
+ * Справочник курсов общий для всех — его ведёт сервис. Пользователь может
+ * задать свой курс для любой валюты: он используется только в его расчётах
+ * (`PUT /currencies/{code}/rate`) и сбрасывается к справочному одним нажатием.
  */
 export function SettingsCurrenciesPage() {
   const { t } = useI18n()
   const { toast } = useToast()
-  const [list, setList] = useState<CurrencyRate[]>(initialCurrencies)
-  const [name, setName] = useState('')
-  const [rate, setRate] = useState('')
-  const [invalid, setInvalid] = useState(false)
-  const [editingCode, setEditingCode] = useState<string | null>(null)
+  const rates = useFinanceStore((state) => state.rates)
+  const setUserRate = useFinanceStore((state) => state.setUserRate)
+  const resetUserRate = useFinanceStore((state) => state.resetUserRate)
+
   const [draft, setDraft] = useState<CurrencyRate | null>(null)
+  const [value, setValue] = useState('')
+  const [pending, setPending] = useState(false)
 
-  const base = list.find((item) => item.base) ?? list[0]
+  const base = rates.find((item) => item.base) ?? rates[0]
 
-  const add = () => {
-    const code = name.trim().toUpperCase().slice(0, 3)
-    if (!code) {
-      setInvalid(true)
+  const openEdit = (rate: CurrencyRate) => {
+    setDraft(rate)
+    // Курс в справочнике — «сколько валюты за 1 базовую», его и редактируем
+    setValue(String(rate.rate).replace('.', ','))
+  }
+
+  const saveRate = async () => {
+    if (!draft) return
+    const parsed = Number(value.replace(',', '.'))
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      toast({ title: t('currencies.customSaved'), description: t('recordForm.amountInvalid'), tone: 'error' })
       return
     }
-    const parsed = Number(rate.replace(',', '.')) || 1
-    setList((prev) => [...prev, { code, name: name.trim(), rate: parsed }])
-    setName('')
-    setRate('')
-    setInvalid(false)
-    toast({ title: t('settings.currencies.added'), description: `${code} = ${parsed} ${base.code}`, tone: 'success' })
+    setPending(true)
+    try {
+      await setUserRate(draft.code, parsed)
+      toast({ title: t('currencies.customSaved'), description: `${draft.code} = ${parsed}`, tone: 'success' })
+      setDraft(null)
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const resetRate = async (rate: CurrencyRate) => {
+    setPending(true)
+    try {
+      await resetUserRate(rate.code)
+      toast({ title: t('currencies.customReset'), description: rate.code, tone: 'info' })
+    } catch (caught) {
+      toast({
+        title: t('common.error'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
     <SettingsLayout title={t('settings.currencies')} subtitle={t('settings.currencies.rate')}>
-      <div className="space-y-4">
-        <Card>
-          <CardHeader title={t('settings.currencies.addNew')} />
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <Field label={t('settings.currencies.name')} error={invalid ? t('recordForm.required') : undefined} className="min-w-56 flex-1">
-              <Input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={t('settings.currencies.name')}
-                invalid={invalid}
-              />
-            </Field>
-            <Field label={t('settings.currencies.rate')} className="w-40">
-              <Input value={rate} onChange={(event) => setRate(event.target.value)} placeholder="2,97" inputMode="decimal" />
-            </Field>
-            <Button onClick={add} className="gap-1.5">
-              <Plus className="size-4" aria-hidden="true" />
-              {t('common.add')}
-            </Button>
-          </div>
-        </Card>
+      <Card className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-stroke-subtle px-4 py-2.5">
+          <h2 className="text-label font-semibold text-fg-primary">{t('settings.currencies.yours')}</h2>
+          {base && (
+            <p className="text-caption text-fg-tertiary">
+              {t('currencies.base')}: {base.code}
+            </p>
+          )}
+        </div>
 
-        <Card className="overflow-hidden p-0">
-          <div className="border-b border-stroke-subtle px-4 py-2.5">
-            <h2 className="text-label font-semibold text-fg-primary">{t('settings.currencies.yours')}</h2>
-          </div>
-
-          <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse text-label">
             <caption className="sr-only">{t('settings.currencies.yours')}</caption>
             <thead>
               <tr>
-                <th scope="col" className="px-3 py-2 text-left text-caption uppercase tracking-wide text-fg-tertiary sm:px-4">
-                  {t('settings.categories.name')}
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-left text-caption uppercase tracking-wide text-fg-tertiary sm:px-4"
+                >
+                  {t('currencies.name')}
                 </th>
-                <th scope="col" className="px-3 py-2 text-left text-caption uppercase tracking-wide text-fg-tertiary sm:px-4">
-                  {t('settings.currencies.rate')}
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-left text-caption uppercase tracking-wide text-fg-tertiary sm:px-4"
+                >
+                  {t('currencies.rate')}
                 </th>
-                <th scope="col" className="px-4 py-2 text-right text-caption uppercase tracking-wide text-fg-tertiary">
+                <th
+                  scope="col"
+                  className="px-4 py-2 text-right text-caption uppercase tracking-wide text-fg-tertiary"
+                >
                   <span className="sr-only">{t('accounts.rowMenu')}</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {list.map((item, index) => (
+              {rates.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-6 text-center text-caption text-fg-tertiary">
+                    {t('state.empty')}
+                  </td>
+                </tr>
+              )}
+              {rates.map((item, index) => (
                 <tr key={item.code} className={index > 0 ? 'border-t border-stroke-subtle' : undefined}>
                   <th scope="row" className="px-3 py-2.5 text-left font-normal sm:px-4">
                     <span className="flex items-center gap-2">
@@ -99,9 +132,14 @@ export function SettingsCurrenciesPage() {
                         <span className="block text-label font-medium text-fg-primary">
                           {item.code} · {item.name}
                         </span>
-                        {item.base && (
-                          <span className="block text-caption text-fg-tertiary">{t('settings.currencies.base')}</span>
-                        )}
+                        <span className="flex flex-wrap items-center gap-1.5 text-caption text-fg-tertiary">
+                          {item.base && <span>{t('currencies.base')}</span>}
+                          {item.custom && (
+                            <span className="rounded-xs bg-accent-soft px-1.5 py-0.5 text-accent-on-soft">
+                              {t('currencies.customRate')}
+                            </span>
+                          )}
+                        </span>
                       </span>
                     </span>
                   </th>
@@ -110,11 +148,15 @@ export function SettingsCurrenciesPage() {
                       <span className="text-caption text-fg-tertiary">—</span>
                     ) : (
                       <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-caption">
-                        <span className="hidden sm:inline">
-                          {base.code} 1 = {item.code} {(1 / item.rate).toFixed(4)}
-                        </span>
                         <span>
-                          {item.code} 1 = {base.code} {item.rate.toFixed(3)}
+                          {t('currencies.rateHint', {
+                            base: base?.code ?? '',
+                            rate: item.rate.toFixed(4),
+                            code: item.code,
+                          })}
+                        </span>
+                        <span className="text-fg-tertiary">
+                          1 {item.code} = {(1 / item.rate).toFixed(3)} {base?.code ?? ''}
                         </span>
                       </span>
                     )}
@@ -125,23 +167,21 @@ export function SettingsCurrenciesPage() {
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label={t('common.edit')}
-                          title={t('common.edit')}
-                          onClick={() => {
-                            setEditingCode(item.code)
-                            setDraft({ ...item })
-                          }}
+                          aria-label={t('currencies.setCustom')}
+                          title={t('currencies.setCustom')}
+                          onClick={() => openEdit(item)}
                         >
                           <Pencil className="size-3.5 text-accent" aria-hidden="true" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label={t('common.delete')}
-                          title={t('common.delete')}
-                          onClick={() => setList((prev) => prev.filter((row) => row.code !== item.code))}
+                          aria-label={t('currencies.resetCustom')}
+                          title={t('currencies.resetCustom')}
+                          disabled={!item.custom || pending}
+                          onClick={() => void resetRate(item)}
                         >
-                          <Trash2 className="size-3.5 text-[var(--negative)]" aria-hidden="true" />
+                          <RotateCcw className="size-3.5 text-fg-tertiary" aria-hidden="true" />
                         </Button>
                       </div>
                     )}
@@ -150,77 +190,39 @@ export function SettingsCurrenciesPage() {
               ))}
             </tbody>
           </table>
-          </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
-      {/* Окно редактирования валюты */}
-      <Dialog
-        open={Boolean(draft)}
-        onOpenChange={(next) => {
-          if (!next) {
-            setDraft(null)
-            setEditingCode(null)
-          }
-        }}
-      >
+      <Dialog open={Boolean(draft)} onOpenChange={(next) => !next && setDraft(null)}>
         <DialogContent
-          title={t('common.edit')}
-          description={editingCode ?? undefined}
+          title={t('currencies.setCustom')}
+          description={draft ? `${draft.code} · ${draft.name}` : undefined}
           footer={
-            <div className="flex flex-wrap justify-between gap-2">
-              <Button
-                variant="ghost"
-                className="text-[var(--negative)]"
-                onClick={() => {
-                  if (!draft) return
-                  setList((prev) => prev.filter((row) => row.code !== draft.code))
-                  setDraft(null)
-                  setEditingCode(null)
-                }}
-              >
-                {t('common.delete')}
+            <div className="flex justify-end gap-2">
+              <Button variant="subtle" onClick={() => setDraft(null)}>
+                {t('common.cancel')}
               </Button>
-              <div className="flex gap-2">
-                <Button variant="subtle" onClick={() => setDraft(null)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (!draft) return
-                    setList((prev) => prev.map((row) => (row.code === draft.code ? draft : row)))
-                    toast({ title: t('common.save'), description: `${draft.code}`, tone: 'success' })
-                    setDraft(null)
-                    setEditingCode(null)
-                  }}
-                >
-                  {t('common.save')}
-                </Button>
-              </div>
+              <Button onClick={() => void saveRate()} disabled={pending}>
+                {pending ? t('state.saving') : t('common.save')}
+              </Button>
             </div>
           }
         >
           {draft && (
             <div className="space-y-3">
-              <Field label={t('settings.currencies.name')}>
-                <Input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} autoFocus />
+              <Field
+                label={`${t('currencies.rate')} (${base?.code ?? ''})`}
+                hint={t('currencies.rateHint', {
+                  base: base?.code ?? '',
+                  rate: value || '…',
+                  code: draft.code,
+                })}
+              >
+                <Input value={value} onChange={(event) => setValue(event.target.value)} inputMode="decimal" autoFocus />
               </Field>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label={t('settings.categories.name')}>
-                  <Input
-                    value={draft.code}
-                    onChange={(event) => setDraft({ ...draft, code: event.target.value.toUpperCase().slice(0, 3) })}
-                  />
-                </Field>
-                <Field label={`${t('settings.currencies.rate')} (${base.code})`} hint={draft.base ? t('settings.currencies.base') : undefined}>
-                  <Input
-                    value={String(draft.rate).replace('.', ',')}
-                    onChange={(event) => setDraft({ ...draft, rate: Number(event.target.value.replace(',', '.')) || 0 })}
-                    inputMode="decimal"
-                    disabled={draft.base}
-                  />
-                </Field>
-              </div>
+              <Field label={t('accounts.currency')}>
+                <Input value={`${draft.code} · ${draft.name}`} readOnly disabled />
+              </Field>
             </div>
           )}
         </DialogContent>

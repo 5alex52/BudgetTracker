@@ -1,22 +1,58 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { useI18n } from '@/i18n'
+import { useAuthStore } from '@/store/auth'
+import { DEMO_CREDENTIALS, DEMO_HINT_ENABLED } from '@/__shared__/constants/demo'
 import { Wordmark } from '@/components/brand/Logo'
 import { GlassBackdrop } from '@/components/glass/GlassBackdrop'
 import { GlassSurface } from '@/components/glass/GlassSurface'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
+import { useToast } from '@/components/ui/toast'
 import { LanguageSwitcher, ThemeSwitcher } from '@/components/layout/Switchers'
+
+/** Куда вернуть пользователя после входа: путь, с которого его увели на /login. */
+function useRedirectTarget(): string {
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from
+  return from && !from.startsWith('/login') ? from : '/'
+}
 
 /**
  * «Окно входа»: слева промо-часть и мобильное приложение, справа форма.
  * На 390 px панели складываются в столбик, промо уходит вниз как второстепенное.
+ *
+ * Форма работает с настоящим backend: `POST /api/auth/login` кладёт токен в
+ * httpOnly-cookie, после чего приложение переходит на запрошенный экран.
  */
 export function LoginPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
+  const redirectTo = useRedirectTarget()
+  const { toast } = useToast()
+  const signIn = useAuthStore((state) => state.signIn)
+
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const socialClick = () => toast({ title: t('login.socialSoon'), tone: 'info' })
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setPending(true)
+    setError(null)
+    try {
+      await signIn(email, password)
+      navigate(redirectTo, { replace: true })
+    } catch {
+      setError(t('login.error'))
+    } finally {
+      setPending(false)
+    }
+  }
 
   return (
     <div className="relative min-h-dvh">
@@ -64,25 +100,28 @@ export function LoginPage() {
             <GlassSurface level="lg" className="p-6">
               <h2 className="text-title font-semibold text-fg-primary">{t('login.title')}</h2>
 
-              {/* Провайдеры без бэкенда: демонстрационный вход, ведёт на обзор */}
+              {/* Соцсети появятся позже: провайдеры не настроены на backend */}
               <div className="mt-4 space-y-2">
-                <Button variant="subtle" block className="justify-start gap-2" onClick={() => navigate('/')}>
+                <Button variant="subtle" block className="justify-start gap-2" onClick={socialClick}>
                   <span className="grid size-5 place-items-center rounded-pill bg-surface-3 text-caption font-semibold">
                     G
                   </span>
                   {t('login.viaGoogle')}
+                  <span className="ml-auto text-caption text-fg-tertiary">{t('common.soon')}</span>
                 </Button>
-                <Button variant="subtle" block className="justify-start gap-2" onClick={() => navigate('/')}>
+                <Button variant="subtle" block className="justify-start gap-2" onClick={socialClick}>
                   <span className="grid size-5 place-items-center rounded-pill bg-[#1557b0] text-caption font-semibold text-white">
                     f
                   </span>
                   {t('login.viaFacebook')}
+                  <span className="ml-auto text-caption text-fg-tertiary">{t('common.soon')}</span>
                 </Button>
-                <Button variant="subtle" block className="justify-start gap-2" onClick={() => navigate('/')}>
+                <Button variant="subtle" block className="justify-start gap-2" onClick={socialClick}>
                   <span className="grid size-5 place-items-center rounded-pill bg-fg-primary text-caption font-semibold text-bg-base">
                     A
                   </span>
                   {t('login.viaApple')}
+                  <span className="ml-auto text-caption text-fg-tertiary">{t('common.soon')}</span>
                 </Button>
               </div>
 
@@ -92,24 +131,41 @@ export function LoginPage() {
                 <span className="h-px flex-1 bg-stroke-subtle" />
               </div>
 
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  navigate('/')
-                }}
-                className="space-y-3"
-              >
+              <form onSubmit={submit} className="space-y-3">
                 <Field label={t('login.email')}>
                   <Input
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder={t('login.emailPlaceholder')}
-                    autoComplete="email"
+                    autoComplete="username"
+                    required
                   />
                 </Field>
-                <Button type="submit" block>
-                  {t('login.submit')}
+                <Field
+                  label={t('login.password')}
+                  error={error ?? undefined}
+                  hint={
+                    DEMO_HINT_ENABLED && !error
+                      ? t('login.demoHint', {
+                          email: DEMO_CREDENTIALS.email,
+                          password: DEMO_CREDENTIALS.password,
+                        })
+                      : undefined
+                  }
+                >
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder={t('login.passwordPlaceholder')}
+                    autoComplete="current-password"
+                    invalid={Boolean(error)}
+                    required
+                  />
+                </Field>
+                <Button type="submit" block disabled={pending}>
+                  {pending ? t('state.loading') : t('login.submit')}
                 </Button>
               </form>
 
@@ -130,8 +186,3 @@ export function LoginPage() {
     </div>
   )
 }
-
-/**
- * Нейтральный бейдж магазина: логотипы Apple/Google не используем
- * (это чужие товарные знаки), поэтому подпись текстовая.
- */

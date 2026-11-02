@@ -1,5 +1,5 @@
 import { Lock } from 'lucide-react'
-import type { Account } from '@/__shared__/mock/finance'
+import type { Account } from '@/__shared__/types/models'
 import { cn } from '@/__shared__/utils/cn'
 import { Amount } from './Amount'
 
