@@ -1,4 +1,4 @@
-import type { RecordItem } from '@/__shared__/mock/finance'
+import type { RecordItem } from '@/__shared__/types/models'
 
 /**
  * Экспорт записей. Форматы считаются на клиенте, без бэкенда:
