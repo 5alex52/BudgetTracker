@@ -1,0 +1,376 @@
+/* =============================================================================
+   BudgetTracker — токены дизайн-системы «Liquid Glass»
+   Единственное место, где задаются значения. Компоненты читают только var(--*).
+   Порядок: цвет → стекло → типографика → сетка/радиусы → движение.
+   ============================================================================= */
+
+/* ------------------------------- 1. Палитра ------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* нижние слои */
+  --bg-base: #eef2f1;
+  --bg-elevated: #f7faf9;
+
+  /* поверхности контента (без стекла) */
+  --surface-1: #ffffff;
+  --surface-2: #f1f5f4;
+  --surface-3: #e7edeb;
+  --surface-inset: #eaf0ee;
+
+  /* текст */
+  --text-primary: #0e1513;
+  --text-secondary: #4e5c58;
+  --text-tertiary: #5f6b66;
+  --text-inverse: #ffffff;
+
+  /* акцент — синий #2563EB */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-strong: #1e40af;
+  /* заливка кнопок: на неё кладётся белый текст, поэтому она темнее акцента-текста */
+  --accent-fill: #2563eb;
+  --accent-fill-hover: #1d4ed8;
+  /* акцентный текст на мягкой подложке (аватары, бейджи) */
+  --accent-on-soft: #1d4ed8;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+  --accent-ring: rgba(37, 99, 235, 0.45);
+
+  /* семантика сумм (не брендовая) */
+  --positive: #0a7042;
+  /* заливка семантических кнопок: на неё кладётся белый текст */
+  --positive-fill: #0a7042;
+  --positive-soft: rgba(15, 138, 82, 0.12);
+  --negative: #c63a3a;
+  --negative-fill: #c63a3a;
+  --negative-soft: rgba(198, 58, 58, 0.12);
+  --warning: #a96a08;
+  --warning-soft: rgba(169, 106, 8, 0.14);
+  --info: #2563eb;
+
+  /* границы */
+  --border-subtle: rgba(9, 20, 17, 0.1);
+  --border-strong: rgba(9, 20, 17, 0.18);
+  --border-control: rgba(9, 20, 17, 0.14);
+
+  /* фокус */
+  --focus-ring: var(--accent);
+  --focus-offset: 2px;
+
+  /* фон под стеклом: пятна */
+  --blob-1: rgba(45, 212, 152, 0.72);
+  --blob-2: rgba(96, 165, 250, 0.62);
+  --blob-3: rgba(167, 139, 250, 0.5);
+  --blob-4: rgba(45, 212, 191, 0.42);
+  --backdrop-grain-opacity: 0.3;
+  --backdrop-tint: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.75), transparent 70%);
+
+  /* карточки контента: слегка просвечивают, но без backdrop-filter */
+  --card-bg: rgba(255, 255, 255, 0.86);
+  --card-border: rgba(9, 20, 17, 0.08);
+  --card-shadow: 0 1px 2px rgba(4, 12, 9, 0.05), 0 12px 28px -18px rgba(4, 12, 9, 0.28);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg-base: #080b0a;
+  --bg-elevated: #121716;
+
+  --surface-1: #181d1c;
+  --surface-2: #202725;
+  --surface-3: #2a322f;
+  --surface-inset: #151a19;
+
+  --text-primary: #f2f5f4;
+  --text-secondary: #a8b3af;
+  --text-tertiary: #8b9691;
+  --text-inverse: #0e1513;
+
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-strong: #2563eb;
+  /* на #3b82f6 белый текст даёт 3.35:1 — для заливки берём шаг темнее */
+  --accent-fill: #2563eb;
+  --accent-fill-hover: #1d4ed8;
+  /* на мягкой подложке нужен светлый акцент: тёмный синий на ней не читается */
+  --accent-on-soft: #93c5fd;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(59, 130, 246, 0.18);
+  --accent-ring: rgba(59, 130, 246, 0.55);
+
+  --positive: #3dd68c;
+  /* на светлом #3dd68c белый текст даёт 2:1 — для заливки берём глубже */
+  --positive-fill: #157f4f;
+  --positive-soft: rgba(61, 214, 140, 0.16);
+  --negative: #ff6b6b;
+  --negative-fill: #c23f3f;
+  --negative-soft: rgba(255, 107, 107, 0.16);
+  --warning: #f5b54b;
+  --warning-soft: rgba(245, 181, 75, 0.16);
+  --info: #60a5fa;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-control: rgba(255, 255, 255, 0.12);
+
+  --blob-1: rgba(16, 185, 129, 0.7);
+  --blob-2: rgba(59, 130, 246, 0.64);
+  --blob-3: rgba(139, 92, 246, 0.5);
+  --blob-4: rgba(6, 182, 212, 0.4);
+  --backdrop-grain-opacity: 0.45;
+  --backdrop-tint: radial-gradient(130% 90% at 50% -10%, rgba(120, 200, 255, 0.16), transparent 62%);
+
+  --card-bg: rgba(22, 28, 27, 0.82);
+  --card-border: rgba(255, 255, 255, 0.09);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+}
+
+/* --------------------------- 2. Материал стекла --------------------------- */
+
+:root {
+  /* уровни размытия */
+  --glass-blur-sm: 10px;
+  --glass-blur-md: 20px;
+  --glass-blur-lg: 34px;
+
+  --glass-saturate: 165%;
+  --glass-brightness: 1.06;
+
+  /* прозрачность по вариантам */
+  --glass-bg-regular: rgba(255, 255, 255, 0.6);
+  --glass-bg-clear: rgba(255, 255, 255, 0.34);
+  --glass-bg-tinted: rgba(37, 99, 235, 0.16);
+
+  /* обводка: светлая верхняя грань, тёмная нижняя */
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-border-bottom: rgba(9, 20, 17, 0.08);
+
+  /* внутренний блик */
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 2px 6px -4px rgba(255, 255, 255, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.3);
+
+  /* внешние тени */
+  --glass-shadow-sm: 0 2px 8px rgba(4, 12, 9, 0.1), 0 1px 2px rgba(4, 12, 9, 0.06);
+  --glass-shadow-md: 0 12px 32px rgba(4, 12, 9, 0.16), 0 2px 8px rgba(4, 12, 9, 0.1);
+  --glass-shadow-lg: 0 28px 64px rgba(4, 12, 9, 0.24), 0 8px 20px rgba(4, 12, 9, 0.14);
+
+  /* радиусы стекла */
+  --glass-radius-sm: 14px;
+  --glass-radius-md: 20px;
+  --glass-radius-lg: 28px;
+  --glass-radius-pill: 999px;
+
+  /* рефракция (Chromium, уровень 2) */
+  --glass-refract-scale: 14;
+  --glass-refract-max-w: 800px;
+
+  /* вуаль: повышается автоматически при низком контрасте/плотном фоне */
+  --glass-veil: 0;
+}
+
+.dark {
+  --glass-bg-regular: rgba(16, 22, 21, 0.5);
+  --glass-bg-clear: rgba(16, 22, 21, 0.3);
+  --glass-bg-tinted: rgba(59, 130, 246, 0.22);
+
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-bottom: rgba(0, 0, 0, 0.32);
+
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 2px 6px -4px rgba(255, 255, 255, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.07);
+
+  --glass-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --glass-shadow-md: 0 12px 32px rgba(0, 0, 0, 0.38), 0 2px 8px rgba(0, 0, 0, 0.28);
+  --glass-shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.48), 0 8px 20px rgba(0, 0, 0, 0.32);
+}
+
+/* ----------------------------- 3. Типографика ----------------------------- */
+
+:root {
+  --font-sans: 'Medeo Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'Medeo Mono', ui-monospace, 'SF Mono', -apple-system, system-ui, monospace;
+
+  --fs-display: 32px;
+  --lh-display: 38px;
+  --fs-title: 24px;
+  --lh-title: 30px;
+  --fs-headline: 17px;
+  --lh-headline: 24px;
+  --fs-body: 15px;
+  --lh-body: 22px;
+  --fs-label: 13px;
+  --lh-label: 18px;
+  --fs-caption: 12px;
+  --lh-caption: 16px;
+  --fs-metric-xl: 28px;
+  --lh-metric-xl: 32px;
+  --fs-metric: 17px;
+  --lh-metric: 22px;
+  --fs-metric-sm: 13px;
+  --lh-metric-sm: 18px;
+  --fs-overline: 11px;
+  --lh-overline: 14px;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.08em;
+
+  --font-optical-sizing: auto;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --fs-display: 28px;
+    --lh-display: 34px;
+    --fs-title: 22px;
+    --lh-title: 28px;
+    --fs-body: 16px;
+    --lh-body: 24px;
+  }
+}
+
+/* --------------------------- 4. Сетка и радиусы --------------------------- */
+
+:root {
+  /* ритм 4px */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* каркас */
+  --container-max: 1360px;
+  --container-pad: clamp(16px, 3vw, 202px);
+  --nav-h: 56px;
+  --topbar-h: 52px;
+  --rail-w: 76px;
+  --tabbar-h: 64px;
+  --sidebar-w: 272px;
+  --sidebar-gap: 20px;
+
+  /* высоты контролов */
+  --control-h-sm: 32px;
+  --control-h-md: 40px;
+  --control-h-lg: 48px;
+  --row-h-list: 56px;
+  --row-h-table: 44px;
+  --chip-h: 28px;
+  --seg-h: 32px;
+  --avatar-sm: 24px;
+  --avatar-md: 32px;
+  --avatar-lg: 40px;
+
+  /* радиусы */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  /* вложенные радиусы: внутренний = внешний − padding */
+  --radius-nest-1: calc(var(--radius-2xl) - var(--space-3));
+  --radius-nest-2: calc(var(--radius-xl) - var(--space-3));
+  --radius-nest-3: calc(var(--radius-lg) - var(--space-2));
+}
+
+/* ------------------------------ 5. Движение ------------------------------- */
+
+:root {
+  --dur-instant: 90ms;
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* пружины задаются в motion-конфиге (src/shared/motion.ts) */
+  --z-backdrop: 0;
+  --z-sticky: 30;
+  --z-nav: 40;
+  --z-tabbar: 40;
+  --z-sheet: 60;
+  --z-dialog: 70;
+  --z-popover: 80;
+  --z-toast: 90;
+}
+
+/* --------------------------- 6. Спец-режимы ------------------------------- */
+/* Плотный фон: непрозрачное стекло, без размытия. */
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg-regular: var(--surface-1);
+    --glass-bg-clear: var(--surface-1);
+    --glass-bg-tinted: var(--accent-soft);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg-regular: var(--surface-1);
+    --glass-bg-clear: var(--surface-1);
+    --glass-bg-tinted: var(--surface-1);
+    --glass-blur-sm: 0px;
+    --glass-blur-md: 0px;
+    --glass-blur-lg: 0px;
+    --glass-veil: 1;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --glass-bg-regular: var(--surface-1);
+    --glass-bg-clear: var(--surface-1);
+    --glass-border: currentColor;
+    --border-subtle: currentColor;
+    --border-strong: currentColor;
+    --text-secondary: var(--text-primary);
+    --glass-veil: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 1ms;
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+    --ease-out: linear;
+    --ease-in-out: linear;
+    --ease-standard: linear;
+  }
+}
+
+@media (forced-colors: active) {
+  :root {
+    --glass-bg-regular: Canvas;
+    --glass-bg-clear: Canvas;
+    --glass-border: CanvasText;
+    --glass-shadow-sm: none;
+    --glass-shadow-md: none;
+    --glass-shadow-lg: none;
+  }
+}

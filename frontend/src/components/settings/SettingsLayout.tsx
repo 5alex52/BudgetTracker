@@ -1,0 +1,100 @@
+import type { ReactNode } from 'react'
+import { NavLink } from 'react-router-dom'
+import { CircleHelp, Coins, CreditCard, Shield, SlidersHorizontal, Tag, Tags, User } from 'lucide-react'
+import { cn } from '@/__shared__/utils/cn'
+import { useI18n, type TranslationKey } from '@/i18n'
+import { AppShell } from '@/components/layout/AppShell'
+
+const GROUPS: Array<{
+  id: string
+  title: TranslationKey
+  items: Array<{ to: string; labelKey: TranslationKey; icon: typeof Coins }>
+}> = [
+  {
+    id: 'wallet',
+    title: 'settings.group.wallet',
+    items: [
+      { to: '/settings/currencies', labelKey: 'settings.currencies', icon: Coins },
+      { to: '/settings/categories', labelKey: 'settings.categories', icon: Tag },
+      { to: '/settings/templates', labelKey: 'settings.templates', icon: SlidersHorizontal },
+      { to: '/settings/tags', labelKey: 'settings.tags', icon: Tags },
+      { to: '/settings/rules', labelKey: 'settings.rules', icon: SlidersHorizontal },
+    ],
+  },
+  {
+    id: 'general',
+    title: 'settings.group.general',
+    items: [
+      { to: '/settings', labelKey: 'settings.general', icon: User },
+      { to: '/settings/payments', labelKey: 'settings.payments', icon: CreditCard },
+      { to: '/settings/privacy', labelKey: 'settings.privacy', icon: Shield },
+      { to: '/settings/help', labelKey: 'settings.help', icon: CircleHelp },
+    ],
+  },
+]
+
+/**
+ * Общий каркас раздела настроек: слева навигация по подразделам, справа —
+ * содержимое. Одинаковая структура для всех страниц настроек, чтобы переходы
+ * не «прыгали», а навигация была на одном месте.
+ */
+export function SettingsLayout({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  actions?: ReactNode
+  children: ReactNode
+}) {
+  const { t } = useI18n()
+
+  return (
+    <AppShell
+      context={t('settings.title')}
+      sidebar={
+        <nav aria-label={t('settings.title')} className="content-card p-3">
+          {GROUPS.map((group) => (
+            <div key={group.id} className="mb-3 last:mb-0">
+              <p className="px-2 py-1 text-overline uppercase tracking-wide text-fg-tertiary">{t(group.title)}</p>
+              <ul>
+                {group.items.map((item) => (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      end={item.to === '/settings'}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-2 rounded-sm px-2 py-1.5 text-label transition-colors duration-fast',
+                          isActive
+                            ? 'bg-accent/12 font-medium text-accent'
+                            : 'text-fg-secondary hover:bg-surface-2 hover:text-fg-primary',
+                        )
+                      }
+                    >
+                      <item.icon className="size-4 shrink-0" aria-hidden="true" strokeWidth={1.75} />
+                      <span className="truncate">{t(item.labelKey)}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      }
+      header={
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-title font-semibold tracking-snug text-fg-primary">{title}</h1>
+            {subtitle && <p className="mt-1 text-label text-fg-secondary">{subtitle}</p>}
+          </div>
+          {actions}
+        </div>
+      }
+    >
+      {children}
+    </AppShell>
+  )
+}

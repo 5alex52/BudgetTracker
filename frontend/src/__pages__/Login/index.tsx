@@ -1,0 +1,137 @@
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { useI18n } from '@/i18n'
+import { Wordmark } from '@/components/brand/Logo'
+import { GlassBackdrop } from '@/components/glass/GlassBackdrop'
+import { GlassSurface } from '@/components/glass/GlassSurface'
+import { Button } from '@/components/ui/button'
+import { Field, Input } from '@/components/ui/field'
+import { LanguageSwitcher, ThemeSwitcher } from '@/components/layout/Switchers'
+
+/**
+ * «Окно входа»: слева промо-часть и мобильное приложение, справа форма.
+ * На 390 px панели складываются в столбик, промо уходит вниз как второстепенное.
+ */
+export function LoginPage() {
+  const { t } = useI18n()
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+
+  return (
+    <div className="relative min-h-dvh">
+      <GlassBackdrop />
+
+      <div className="relative z-[1] mx-auto flex min-h-dvh w-full max-w-container flex-col gap-6 px-4 py-6 md:px-6">
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <Link to="/" className="rounded-sm focus-visible:outline-none">
+            <Wordmark />
+          </Link>
+          {/* На 390 px пара переключателей шире строки: в столбик на всю ширину */}
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <LanguageSwitcher />
+            <ThemeSwitcher stretch />
+          </div>
+        </header>
+
+        <div className="grid flex-1 items-center gap-8 pb-6 lg:grid-cols-[1.15fr_minmax(380px,460px)]">
+          {/* Промо */}
+          <section className="order-2 lg:order-1">
+            <h1 className="max-w-xl text-display font-semibold tracking-tight text-fg-primary">
+              {t('login.headline')}
+            </h1>
+            <p className="mt-3 max-w-xl text-body leading-relaxed text-fg-secondary">{t('login.subline')}</p>
+            <Link
+              to="/design"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-xs text-label font-medium text-accent hover:underline"
+            >
+              {t('login.learnMore')}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+
+            <div className="mt-8 max-w-xl">
+              <GlassSurface level="md" className="p-4">
+                <p className="flex items-center gap-1.5 text-caption text-fg-tertiary">
+                  <ShieldCheck className="size-3.5" aria-hidden="true" />
+                  {t('login.legal')}
+                </p>
+              </GlassSurface>
+            </div>
+          </section>
+
+          {/* Форма */}
+          <section className="order-1 lg:order-2">
+            <GlassSurface level="lg" className="p-6">
+              <h2 className="text-title font-semibold text-fg-primary">{t('login.title')}</h2>
+
+              {/* Провайдеры без бэкенда: демонстрационный вход, ведёт на обзор */}
+              <div className="mt-4 space-y-2">
+                <Button variant="subtle" block className="justify-start gap-2" onClick={() => navigate('/')}>
+                  <span className="grid size-5 place-items-center rounded-pill bg-surface-3 text-caption font-semibold">
+                    G
+                  </span>
+                  {t('login.viaGoogle')}
+                </Button>
+                <Button variant="subtle" block className="justify-start gap-2" onClick={() => navigate('/')}>
+                  <span className="grid size-5 place-items-center rounded-pill bg-[#1557b0] text-caption font-semibold text-white">
+                    f
+                  </span>
+                  {t('login.viaFacebook')}
+                </Button>
+                <Button variant="subtle" block className="justify-start gap-2" onClick={() => navigate('/')}>
+                  <span className="grid size-5 place-items-center rounded-pill bg-fg-primary text-caption font-semibold text-bg-base">
+                    A
+                  </span>
+                  {t('login.viaApple')}
+                </Button>
+              </div>
+
+              <div className="my-4 flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-stroke-subtle" />
+                <span className="text-caption uppercase tracking-wide text-fg-tertiary">{t('login.or')}</span>
+                <span className="h-px flex-1 bg-stroke-subtle" />
+              </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  navigate('/')
+                }}
+                className="space-y-3"
+              >
+                <Field label={t('login.email')}>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder={t('login.emailPlaceholder')}
+                    autoComplete="email"
+                  />
+                </Field>
+                <Button type="submit" block>
+                  {t('login.submit')}
+                </Button>
+              </form>
+
+              <p className="mt-4 text-caption leading-relaxed text-fg-tertiary">
+                {t('login.legal')}{' '}
+                <a href="#terms" className="text-accent hover:underline">
+                  {t('login.terms')}
+                </a>{' '}
+                {t('login.or')}{' '}
+                <a href="#privacy" className="text-accent hover:underline">
+                  {t('login.privacy')}
+                </a>
+              </p>
+            </GlassSurface>
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Нейтральный бейдж магазина: логотипы Apple/Google не используем
+ * (это чужие товарные знаки), поэтому подпись текстовая.
+ */

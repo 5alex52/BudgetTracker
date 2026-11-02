@@ -1,0 +1,395 @@
+@import './fonts.generated.css';
+@import './theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg-base text-fg-primary;
+    font-family: var(--font-sans);
+    font-optical-sizing: var(--font-optical-sizing);
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+  }
+
+  /* Фокус: видимый всегда, согласован по всему приложению */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: var(--focus-offset);
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: var(--radius-pill);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+    background-clip: content-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------------------
+     Стекло, уровень 1 (все браузеры).
+     Для -webkit-backdrop-filter значения заданы буквально: Safari не разрешает
+     var() внутри этого свойства.
+     --------------------------------------------------------------------------- */
+  .glass {
+    position: relative;
+    isolation: isolate;
+    background-color: var(--glass-bg-regular);
+    -webkit-backdrop-filter: blur(20px) saturate(165%) brightness(1.06);
+    backdrop-filter: blur(20px) saturate(165%) brightness(1.06);
+    border: 1px solid var(--glass-border);
+    border-bottom-color: var(--glass-border-bottom);
+    box-shadow: var(--glass-highlight), var(--glass-shadow-md);
+    border-radius: var(--glass-radius-md);
+  }
+
+  /* Спекуляр по верхней грани: градиент, а не анимируемый blur */
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.04) 18%,
+      transparent 46%
+    );
+    opacity: 0.9;
+  }
+
+  .dark .glass::before {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.11) 0%,
+      rgba(255, 255, 255, 0.03) 20%,
+      transparent 48%
+    );
+  }
+
+  .glass--clear {
+    background-color: var(--glass-bg-clear);
+  }
+
+  .glass--tinted {
+    background-color: var(--glass-bg-tinted);
+  }
+
+  .glass--sm {
+    -webkit-backdrop-filter: blur(10px) saturate(165%) brightness(1.06);
+    backdrop-filter: blur(10px) saturate(165%) brightness(1.06);
+    border-radius: var(--glass-radius-sm);
+    box-shadow: var(--glass-highlight), var(--glass-shadow-sm);
+  }
+
+  .glass--lg {
+    -webkit-backdrop-filter: blur(34px) saturate(165%) brightness(1.06);
+    backdrop-filter: blur(34px) saturate(165%) brightness(1.06);
+    border-radius: var(--glass-radius-lg);
+    box-shadow: var(--glass-highlight), var(--glass-shadow-lg);
+  }
+
+  /* Плотный фон: включается при reduced-transparency / contrast: more */
+  .glass--opaque {
+    background-color: var(--surface-1);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* Числа: моноширинный набор для сумм и таблиц */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+}
+
+@layer components {
+  /* ------------------------- Фон под стеклом (пятна) ------------------------ */
+  .glass-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-backdrop);
+    pointer-events: none;
+    overflow: hidden;
+    background-color: var(--bg-base);
+    background-image: var(--backdrop-tint);
+  }
+
+  .glass-backdrop__blob {
+    position: absolute;
+    border-radius: 50%;
+    will-change: transform;
+  }
+
+  .glass-backdrop__blob--1 {
+    inset-block-start: -22vmax;
+    inset-inline-start: -14vmax;
+    width: 78vmax;
+    height: 78vmax;
+    background: radial-gradient(circle at 50% 50%, var(--blob-1), transparent 62%);
+  }
+
+  .glass-backdrop__blob--2 {
+    inset-block-start: -14vmax;
+    inset-inline-end: -20vmax;
+    width: 82vmax;
+    height: 82vmax;
+    background: radial-gradient(circle at 50% 50%, var(--blob-2), transparent 64%);
+  }
+
+  .glass-backdrop__blob--3 {
+    inset-block-end: -26vmax;
+    inset-inline-start: 18vmax;
+    width: 64vmax;
+    height: 64vmax;
+    background: radial-gradient(circle at 50% 50%, var(--blob-3), transparent 60%);
+  }
+
+  .glass-backdrop__aurora {
+    position: absolute;
+    inset-block-start: -30vh;
+    inset-inline-start: -10vw;
+    width: 120vw;
+    height: 70vh;
+    background:
+      radial-gradient(50% 60% at 30% 60%, var(--blob-1), transparent 70%),
+      radial-gradient(45% 55% at 62% 45%, var(--blob-2), transparent 72%),
+      radial-gradient(40% 50% at 84% 70%, var(--blob-3), transparent 72%);
+  }
+
+  .glass-backdrop__blob--4 {
+    inset-block-end: -20vmax;
+    inset-inline-end: 4vmax;
+    width: 52vmax;
+    height: 52vmax;
+    background: radial-gradient(circle at 50% 50%, var(--blob-4), transparent 62%);
+  }
+
+  /* Тонкое зерно: снимает «мыльность» больших градиентов */
+  .glass-backdrop__grain {
+    position: absolute;
+    inset: 0;
+    opacity: var(--backdrop-grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+  }
+
+  /* ----------------------- Уровень 2: SVG-рефракция ------------------------ */
+  .glass--refract {
+    -webkit-backdrop-filter: none; /* Safari иначе «съедает» фон */
+    backdrop-filter: url(#glass-refract) blur(2px) saturate(165%) brightness(1.06);
+  }
+
+  .glass-filters {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
+  /* ------------------------ Уровень 3: блик за курсором -------------------- */
+  .glass--glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      220px circle at var(--glass-mx, 50%) var(--glass-my, 50%),
+      rgba(255, 255, 255, 0.22),
+      transparent 62%
+    );
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+
+  .glass--glow:hover::after {
+    opacity: 1;
+  }
+
+  /* Нажатие: лёгкое сжатие (пружина задаётся в motion-конфиге) */
+  [data-glass][data-pressable='true'] {
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+
+  [data-glass][data-pressable='true']:active {
+    transform: scale(0.985);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-glass][data-pressable='true']:active {
+      transform: none;
+    }
+    .glass--glow::after {
+      display: none;
+    }
+  }
+}
+
+@layer components {
+  /* Карточка контента: очень лёгкая просвечиваемость фона, БЕЗ backdrop-filter
+     (правило «не стекло на стекло» + экономия композиции при скролле). */
+  .content-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow);
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Календарь выбора диапазона (react-day-picker).
+   Библиотека по умолчанию красит выбранные даты в чистый синий, а полосу
+   диапазона — в почти белый #f0f0ff: в тёмной теме это выглядит как светлячок
+   на стекле. Переводим все её переменные на наши токены: полоса диапазона —
+   мягкая акцентная подложка, крайние даты — заливка акцента с белой цифрой
+   (4.6:1), сегодняшняя дата — акцентный текст.
+   -------------------------------------------------------------------------- */
+@layer components {
+  .rdp-glass {
+    --rdp-accent-color: var(--accent-fill);
+    --rdp-accent-background-color: var(--accent-soft);
+    --rdp-selected-border: 2px solid var(--accent-fill);
+    --rdp-today-color: var(--accent);
+
+    --rdp-range_middle-background-color: var(--accent-soft);
+    --rdp-range_middle-color: var(--text-primary);
+    --rdp-range_start-date-background-color: var(--accent-fill);
+    --rdp-range_start-color: var(--accent-fg);
+    --rdp-range_end-date-background-color: var(--accent-fill);
+    --rdp-range_end-color: var(--accent-fg);
+
+    --rdp-day-height: 34px;
+    --rdp-day-width: 34px;
+    --rdp-day_button-height: 32px;
+    --rdp-day_button-width: 32px;
+    --rdp-day_button-border-radius: var(--radius-sm);
+    --rdp-nav_button-height: 28px;
+    --rdp-nav_button-width: 28px;
+    --rdp-nav-height: 34px;
+    --rdp-months-gap: 1.25rem;
+    --rdp-weekday-opacity: 1;
+    --rdp-outside-opacity: 1;
+    --rdp-disabled-opacity: 0.35;
+
+    color: var(--text-primary);
+    font-size: 13px;
+  }
+
+  .rdp-glass .rdp-month_caption {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    height: var(--rdp-nav-height);
+  }
+
+  .rdp-glass .rdp-weekday {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+
+  .rdp-glass .rdp-day_button {
+    color: inherit;
+    transition: background-color 120ms ease-out;
+  }
+
+  .rdp-glass .rdp-day_button:hover:not(:disabled) {
+    background-color: var(--surface-2);
+  }
+
+  .rdp-glass .rdp-selected {
+    font-size: inherit;
+    font-weight: 600;
+  }
+
+  /* Крайние даты диапазона: цифра белая на заливке акцента (4.6:1).
+     Правило идёт после общего «цвет наследуется», иначе оно перебивает заливку. */
+  .rdp-glass .rdp-range_start .rdp-day_button,
+  .rdp-glass .rdp-range_end .rdp-day_button {
+    color: var(--accent-fg);
+    background-color: var(--accent-fill);
+    /* у крайних дат заливка уже задаёт форму — рамка была бы лишним контуром */
+    border-color: transparent;
+  }
+
+  .rdp-glass .rdp-range_start .rdp-day_button:hover,
+  .rdp-glass .rdp-range_end .rdp-day_button:hover {
+    background-color: var(--accent-fill-hover);
+  }
+
+  .rdp-glass .rdp-range_middle .rdp-day_button:hover {
+    background-color: transparent;
+  }
+
+  /* Даты соседних месяцев: приглушаем цветом, а не прозрачностью —
+     цифры должны оставаться читаемыми (4.5:1). */
+  .rdp-glass .rdp-outside {
+    color: var(--text-tertiary);
+  }
+
+  .rdp-glass .rdp-nav button {
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+  }
+
+  .rdp-glass .rdp-nav button:hover:not(:disabled) {
+    background-color: var(--surface-2);
+    color: var(--text-primary);
+  }
+
+  .rdp-glass .rdp-chevron {
+    fill: currentColor;
+  }
+}

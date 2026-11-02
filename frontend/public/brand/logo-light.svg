@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="lightPrimaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00c6ff" />
+      <stop offset="100%" stop-color="#0072ff" />
+    </linearGradient>
+    <filter id="lightShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <!-- Фон иконки -->
+  <rect width="120" height="120" rx="28" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#lightShadow)" />
+  
+  <!-- График роста -->
+  <path d="M 24 75 L 48 50 L 72 62 L 96 32" fill="none" stroke="url(#lightPrimaryGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Точки данных -->
+  <circle cx="24" cy="75" r="4" fill="#00c6ff" />
+  <circle cx="48" cy="50" r="4" fill="#0072ff" />
+  <circle cx="72" cy="62" r="4" fill="#0072ff" />
+  <circle cx="96" cy="32" r="5" fill="#00c6ff" />
+</svg>

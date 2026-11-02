@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#080b0a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#eef2f1" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href="/brand/logo-light.svg" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href="/brand/logo-dark.svg" media="(prefers-color-scheme: dark)" />
+    <title>BudgetTracker — личные финансы</title>
+
+    <!-- Шрифт: self-host, основное начертание — preload (латиница + кириллица) -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/medeo/medeo-sans/MedeoSansVariable.cyrillic.woff2"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/medeo/medeo-sans/MedeoSansVariable.latin.woff2"
+      crossorigin="anonymous"
+    />
+
+    <!-- Тема до первой отрисовки: иначе вспышка светлой темы -->
+    <script>
+      ;(() => {
+        try {
+          const fromUrl = new URLSearchParams(location.search).get('theme')
+          const stored = localStorage.getItem('bt-theme')
+          const mode =
+            fromUrl === 'light' || fromUrl === 'dark' || fromUrl === 'system'
+              ? fromUrl
+              : stored === 'light' || stored === 'dark' || stored === 'system'
+                ? stored
+                : 'system'
+          const dark =
+            mode === 'dark' ||
+            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.toggle('dark', dark)
+          document.documentElement.dataset.theme = mode
+        } catch {
+          /* приватный режим — остаёмся на преференсе системы */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,107 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      // Все значения — CSS-переменные из src/styles/theme.css
+      colors: {
+        bg: { base: 'var(--bg-base)', elevated: 'var(--bg-elevated)' },
+        surface: {
+          1: 'var(--surface-1)',
+          2: 'var(--surface-2)',
+          3: 'var(--surface-3)',
+          inset: 'var(--surface-inset)',
+        },
+        fg: {
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          tertiary: 'var(--text-tertiary)',
+          inverse: 'var(--text-inverse)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent-hover)',
+          strong: 'var(--accent-strong)',
+          fg: 'var(--accent-fg)',
+          fill: 'var(--accent-fill)',
+          'fill-hover': 'var(--accent-fill-hover)',
+          'on-soft': 'var(--accent-on-soft)',
+          soft: 'var(--accent-soft)',
+        },
+        positive: { DEFAULT: 'var(--positive)', soft: 'var(--positive-soft)', fill: 'var(--positive-fill)' },
+        negative: { DEFAULT: 'var(--negative)', soft: 'var(--negative-soft)', fill: 'var(--negative-fill)' },
+        warning: { DEFAULT: 'var(--warning)', soft: 'var(--warning-soft)' },
+        stroke: {
+          subtle: 'var(--border-subtle)',
+          strong: 'var(--border-strong)',
+          control: 'var(--border-control)',
+        },
+      },
+      fontFamily: {
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)'],
+      },
+      fontSize: {
+        display: ['var(--fs-display)', { lineHeight: 'var(--lh-display)', letterSpacing: 'var(--tracking-tight)' }],
+        title: ['var(--fs-title)', { lineHeight: 'var(--lh-title)', letterSpacing: 'var(--tracking-snug)' }],
+        headline: ['var(--fs-headline)', { lineHeight: 'var(--lh-headline)' }],
+        body: ['var(--fs-body)', { lineHeight: 'var(--lh-body)' }],
+        label: ['var(--fs-label)', { lineHeight: 'var(--lh-label)' }],
+        caption: ['var(--fs-caption)', { lineHeight: 'var(--lh-caption)' }],
+        'metric-xl': ['var(--fs-metric-xl)', { lineHeight: 'var(--lh-metric-xl)', letterSpacing: 'var(--tracking-tight)' }],
+        metric: ['var(--fs-metric)', { lineHeight: 'var(--lh-metric)' }],
+        'metric-sm': ['var(--fs-metric-sm)', { lineHeight: 'var(--lh-metric-sm)' }],
+        overline: ['var(--fs-overline)', { lineHeight: 'var(--lh-overline)', letterSpacing: 'var(--tracking-wide)' }],
+      },
+      borderRadius: {
+        xs: 'var(--radius-xs)',
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
+        pill: 'var(--radius-pill)',
+      },
+      boxShadow: {
+        'glass-sm': 'var(--glass-shadow-sm)',
+        'glass-md': 'var(--glass-shadow-md)',
+        'glass-lg': 'var(--glass-shadow-lg)',
+      },
+      spacing: {
+        nav: 'var(--nav-h)',
+        tabbar: 'var(--tabbar-h)',
+        sidebar: 'var(--sidebar-w)',
+      },
+      maxWidth: { container: 'var(--container-max)' },
+      height: {
+        'control-sm': 'var(--control-h-sm)',
+        'control-md': 'var(--control-h-md)',
+        'control-lg': 'var(--control-h-lg)',
+        'row-list': 'var(--row-h-list)',
+        'row-table': 'var(--row-h-table)',
+        chip: 'var(--chip-h)',
+      },
+      transitionTimingFunction: {
+        out: 'var(--ease-out)',
+        'in-out': 'var(--ease-in-out)',
+        standard: 'var(--ease-standard)',
+      },
+      transitionDuration: {
+        instant: 'var(--dur-instant)',
+        fast: 'var(--dur-fast)',
+        base: 'var(--dur-base)',
+        slow: 'var(--dur-slow)',
+      },
+      zIndex: {
+        sticky: 'var(--z-sticky)',
+        nav: 'var(--z-nav)',
+        sheet: 'var(--z-sheet)',
+        dialog: 'var(--z-dialog)',
+        popover: 'var(--z-popover)',
+        toast: 'var(--z-toast)',
+      },
+    },
+  },
+  plugins: [],
+}

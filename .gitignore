@@ -1,0 +1,46 @@
+# локальные переменные окружения
+.env
+.env.local
+*.env.prod
+
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+report.html
+
+# frontend
+node_modules/
+dist/
+
+# design/ref анализ: рабочие артефакты инструментов (кэши, кропы, состояние modlens с ключом)
+tools/.npmcache/
+tools/.mcache/
+tools/home/
+tools/crops/
+tools/out/
+tools/fontcheck/
+
+# артефакты скриншот-проверки
+tools/shots/
+tools/chrome-profile/
+tools/crash/
+tools/dev-server.log
+tools/*.txt
+tools/test-*.png
+tools/fontcheck/
+
+# тяжёлые артефакты прогона
+tools/mockup-log.txt
+
+# Бэкенд — отдельный репозиторий, в этот коммит не входит
+backend/

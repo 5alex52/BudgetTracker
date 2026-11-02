@@ -1,0 +1,147 @@
+# Production-подобный стек: собранная статика в nginx + backend без autoreload.
+#   cp .env.example .env   # и обязательно задайте SECRET_KEY и POSTGRES_PASSWORD
+#   docker compose -f docker-compose.prod.yml up --build -d
+#
+# Отличается от docker-compose.yml тем, что:
+#  - нет монтирования исходников и autoreload;
+#  - фронтенд раздаётся nginx (стадия production в frontend/Dockerfile), /api проксируется в backend;
+#  - порты postgres/redis не публикуются наружу.
+
+name: budgettracker-prod
+
+x-backend-env: &backend-env
+  ENVIRONMENT: ${ENVIRONMENT:-LOCAL}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  SECRET_KEY: ${SECRET_KEY:-local-insecure-secret-key}
+  ALGORITHM: ${ALGORITHM:-HS256}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+  REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: ${POSTGRES_DB:-budgettracker}
+  POSTGRES_USER: ${POSTGRES_USER:-budget}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
+  TEST_POSTGRES_HOST: postgres
+  TEST_POSTGRES_PORT: 5432
+  TEST_POSTGRES_DB: ${POSTGRES_DB:-budgettracker}
+  TEST_POSTGRES_USER: ${POSTGRES_USER:-budget}
+  TEST_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBIT_HOST: rabbitmq
+  RABBIT_PORT: 5672
+  RABBIT_USER: ${RABBIT_USER:-guest}
+  RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
+  CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173"]}
+  CORS_HEADERS: '["Content-Type","Set-Cookie","Access-Control-Allow-Headers","Access-Control-Allow-Origin","Authorization"]'
+  CORS_METHODS: '["GET","POST","PUT","PATCH","DELETE","OPTIONS"]'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: budgettracker-prod-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-budgettracker}
+      POSTGRES_USER: ${POSTGRES_USER:-budget}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-budget} -d ${POSTGRES_DB:-budgettracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: budgettracker-prod-redis
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: budgettracker-prod-backend
+    restart: always
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers"]
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: budgettracker-prod-frontend
+    restart: always
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: budgettracker-prod-rabbitmq
+    restart: always
+    profiles: ["workers"]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: budgettracker-prod-celery
+    restart: always
+    profiles: ["workers"]
+    command: ["celery", "-A", "src.celery:celery_app", "worker", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "false"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
