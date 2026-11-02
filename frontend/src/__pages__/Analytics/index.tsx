@@ -49,8 +49,8 @@ export function AnalyticsPage() {
 
   /* Матрица по месяцам + итоги периода */
   const matrix = useApiQuery(
-    () => analyticsApi.getMatrix({ months: monthCount, type: txType, rollup: true }),
-    [monthCount, txType],
+    () => analyticsApi.getMatrix({ months: monthCount, type: txType, rollup: true, endDate }),
+    [monthCount, txType, endDate],
   )
   const summary = useApiQuery(
     () => analyticsApi.getSummary({ startDate, endDate, compare: true }),

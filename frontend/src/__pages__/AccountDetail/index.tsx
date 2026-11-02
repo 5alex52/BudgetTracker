@@ -9,6 +9,7 @@ import { analyticsApi } from '@/api'
 import { useApiQuery } from '@/hooks/useApi'
 import { toBalancePoints } from '@/api/mappers'
 import { useFinanceStore } from '@/store/finance'
+import { useRecordsStore } from '@/store/records'
 import { transactionsApi } from '@/api'
 import { toRecordItem } from '@/api/mappers'
 import { AccountDialog } from '@/components/accounts/AccountDialog'
@@ -57,7 +58,11 @@ export function AccountDetailPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [confirmDedupe, setConfirmDedupe] = useState(false)
+  const [dedupeOpen, setDedupeOpen] = useState(false)
+  const [dedupeScanning, setDedupeScanning] = useState(false)
+  /** Группы совпадений: первая запись остаётся, остальные предлагаем удалить */
+  const [duplicates, setDuplicates] = useState<Array<{ keep: RecordItem; extras: RecordItem[] }>>([])
+  const [dupeSelection, setDupeSelection] = useState<string[]>([])
   const [tab, setTab] = useState<'balance' | 'records'>('balance')
   const [selected, setSelected] = useState<string[]>([])
 
@@ -107,6 +112,59 @@ export function AccountDetailPage() {
         </Card>
       </AppShell>
     )
+  }
+
+  /* Поиск дубликатов: тот же список, что показывает вкладка, но по всей истории
+     счёта (до 500 записей — предел одного запроса). Совпадением считаем одну
+     сумму, дату с точностью до минуты и категорию. */
+  const scanDuplicates = async () => {
+    setDedupeOpen(true)
+    setDedupeScanning(true)
+    setDuplicates([])
+    setDupeSelection([])
+    try {
+      const { items } = await transactionsApi.listTransactions({
+        account_ids: [Number(accountId)],
+        sort: 'date_asc',
+        limit: 500,
+      })
+      const records = items.map((dto) => toRecordItem(dto, { accounts: new Map() }))
+      const buckets = new Map<string, RecordItem[]>()
+      records.forEach((item) => {
+        const key = `${item.iso}|${item.amount}|${item.categoryId}`
+        buckets.set(key, [...(buckets.get(key) ?? []), item])
+      })
+      const found = [...buckets.values()]
+        .filter((group) => group.length > 1)
+        .map((group) => ({ keep: group[0], extras: group.slice(1) }))
+      setDuplicates(found)
+      setDupeSelection(found.flatMap((group) => group.extras.map((item) => item.id)))
+    } catch (caught) {
+      setDedupeOpen(false)
+      toast({
+        title: t('account.dedupe'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setDedupeScanning(false)
+    }
+  }
+
+  const removeDuplicates = async () => {
+    if (dupeSelection.length === 0) return
+    try {
+      const deleted = await useRecordsStore.getState().bulkRemove(dupeSelection)
+      setDedupeOpen(false)
+      recordsQuery.reload()
+      toast({ title: t('account.dedupe'), description: t('account.dedupeDeleted', { count: deleted }), tone: 'success' })
+    } catch (caught) {
+      toast({
+        title: t('account.dedupe'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
   }
 
   const remove = async () => {
@@ -259,7 +317,7 @@ export function AccountDetailPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <ExportMenu items={accountRecords} serverFilters={{ account_ids: [Number(accountId)] }} />
-                <Button variant="ghost" size="sm" onClick={() => setConfirmDedupe(true)}>
+                <Button variant="ghost" size="sm" onClick={() => void scanDuplicates()}>
                   {t('account.dedupe')}
                 </Button>
               </div>
@@ -368,27 +426,74 @@ export function AccountDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmDedupe} onOpenChange={setConfirmDedupe}>
+      <Dialog open={dedupeOpen} onOpenChange={setDedupeOpen}>
         <DialogContent
-          title={t('accounts.dedupeConfirm')}
+          title={t('account.dedupe')}
           description={account.name}
           footer={
             <div className="flex justify-end gap-2">
-              <Button variant="subtle" onClick={() => setConfirmDedupe(false)}>
-                {t('common.cancel')}
+              <Button variant="subtle" onClick={() => setDedupeOpen(false)}>
+                {t('common.close')}
               </Button>
               <Button
-                onClick={() => {
-                  setConfirmDedupe(false)
-                  toast({ title: t('account.dedupe'), description: t('accounts.dedupeDone'), tone: 'success' })
-                }}
+                className="bg-[var(--negative)] hover:bg-[var(--negative)]/90"
+                disabled={dupeSelection.length === 0}
+                onClick={() => void removeDuplicates()}
               >
-                {t('account.dedupe')}
+                {t('account.dedupeDelete', { count: dupeSelection.length })}
               </Button>
             </div>
           }
         >
-          <p className="text-body text-fg-secondary">{t('accounts.dedupeWarning')}</p>
+          <div className="space-y-3">
+            <p className="text-body text-fg-secondary">{t('accounts.dedupeWarning')}</p>
+            {dedupeScanning && (
+              <p role="status" className="text-caption text-fg-tertiary">
+                {t('account.dedupeScanning')}
+              </p>
+            )}
+            {!dedupeScanning && duplicates.length === 0 && (
+              <p className="text-label text-fg-secondary">{t('accounts.dedupeNone')}</p>
+            )}
+            {!dedupeScanning && duplicates.length > 0 && (
+              <>
+                <p className="text-label text-fg-secondary">
+                  {t('account.dedupeFound', { count: duplicates.length })}
+                </p>
+                <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {duplicates.map((group) => (
+                    <li key={group.keep.id} className="rounded-lg border border-[var(--border)] p-2.5">
+                      <p className="text-label text-fg-primary">
+                        {group.keep.date} · {group.keep.category} ·{' '}
+                        <Amount value={group.keep.amount} currency={group.keep.currency} />
+                      </p>
+                      <ul className="mt-1.5 space-y-1">
+                        {group.extras.map((item) => (
+                          <li key={item.id} className="flex items-center gap-2 text-caption text-fg-tertiary">
+                            <input
+                              type="checkbox"
+                              className="accent-[var(--accent)]"
+                              checked={dupeSelection.includes(item.id)}
+                              onChange={(event) =>
+                                setDupeSelection((prev) =>
+                                  event.target.checked
+                                    ? [...prev, item.id]
+                                    : prev.filter((id) => id !== item.id),
+                                )
+                              }
+                              aria-label={t('account.dedupeSelect')}
+                            />
+                            <span>{item.time}</span>
+                            <span className="truncate">{item.note || group.keep.category}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </AppShell>

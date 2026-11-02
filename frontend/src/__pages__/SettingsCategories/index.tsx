@@ -71,16 +71,15 @@ export function SettingsCategoriesPage() {
   const rows = parent?.children ?? []
   const childCount = (category: Category) => category.children?.length ?? 0
 
-  const openCreate = () => {
-    if (!parent) return
+  const openCreate = (parentId: number | null) => {
     setCreating(true)
     setDraft({
       id: 0,
       name: '',
-      icon: parent.icon,
-      color: parent.color,
-      type: parent.type,
-      parentId: parent.id,
+      icon: parentId === null ? ICONS[0] : (parent?.icon ?? ICONS[0]),
+      color: parentId === null ? PALETTE[0] : (parent?.color ?? PALETTE[0]),
+      type: parentId === null ? 'expense' : (parent?.type ?? 'expense'),
+      parentId,
       transactionsCount: 0,
       children: [],
     })
@@ -96,13 +95,15 @@ export function SettingsCategoriesPage() {
     setPending(true)
     try {
       if (creating) {
-        await createCategory({
+        const created = await createCategory({
           name: draft.name.trim(),
           type: draft.type,
           parent_id: draft.parentId ?? null,
           icon: draft.icon,
           color: draft.color,
         })
+        // Корневую сразу открываем, чтобы её можно было наполнить подкатегориями
+        if (draft.parentId === null) setActiveParent(created.id)
         toast({ title: t('settings.categories.saved'), description: draft.name, tone: 'success' })
       } else {
         await updateCategory(draft.id, { name: draft.name.trim(), icon: draft.icon, color: draft.color })
@@ -143,10 +144,16 @@ export function SettingsCategoriesPage() {
       title={t('settings.categories')}
       subtitle={parent?.name ?? t('state.loading')}
       actions={
-        <Button className="gap-1.5" onClick={openCreate} disabled={!parent}>
-          <Plus className="size-4" aria-hidden="true" />
-          {t('settings.categories.addSub')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="subtle" className="gap-1.5" onClick={() => openCreate(null)}>
+            <Plus className="size-4" aria-hidden="true" />
+            {t('settings.categories.addParent')}
+          </Button>
+          <Button className="gap-1.5" onClick={() => openCreate(parent?.id ?? null)} disabled={!parent}>
+            <Plus className="size-4" aria-hidden="true" />
+            {t('settings.categories.addSub')}
+          </Button>
+        </div>
       }
     >
       <div className="grid gap-4 md:grid-cols-[260px_1fr]">
@@ -247,8 +254,14 @@ export function SettingsCategoriesPage() {
 
       <Dialog open={Boolean(draft)} onOpenChange={(next) => !next && setDraft(null)}>
         <DialogContent
-          title={creating ? t('settings.categories.addSub') : t('common.edit')}
-          description={parent?.name}
+          title={
+            creating
+              ? draft?.parentId === null
+                ? t('settings.categories.addParent')
+                : t('settings.categories.addSub')
+              : t('common.edit')
+          }
+          description={draft?.parentId === null ? undefined : parent?.name}
           footer={
             <div className="flex flex-wrap items-center justify-between gap-2">
               {!creating && draft ? (

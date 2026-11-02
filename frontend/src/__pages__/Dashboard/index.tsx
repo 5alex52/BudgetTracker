@@ -57,6 +57,8 @@ export function DashboardPage() {
   const [accountDialogOpen, setAccountDialogOpen] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [comparison, setComparison] = useState<'cashflow' | 'expense' | 'income'>('cashflow')
+  /** Какие KPI показывать: меню «Настроить» действительно переключает плитки */
+  const [hiddenKpi, setHiddenKpi] = useState<Array<'balance' | 'cashflow' | 'expenses'>>([])
 
   const bounds = monthBounds(monthOffset)
   const startDate = range?.from ? range.from.toISOString().slice(0, 10) : bounds.start
@@ -215,7 +217,21 @@ export function DashboardPage() {
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>{t('dashboard.customize')}</DropdownMenuLabel>
                     {(['balance', 'cashflow', 'expenses'] as const).map((key) => (
-                      <DropdownMenuItem key={key}>{t(`dashboard.${key}`)}</DropdownMenuItem>
+                      <DropdownMenuItem
+                        key={key}
+                        onSelect={(event) => {
+                          // Меню закрывается само: не даём ему сбросить выбор
+                          event.preventDefault()
+                          setHiddenKpi((prev) =>
+                            prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
+                          )
+                        }}
+                      >
+                        <span className="mr-1.5 inline-block w-3 text-accent">
+                          {hiddenKpi.includes(key) ? '' : '✓'}
+                        </span>
+                        {t(`dashboard.${key}`)}
+                      </DropdownMenuItem>
                     ))}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => navigate('/settings')}>
@@ -246,11 +262,11 @@ export function DashboardPage() {
             }
           />
           <div className="mt-4 grid grid-cols-3 gap-3">
-            {[
-              { label: t('dashboard.balance'), value: totalBalance, currency: baseCurrency },
-              { label: t('dashboard.cashflow'), value: totals?.net ?? 0, currency: '' },
-              { label: t('dashboard.expenses'), value: -(totals?.expense ?? 0), currency: '' },
-            ].map((item) => (
+            {([
+              { key: 'balance' as const, label: t('dashboard.balance'), value: totalBalance, currency: baseCurrency },
+              { key: 'cashflow' as const, label: t('dashboard.cashflow'), value: totals?.net ?? 0, currency: '' },
+              { key: 'expenses' as const, label: t('dashboard.expenses'), value: -(totals?.expense ?? 0), currency: '' },
+            ]).filter((item) => !hiddenKpi.includes(item.key)).map((item) => (
               <div key={item.label} className="flex flex-col gap-1">
                 <span className="text-overline uppercase text-fg-tertiary">{item.label}</span>
                 <Amount
