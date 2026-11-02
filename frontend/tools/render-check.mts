@@ -59,6 +59,7 @@ try {
   check('есть поле пароля', loginHtml.includes('type="password"'))
   check('есть кнопка входа', loginHtml.includes('type="submit"'))
   check('подсказка демо-доступа видна в dev', text(loginHtml).toLowerCase().includes('demo') || text(loginHtml).includes('Демо'))
+  check('подсказка админ-доступа видна в dev', text(loginHtml).toLowerCase().includes('admin') || text(loginHtml).includes('Админ'))
 
   /* SSR видит начальное состояние стора, поэтому проверяем только «закрыто»:
      ветку «пользователь вошёл» покрывает сквозная проверка против backend. */

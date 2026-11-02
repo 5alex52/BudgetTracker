@@ -394,6 +394,7 @@ export const ru = {
 
   // ------------------------------ вход (API) -------------------------------
   'login.error': 'Не удалось войти',
+  'login.adminHint': 'Админ: {email} / {password}',
   'login.demoHint': 'Демо-доступ: {email} / {password}',
   'login.socialSoon': 'Вход через соцсети пока не подключён',
   'login.password': 'Пароль',

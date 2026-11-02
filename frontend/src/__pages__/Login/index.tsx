@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { useAuthStore } from '@/store/auth'
-import { DEMO_CREDENTIALS, DEMO_HINT_ENABLED } from '@/__shared__/constants/demo'
+import { ADMIN_CREDENTIALS, DEMO_CREDENTIALS, DEMO_HINT_ENABLED } from '@/__shared__/constants/demo'
 import { Wordmark } from '@/components/brand/Logo'
 import { GlassBackdrop } from '@/components/glass/GlassBackdrop'
 import { GlassSurface } from '@/components/glass/GlassSurface'
@@ -146,12 +146,22 @@ export function LoginPage() {
                   label={t('login.password')}
                   error={error ?? undefined}
                   hint={
-                    DEMO_HINT_ENABLED && !error
-                      ? t('login.demoHint', {
-                          email: DEMO_CREDENTIALS.email,
-                          password: DEMO_CREDENTIALS.password,
-                        })
-                      : undefined
+                    DEMO_HINT_ENABLED && !error ? (
+                      <>
+                        <span className="block">
+                          {t('login.demoHint', {
+                            email: DEMO_CREDENTIALS.email,
+                            password: DEMO_CREDENTIALS.password,
+                          })}
+                        </span>
+                        <span className="block">
+                          {t('login.adminHint', {
+                            email: ADMIN_CREDENTIALS.email,
+                            password: ADMIN_CREDENTIALS.password,
+                          })}
+                        </span>
+                      </>
+                    ) : undefined
                   }
                 >
                   <Input

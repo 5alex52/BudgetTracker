@@ -379,6 +379,7 @@ export const en: Translations = {
 
   // ------------------------------ sign in (API) ----------------------------
   'login.error': 'Could not sign in',
+  'login.adminHint': 'Admin: {email} / {password}',
   'login.demoHint': 'Demo access: {email} / {password}',
   'login.socialSoon': 'Social sign-in is not connected yet',
   'login.password': 'Password',

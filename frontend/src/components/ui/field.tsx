@@ -82,7 +82,7 @@ export const Label = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelE
 export interface FieldProps {
   label: string
   htmlFor?: string
-  hint?: string
+  hint?: ReactNode
   error?: string
   required?: boolean
   children: ReactNode
