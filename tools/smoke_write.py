@@ -116,8 +116,12 @@ def main() -> int:
         },
     )
     template_id = template["id"] if isinstance(template, dict) and "id" in template else None
+    applied_id = None
     if template_id:
-        call("POST", f"/finance/templates/{template_id}/apply")
+        applied = call("POST", f"/finance/templates/{template_id}/apply")
+        # Шаблон создаёт настоящую запись — её тоже нужно убрать за собой
+        if isinstance(applied, dict) and applied.get("id"):
+            applied_id = applied["id"]
 
     # --- правила: создание, прогон, переключение
     rule = call(
@@ -159,6 +163,8 @@ def main() -> int:
 
     # --- уборка
     call("DELETE", f"/finance/transactions/{transaction_id}")
+    if applied_id:
+        call("DELETE", f"/finance/transactions/{applied_id}")
     if rule_id:
         call("DELETE", f"/finance/rules/{rule_id}")
     if template_id:

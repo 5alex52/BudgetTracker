@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { onUnauthorized } from '@/api'
 import { useAuthStore } from '@/store/auth'
 import { useFinanceStore } from '@/store/finance'
+import { useRecordsStore } from '@/store/records'
 import { useI18n } from '@/i18n'
 
 /**
@@ -15,8 +16,11 @@ function SessionGate({ children }: { children: ReactNode }) {
   const status = useAuthStore((state) => state.status)
   const bootstrap = useAuthStore((state) => state.bootstrap)
   const loadAll = useFinanceStore((state) => state.loadAll)
+  const clearData = useFinanceStore((state) => state.clearData)
   const ready = useFinanceStore((state) => state.ready)
   const clear = useAuthStore((state) => state.clear)
+  /** Кто вошёл: смена пользователя должна стирать данные предыдущего */
+  const userId = useAuthStore((state) => state.user?.id ?? null)
   const { t } = useI18n()
 
   useEffect(() => {
@@ -29,10 +33,14 @@ function SessionGate({ children }: { children: ReactNode }) {
     return () => onUnauthorized(null)
   }, [clear])
 
-  // Справочники грузим один раз после входа: их читают почти все экраны
+  /* Справочники читают почти все экраны, поэтому грузим их при входе.
+     Ключ — id пользователя: при выходе данные стираем, при смене аккаунта
+     стираем и загружаем заново, иначе новый пользователь увидел бы чужое. */
   useEffect(() => {
-    if (status === 'authenticated') void loadAll()
-  }, [status, loadAll])
+    clearData()
+    useRecordsStore.getState().reset()
+    if (userId) void loadAll()
+  }, [userId, clearData, loadAll])
 
   /* Ждём и сессию, и справочники: иначе первый кадр показывает пустые экраны */
   if (status === 'loading' || (status === 'authenticated' && !ready)) {

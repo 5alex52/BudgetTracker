@@ -236,9 +236,9 @@ export function AddRecordDialog({
                 ]}
               />
             </div>
-            {type === 'transfer' && (
-              <p className="text-caption text-fg-tertiary">{t('records.transferUnavailable')}</p>
-            )}
+            {/* Перевод выключен: сервер пока проводит только одну сторону операции.
+                Подпись показываем всегда — иначе неактивная кнопка молчит. */}
+            <p className="text-caption text-fg-tertiary">{t('records.transferUnavailable')}</p>
 
             <Field
               label={`${t('recordForm.amount')} (${currency})`}
@@ -371,7 +371,7 @@ export function AddRecordDialog({
               />
             )}
 
-            {type !== 'transfer' && availableCategories.length === 0 && (
+            {availableCategories.length === 0 && (
               <p className="text-caption text-[var(--negative)]">
                 {t('recordForm.noCategories')}{' '}
                 <CategoryIcon name="circle" className="inline size-3" />

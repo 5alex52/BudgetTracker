@@ -46,6 +46,8 @@ interface FinanceState {
   ready: boolean
 
   loadAll: (options?: { force?: boolean }) => Promise<void>
+  /** Сбросить справочники: выход из аккаунта и смена пользователя */
+  clearData: () => void
   reloadAccounts: () => Promise<void>
   reloadCategories: () => Promise<void>
   reloadTags: () => Promise<void>
@@ -96,6 +98,23 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loading: false,
   error: null,
   ready: false,
+
+  clearData: () => {
+    // Данные принадлежат пользователю: при выходе их нельзя показывать следующему
+    set({
+      accounts: [],
+      categories: [],
+      tree: [],
+      tags: [],
+      templates: [],
+      rules: [],
+      rates: [],
+      baseCurrency: 'BYN',
+      loading: false,
+      error: null,
+      ready: false,
+    })
+  },
 
   loadAll: async (options) => {
     if (get().loading) return
