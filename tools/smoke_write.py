@@ -147,6 +147,26 @@ def main() -> int:
     call("PUT", "/finance/currencies/USD/rate", {"rate": 3.11})
     call("DELETE", "/finance/currencies/USD/rate")
 
+    # --- массовое удаление и серверная выгрузка (кнопки на экране «Записи»)
+    extra = call(
+        "POST",
+        "/finance/transactions/",
+        {
+            "account_id": account_id,
+            "category_id": category_id,
+            "amount": 1.0,
+            "currency_id": currency,
+            "type": "expense",
+            "date": datetime.now().replace(microsecond=0).isoformat(),
+            "note": "smoke-bulk",
+            "tag_ids": [],
+        },
+    )
+    if isinstance(extra, dict) and extra.get("id"):
+        call("POST", "/finance/transactions/bulk-delete", {"ids": [extra["id"]]})
+    call("GET", "/finance/transactions/export?format=csv")
+    call("GET", "/finance/transactions/export?format=json")
+
     # --- биллинг: подписка (mock), способ оплаты
     call("POST", "/billing/subscription", {"plan_code": "monthly", "provider": "mock"})
     call("GET", "/billing/subscription")

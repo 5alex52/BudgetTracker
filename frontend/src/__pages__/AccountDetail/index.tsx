@@ -258,7 +258,7 @@ export function AccountDetailPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <ExportMenu items={accountRecords} />
+                <ExportMenu items={accountRecords} serverFilters={{ account_ids: [Number(accountId)] }} />
                 <Button variant="ghost" size="sm" onClick={() => setConfirmDedupe(true)}>
                   {t('account.dedupe')}
                 </Button>

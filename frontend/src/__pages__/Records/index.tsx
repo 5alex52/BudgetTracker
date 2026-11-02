@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownUp, Filter, MoreHorizontal, Plus, Search } from 'lucide-react'
+import { ArrowDownUp, Filter, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import type { RecordItem } from '@/__shared__/types/models'
 import { useRecordsStore } from '@/store/records'
+import { ApiError } from '@/api'
 import { useRecordDialog } from '@/components/records/RecordDialogContext'
 import { readableOnTint } from '@/__shared__/utils/contrast'
 import { useTheme } from '@/hooks/useTheme'
@@ -71,6 +72,7 @@ export function RecordsPage() {
   const loading = useRecordsStore((state) => state.loading)
   const error = useRecordsStore((state) => state.error)
   const load = useRecordsStore((state) => state.load)
+  const bulkRemove = useRecordsStore((state) => state.bulkRemove)
   const removeRecord = useRecordsStore((state) => state.remove)
 
   const [query, setQuery] = useState('')
@@ -80,9 +82,9 @@ export function RecordsPage() {
   const [selected, setSelected] = useState<string[]>([])
   const [filterOpen, setFilterOpen] = useState(false)
 
-  /* Первая загрузка и любое изменение фильтров/поиска/сортировки — один запрос */
-  useEffect(() => {
-    void load({
+  /* Текущие фильтры в терминах API: их же получает серверная выгрузка */
+  const apiFilters = useMemo(
+    () => ({
       q: debouncedQuery.trim() || undefined,
       sort: SORT_PARAM[sort],
       account_ids: filters.accountIds.map(Number),
@@ -92,10 +94,15 @@ export function RecordsPage() {
       types: filters.types,
       amount_min: filters.amountMin,
       amount_max: filters.amountMax,
-    })
+    }),
+    [debouncedQuery, sort, filters],
+  )
+
+  /* Первая загрузка и любое изменение фильтров/поиска/сортировки — один запрос */
+  useEffect(() => {
+    void load(apiFilters)
     setSelected([])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, sort, filters])
+  }, [apiFilters, load])
 
   /* Группировка по дням: сервер отдаёт плоский список с сортировкой */
   const grouped = useMemo(() => {
@@ -110,6 +117,22 @@ export function RecordsPage() {
 
   const totalAmount = records.reduce((sum, item) => sum + item.amount, 0)
   const allSelected = records.length > 0 && selected.length === records.length
+
+  /** Массовое удаление: сервер принимает список id одним запросом */
+  const removeSelected = async () => {
+    if (selected.length === 0) return
+    try {
+      const deleted = await bulkRemove(selected)
+      setSelected([])
+      toast({ title: t('records.deleteSelectedDone', { count: deleted }), tone: 'info' })
+    } catch (caught) {
+      toast({
+        title: t('records.deleteFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
+  }
 
   const removeOne = async (id: string) => {
     try {
@@ -151,7 +174,7 @@ export function RecordsPage() {
               </SheetContent>
             </Sheet>
 
-            <ExportMenu items={records} />
+            <ExportMenu items={records} serverFilters={apiFilters} />
             <Button size="sm" className="gap-1.5" onClick={onAddRecord}>
               <Plus className="size-4" aria-hidden="true" />
               {t('nav.addRecord')}
@@ -195,9 +218,20 @@ export function RecordsPage() {
           />
           <span className="text-caption text-fg-tertiary">{t('records.found', { count: total })}</span>
           {selected.length > 0 && (
-            <span className="text-caption text-accent">
-              {t('records.selectedCount', { count: selected.length })}
-            </span>
+            <>
+              <span className="text-caption text-accent">
+                {t('records.selectedCount', { count: selected.length })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-caption text-[var(--negative)]"
+                onClick={() => void removeSelected()}
+              >
+                <Trash2 className="size-3.5" aria-hidden="true" />
+                {t('records.deleteSelected')}
+              </Button>
+            </>
           )}
           <span className="ml-auto flex items-center gap-1 text-caption text-fg-tertiary">
             {t('records.total')}:
