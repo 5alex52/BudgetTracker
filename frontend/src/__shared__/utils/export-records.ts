@@ -5,6 +5,10 @@ import type { RecordItem } from '@/__shared__/types/models'
  * CSV и TSV — плоские таблицы, JSON — полные объекты, XLS — SpreadsheetML
  * (Excel открывает его как обычную книгу), PDF — через печать браузера
  * («Сохранить как PDF» в диалоге печати).
+ *
+ * PDF печатается не сама страница приложения, а отдельный документ: белый лист,
+ * чёрный текст, тонкие линии — официальный вид, который одинаково читается
+ * и на бумаге, и в электронном виде. Цвета интерфейса в печать не попадают.
  */
 
 export type ExportFormat = 'csv' | 'tsv' | 'json' | 'xls' | 'pdf'
@@ -47,11 +51,142 @@ const escapeDelimited = (value: string, delimiter: string) =>
     ? `"${value.replace(/"/g, '""')}"`
     : value
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+/** Сумма по валютам: в PDF нельзя складывать разные валюты в одно число. */
+function totalsByCurrency(items: RecordItem[]) {
+  const totals = new Map<string, number>()
+  for (const item of items) {
+    totals.set(item.currency, (totals.get(item.currency) ?? 0) + item.amount)
+  }
+  return [...totals.entries()].sort(([left], [right]) => left.localeCompare(right))
+}
+
+const formatMoney = (value: number, locale: string) =>
+  new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+
+/**
+ * Печать официального документа: белый фон, чёрный текст, тонкая рамка.
+ * Открывается отдельным окном, поэтому стили приложения на результат не влияют.
+ */
+function printOfficialDocument(items: RecordItem[], locale: string) {
+  const ru = locale === 'ru'
+  const { header, body } = rows(items, locale)
+  const title = ru ? 'Выписка по записям' : 'Transaction statement'
+  const printedAt = new Intl.DateTimeFormat(ru ? 'ru-RU' : 'en-US', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(new Date())
+
+  const totals = totalsByCurrency(items)
+  const totalRows = totals
+    .map(
+      ([currency, amount]) =>
+        `<tr><td class="label">${ru ? 'Итого' : 'Total'} · ${escapeHtml(currency)}</td>` +
+        `<td class="amount${amount < 0 ? ' negative' : ''}">${escapeHtml(formatMoney(amount, locale))} ${escapeHtml(currency)}</td></tr>`,
+    )
+    .join('')
+
+  const tableRows = body
+    .map(
+      (row) =>
+        '<tr>' +
+        row
+          .map((cell, index) => {
+            const align = index === 5 ? ' class="amount"' : ''
+            return `<td${align}>${escapeHtml(cell)}</td>`
+          })
+          .join('') +
+        '</tr>',
+    )
+    .join('')
+
+  const html = `<!doctype html>
+<html lang="${ru ? 'ru' : 'en'}">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(title)}</title>
+<style>
+  @page { size: A4 portrait; margin: 18mm 14mm; }
+  * { box-sizing: border-box; }
+  html, body { background: #ffffff; color: #000000; margin: 0; padding: 0; }
+  body {
+    font-family: "Times New Roman", Georgia, "DejaVu Serif", serif;
+    font-size: 10.5pt;
+    line-height: 1.35;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  h1 {
+    font-size: 15pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0 0 2mm;
+    border-bottom: 0.6pt solid #000000;
+    padding-bottom: 2mm;
+  }
+  .meta { font-size: 9pt; margin-bottom: 6mm; color: #000000; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  thead th {
+    text-align: left;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 8.5pt;
+    letter-spacing: 0.03em;
+    border-top: 0.9pt solid #000000;
+    border-bottom: 0.9pt solid #000000;
+    padding: 1.8mm 1.5mm;
+  }
+  tbody td { border-bottom: 0.35pt solid #808080; padding: 1.5mm; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0.9pt solid #000000; }
+  td.amount { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .negative { font-weight: 700; }
+  .totals { margin-top: 4mm; width: auto; min-width: 60mm; margin-left: auto; }
+  .totals td { border: none; padding: 0.8mm 1.5mm; font-size: 10pt; }
+  .totals .label { text-align: right; font-weight: 700; text-transform: uppercase; font-size: 8.5pt; letter-spacing: 0.03em; }
+  footer { margin-top: 8mm; padding-top: 2mm; border-top: 0.35pt solid #808080; font-size: 8pt; }
+  /* Ничего лишнего: ни фонов, ни теней — только текст и линии */
+  @media print { a { color: #000000; text-decoration: none; } }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(title)}</h1>
+  <p class="meta">${ru ? 'Сформировано' : 'Generated'}: ${escapeHtml(printedAt)} · ${ru ? 'записей' : 'records'}: ${items.length}</p>
+  <table>
+    <thead><tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join('')}</tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <table class="totals">${totalRows}</table>
+  <footer>BudgetTracker · ${escapeHtml(printedAt)}</footer>
+  <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>`
+
+  const printWindow = window.open('', '_blank', 'width=900,height=1200')
+  if (!printWindow) {
+    // Всплывающее окно заблокировано — печатаем текущую страницу, как раньше
+    window.print()
+    return
+  }
+  printWindow.document.open()
+  printWindow.document.write(html)
+  printWindow.document.close()
+}
+
 export function exportRecords(items: RecordItem[], format: ExportFormat, locale: string) {
   const stamp = new Date().toISOString().slice(0, 10)
 
   if (format === 'pdf') {
-    window.print()
+    printOfficialDocument(items, locale)
     return { filename: 'print' }
   }
 

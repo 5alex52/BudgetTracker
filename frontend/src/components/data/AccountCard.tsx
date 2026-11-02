@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Lock } from 'lucide-react'
 import type { Account } from '@/__shared__/types/models'
 import { cn } from '@/__shared__/utils/cn'
@@ -8,7 +9,7 @@ import { Amount } from './Amount'
  * Здесь цвет остаётся маркером счёта (узнаваемость), но приглушён: насыщенная
  * заливка спорила бы со стеклом и мешала контрасту сумм.
  */
-export function AccountCard({
+function AccountCardImpl({
   account,
   className,
   onOpen,
@@ -44,3 +45,6 @@ export function AccountCard({
     </button>
   )
 }
+
+/** Карточка счёта: перерисовывается только при смене данных счёта. */
+export const AccountCard = memo(AccountCardImpl)

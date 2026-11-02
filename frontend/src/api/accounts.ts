@@ -58,6 +58,9 @@ export function getAccountSummary(
   })
 }
 
-export function getTotalBalance(): Promise<BalanceOverviewDto> {
-  return request<BalanceOverviewDto>('/finance/accounts/balance')
+/** Остаток по всем счетам в базовой валюте; с периодом — остаток на конец периода. */
+export function getTotalBalance(range?: { startDate?: string; endDate?: string }): Promise<BalanceOverviewDto> {
+  return request<BalanceOverviewDto>('/finance/accounts/balance', {
+    query: { start_date: range?.startDate, end_date: range?.endDate },
+  })
 }

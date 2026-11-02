@@ -16,7 +16,19 @@ import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { useToast } from '@/components/ui/toast'
 
 /** Цвета меток: сервер хранит hex, палитра фиксирована. */
-const TAG_COLORS = ['#5b8fd6', '#3aa76d', '#e0913c', '#e06fa0', '#8b6fd6', '#d94b4b']
+const TAG_COLORS = [
+  '#5b8fd6',
+  '#3aa76d',
+  '#e0913c',
+  '#e06fa0',
+  '#8b6fd6',
+  '#d94b4b',
+  // Дополнительные оттенки — те же, что в палитре категорий
+  '#c9a227',
+  '#7cb342',
+  '#009688',
+  '#607d8b',
+]
 
 /**
  * «Настройки → Метки».

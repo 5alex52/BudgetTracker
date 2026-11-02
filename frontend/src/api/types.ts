@@ -31,6 +31,7 @@ export interface UserDto {
   base_currency: string | null
   locale: string | null
   theme: string | null
+  default_period: string | null
   created_at: string
   updated_at: string | null
   last_login_at: string | null
@@ -51,6 +52,7 @@ export interface UserProfileUpdate {
   base_currency?: string
   locale?: string
   theme?: string
+  default_period?: 'day' | 'week' | 'month'
 }
 
 export interface UserExportDto {
@@ -447,6 +449,19 @@ export interface SubscriptionDto {
   current_period_end: string | null
   cancel_at_period_end: boolean
   provider: string
+}
+
+/** Лимиты и премиум-возможности текущего тарифа. */
+export interface EntitlementsDto {
+  plan_code: string
+  plan_name: string
+  is_paid: boolean
+  is_active: boolean
+  max_accounts: number | null
+  multi_currency: boolean
+  advanced_analytics: boolean
+  current_period_end: string | null
+  reason: string | null
 }
 
 export interface CheckoutSessionDto {

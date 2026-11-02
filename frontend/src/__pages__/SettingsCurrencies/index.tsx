@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pencil, RotateCcw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Pencil, RotateCcw, Sparkles } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { ApiError } from '@/api'
 import { useFinanceStore } from '@/store/finance'
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { useToast } from '@/components/ui/toast'
+import { useEntitlements } from '@/hooks/useEntitlements'
 
 /**
  * «Настройки → Валюты».
@@ -24,6 +26,10 @@ export function SettingsCurrenciesPage() {
   const rates = useFinanceStore((state) => state.rates)
   const setUserRate = useFinanceStore((state) => state.setUserRate)
   const resetUserRate = useFinanceStore((state) => state.resetUserRate)
+
+  const navigate = useNavigate()
+  const entitlements = useEntitlements()
+  const multiCurrency = entitlements.data?.multi_currency !== false
 
   const [draft, setDraft] = useState<CurrencyRate | null>(null)
   const [value, setValue] = useState('')
@@ -78,6 +84,23 @@ export function SettingsCurrenciesPage() {
 
   return (
     <SettingsLayout title={t('settings.currencies')} subtitle={t('settings.currencies.rate')}>
+      {!multiCurrency && (
+        <Card className="mb-4 border-l-2 border-l-[var(--accent)]">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="grid size-9 place-items-center rounded-md bg-accent-soft text-accent-on-soft">
+              <Sparkles className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-label font-semibold text-fg-primary">{t('currencies.premiumTitle')}</h2>
+              <p className="text-caption text-fg-secondary">{t('currencies.premiumText')}</p>
+            </div>
+            <Button variant="subtle" size="sm" className="ml-auto" onClick={() => navigate('/settings/payments')}>
+              {t('currencies.premiumCta')}
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <Card className="overflow-hidden p-0">
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-stroke-subtle px-4 py-2.5">
           <h2 className="text-label font-semibold text-fg-primary">{t('settings.currencies.yours')}</h2>

@@ -49,7 +49,7 @@ export function supportsBackdropRefraction(): boolean {
   return cached
 }
 
-/** Сброс кеша — только для тестов и страницы /design. */
+/** Сброс кеша — только для тестов и повторной проверки возможностей. */
 export function resetFeatureDetectCache(): void {
   cached = null
 }

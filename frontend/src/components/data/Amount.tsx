@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Currency } from '@/__shared__/types/models'
 import { useI18n } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
@@ -35,7 +36,7 @@ const SIZE: Record<NonNullable<AmountProps['size']>, string> = {
  * Сумма с валютой. Дробная часть набирается Medeo Mono: цифры не «пляшут»
  * при обновлении и выравниваются в таблицах.
  */
-export function Amount({
+function AmountImpl({
   value,
   currency = 'BYN',
   hideDecimals = false,
@@ -120,3 +121,6 @@ export function CurrencyTag({ currency, className }: { currency: Currency; class
     </span>
   )
 }
+
+/** Сумма: мемо, чтобы списки не перерисовывали форматирование зря. */
+export const Amount = memo(AmountImpl)

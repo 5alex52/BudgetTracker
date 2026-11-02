@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Download, Settings, TrendingUp } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { Sheet, SheetContent } from '@/components/ui/dialogs'
-import { LanguageSwitcher, ThemeSwitcher } from './Switchers'
+import { LanguageSwitcher } from './Switchers'
 
 /** Нижний стеклянный Sheet для «Ещё» на мобиле. */
 export function MoreSheet({ children }: { children: ReactNode }) {
@@ -50,7 +50,6 @@ export function MoreSheet({ children }: { children: ReactNode }) {
           </button>
         </div>
         <div className="mt-4 flex flex-col gap-3 border-t border-stroke-subtle pt-4">
-          <ThemeSwitcher />
           <LanguageSwitcher />
         </div>
       </SheetContent>

@@ -76,18 +76,18 @@ export function AddRecordDialog({
     [categories, type],
   )
 
-  /** Список категорий сгруппирован «родитель → дети», как в селекте макета */
-  const categoryGroups = useMemo(() => {
+  /**
+   * Плоский список «родитель → дети»: заголовки групп в выпадающем меню
+   * убраны по требованию, вложенность читается отступом и точкой цвета.
+   */
+  const categoryOptions = useMemo(() => {
     const parents = availableCategories.filter((category) => category.parentId === null)
-    return parents.map((parent) => ({
-      label: parent.name,
-      options: [
-        { value: String(parent.id), label: parent.name },
-        ...availableCategories
-          .filter((category) => category.parentId === parent.id)
-          .map((child) => ({ value: String(child.id), label: child.name, indent: true })),
-      ],
-    }))
+    return parents.flatMap((parent) => [
+      { value: String(parent.id), label: parent.name, dotColor: parent.color },
+      ...availableCategories
+        .filter((category) => category.parentId === parent.id)
+        .map((child) => ({ value: String(child.id), label: child.name, indent: true, dotColor: child.color })),
+    ])
   }, [availableCategories])
 
   const account = accounts.find((item) => item.id === accountId)
@@ -283,11 +283,7 @@ export function AddRecordDialog({
                 ariaLabel={t('recordForm.category')}
                 value={categoryId}
                 onValueChange={setCategoryId}
-                groups={categoryGroups}
-                options={availableCategories.map((category) => ({
-                  value: String(category.id),
-                  label: category.name,
-                }))}
+                options={categoryOptions}
               />
             </Field>
 

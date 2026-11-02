@@ -17,7 +17,21 @@ import { useToast } from '@/components/ui/toast'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 
 /** Палитра для выбора цвета категории. */
-const PALETTE = ['#e0913c', '#e06fa0', '#3aa76d', '#2ba7d6', '#d94b4b', '#8b6fd6', '#c26bd6', '#5b8fd6']
+const PALETTE = [
+  '#e0913c',
+  '#e06fa0',
+  '#3aa76d',
+  '#2ba7d6',
+  '#d94b4b',
+  '#8b6fd6',
+  '#c26bd6',
+  '#5b8fd6',
+  // Дополнительные оттенки: тёплый песочный, лаймовый, бирюзовый, графитовый
+  '#c9a227',
+  '#7cb342',
+  '#009688',
+  '#607d8b',
+]
 
 /** Иконки, которые умеет рисовать `CategoryIcon`. */
 const ICONS = [
@@ -36,6 +50,33 @@ const ICONS = [
   'wallet',
   'cash',
   'scale',
+  'coffee',
+  'car',
+  'fuel',
+  'shirt',
+  'smartphone',
+  'dumbbell',
+  'plane',
+  'heart',
+  'baby',
+  'paw-print',
+  'graduation-cap',
+  'music',
+  'gamepad-2',
+  'hospital',
+  'pill',
+  'hammer',
+  'wrench',
+  'briefcase',
+  'laptop',
+  'percent',
+  'piggy-bank',
+  'receipt',
+  'credit-card',
+  'banknote',
+  'ticket',
+  'sparkles',
+  'leaf',
 ]
 
 /**

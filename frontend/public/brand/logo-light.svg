@@ -1,23 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256" role="img" aria-label="BudgetTracker logo">
   <defs>
-    <linearGradient id="lightPrimaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00c6ff" />
-      <stop offset="100%" stop-color="#0072ff" />
-    </linearGradient>
-    <filter id="lightShadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.12" />
-    </filter>
+    <linearGradient id="bg-ring-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#DCEFE4"/></linearGradient>
+    <linearGradient id="rim-ring-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".5" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity=".25"/></linearGradient>
+    <linearGradient id="acc-ring-light" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2BD985"/><stop offset="1" stop-color="#0E9F5B"/></linearGradient>
   </defs>
-
-  <!-- Фон иконки -->
-  <rect width="120" height="120" rx="28" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#lightShadow)" />
-  
-  <!-- График роста -->
-  <path d="M 24 75 L 48 50 L 72 62 L 96 32" fill="none" stroke="url(#lightPrimaryGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-  
-  <!-- Точки данных -->
-  <circle cx="24" cy="75" r="4" fill="#00c6ff" />
-  <circle cx="48" cy="50" r="4" fill="#0072ff" />
-  <circle cx="72" cy="62" r="4" fill="#0072ff" />
-  <circle cx="96" cy="32" r="5" fill="#00c6ff" />
+  <rect x="4" y="6" width="56" height="56" rx="16" fill="#0B3B26" fill-opacity=".16" opacity=".5"/>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#bg-ring-light)" stroke="#B7D3C4"/>
+  <rect x="5.5" y="5.5" width="53" height="53" rx="14.5" fill="none" stroke="url(#rim-ring-light)" stroke-width="1.2"/>
+  <g>
+  <circle cx="32" cy="32" r="16" fill="none" stroke="#17352B" stroke-opacity=".18" stroke-width="6"/>
+  <circle cx="32" cy="32" r="16" fill="none" stroke="url(#acc-ring-light)" stroke-width="6" stroke-linecap="round" stroke-dasharray="72 28.5" transform="rotate(-110 32 32)"/>
+  <circle cx="32" cy="32" r="6.5" fill="url(#acc-ring-light)"/>
+  <circle cx="30" cy="30" r="2" fill="#fff" fill-opacity=".55"/>
+  </g>
 </svg>

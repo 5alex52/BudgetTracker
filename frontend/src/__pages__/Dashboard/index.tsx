@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { Eye, LayoutGrid, MoreHorizontal, Plus, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
-import { analyticsApi } from '@/api'
+import { accountsApi, analyticsApi } from '@/api'
 import { toBalancePoints, toCashflowPoints, toDonutSegments } from '@/api/mappers'
 import { useApiQuery } from '@/hooks/useApi'
+import { useEntitlements } from '@/hooks/useEntitlements'
+import { useAuthStore } from '@/store/auth'
 import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
 import { AccountCard } from '@/components/data/AccountCard'
@@ -26,6 +28,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/overlays'
+
+/** Границы базового периода: день, неделя или месяц со сдвигом назад. */
+function periodBounds(period: 'day' | 'week' | 'month', offset: number) {
+  const iso = (date: Date) => date.toISOString().slice(0, 10)
+  const now = new Date()
+
+  if (period === 'day') {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset)
+    return { start: iso(day), end: iso(day), month: day }
+  }
+  if (period === 'week') {
+    // Неделя начинается с понедельника: getDay() отдаёт 0 для воскресенья
+    const shift = (now.getDay() + 6) % 7
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - shift + offset * 7)
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
+    return { start: iso(monday), end: iso(sunday), month: monday }
+  }
+  return monthBounds(offset)
+}
 
 /** Границы месяца по смещению от текущего: 0 — этот месяц, −1 — прошлый. */
 function monthBounds(offset: number) {
@@ -61,7 +82,12 @@ export function DashboardPage() {
   /** Какие KPI показывать: меню «Настроить» действительно переключает плитки */
   const [hiddenKpi, setHiddenKpi] = useState<Array<'balance' | 'cashflow' | 'expenses'>>([])
 
-  const bounds = monthBounds(monthOffset)
+  /* Базовый период из настроек: день, неделя или месяц */
+  const savedPeriod = useAuthStore((state) => state.user?.default_period)
+  const period: 'day' | 'week' | 'month' =
+    savedPeriod === 'day' || savedPeriod === 'week' ? savedPeriod : 'month'
+
+  const bounds = periodBounds(period, monthOffset)
   const startDate = range?.from ? range.from.toISOString().slice(0, 10) : bounds.start
   const endDate = range?.to ? range.to.toISOString().slice(0, 10) : bounds.end
 
@@ -69,10 +95,14 @@ export function DashboardPage() {
     month: 'long',
     year: 'numeric',
   }).format(bounds.month)
+  const defaultLabel =
+    period === 'month'
+      ? monthLabel
+      : `${new Date(bounds.start).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')} — ${new Date(bounds.end).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')}`
   const rangeLabel =
     range?.from && range?.to
       ? `${range.from.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')} — ${range.to.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')}`
-      : monthLabel
+      : defaultLabel
 
   /* Четыре независимых запроса: итоги, баланс, денежный поток, структура расходов */
   const summary = useApiQuery(
@@ -114,11 +144,48 @@ export function DashboardPage() {
     [accounts],
   )
 
-  /** Баланс всех счетов в базовой валюте — сумма остатков по счетам */
-  const totalBalance = accounts
-    .filter((account) => !account.excluded)
-    .filter((account) => account.currency === baseCurrency)
-    .reduce((sum, account) => sum + account.balance, 0)
+  /*
+   * Баланс «как в банке»: сервер отдаёт остаток на конец выбранного периода,
+   * уже пересчитанный в базовую валюту. Складывать `account.balance` на клиенте
+   * нельзя: у счетов разные валюты, а цифра должна соответствовать периоду.
+   */
+  const balanceOverview = useApiQuery(
+    () => accountsApi.getTotalBalance({ startDate, endDate }),
+    [startDate, endDate],
+  )
+  const totalBalance = balanceOverview.data?.total ?? 0
+
+  /* Тариф: от него зависит, показывать премиум-виджет или кнопку апгрейда */
+  const entitlementsQuery = useEntitlements()
+  const entitlements = entitlementsQuery.data
+  const isPremium = entitlements?.advanced_analytics === true
+
+  /** «Характер расходов»: главная категория, средний день и самый затратный день */
+  const premiumStats = useMemo(() => {
+    const top = segments[0]
+    const expenseTotal = totals?.expense ?? 0
+    const topShare = top && expenseTotal > 0 ? (Math.abs(top.value) / expenseTotal) * 100 : null
+
+    const start = new Date(startDate).getTime()
+    const end = new Date(endDate).getTime()
+    const days = Number.isFinite(start) && Number.isFinite(end) && end >= start
+      ? Math.round((end - start) / 86_400_000) + 1
+      : 1
+    const avgPerDay = expenseTotal > 0 ? expenseTotal / Math.max(1, days) : 0
+
+    const busiest = cashflowPoints.reduce(
+      (worst, point) => (Math.abs(point.expense) > Math.abs(worst.expense) ? point : worst),
+      { label: '', income: 0, expense: 0 },
+    )
+
+    return {
+      topCategory: top?.name ?? null,
+      topShare,
+      avgPerDay,
+      busiestDay: busiest.expense !== 0 ? busiest.label : null,
+      busiestDayValue: Math.abs(busiest.expense),
+    }
+  }, [segments, totals, cashflowPoints, startDate, endDate])
 
   /* Сравнение периодов: тот же денежный поток, но за предыдущий месяц */
   const previousBounds = monthBounds(monthOffset - 1)
@@ -176,7 +243,7 @@ export function DashboardPage() {
       {/* Тулбар месяца */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <PeriodPicker
-          label={range ? rangeLabel : monthLabel}
+          label={range ? rangeLabel : defaultLabel}
           range={range}
           onRangeChange={setRange}
           defaultMonth={bounds.month}
@@ -432,9 +499,9 @@ export function DashboardPage() {
           )}
         </Card>
 
-        {/* Премиум-виджет */}
+        {/* Премиум-виджет: содержимое зависит от тарифа */}
         <Card className="lg:col-span-3">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-start gap-4">
             <span className="grid size-10 place-items-center rounded-md bg-accent-soft text-accent-on-soft">
               <Sparkles className="size-5" aria-hidden="true" />
             </span>
@@ -443,20 +510,49 @@ export function DashboardPage() {
                 {t('dashboard.spendingCharacter')}
               </h2>
               <p className="text-caption text-fg-secondary">
-                {t('dashboard.upgradePremium')} — {t('dashboard.upgradeHint')}
+                {isPremium
+                  ? `${t('dashboard.premiumPlan')}: ${entitlements?.plan_name ?? ''}`
+                  : `${t('dashboard.upgradePremium')} — ${t('dashboard.upgradeHint')}`}
               </p>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              pill
-              className="ml-auto gap-1.5"
-              onClick={() => setUpgradeOpen(true)}
-            >
-              <Eye className="size-4" aria-hidden="true" />
-              {t('dashboard.upgrade')}
-            </Button>
+            {!isPremium && (
+              <Button
+                variant="primary"
+                size="sm"
+                pill
+                className="ml-auto gap-1.5"
+                onClick={() => setUpgradeOpen(true)}
+              >
+                <Eye className="size-4" aria-hidden="true" />
+                {t('dashboard.upgrade')}
+              </Button>
+            )}
           </div>
+
+          {isPremium && (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.topCategory')}</span>
+                <span className="truncate text-label font-medium text-fg-primary">
+                  {premiumStats.topCategory ?? '—'}
+                </span>
+                <span className="text-caption text-fg-tertiary">
+                  {premiumStats.topShare === null ? '—' : `${premiumStats.topShare.toFixed(0)}%`}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.avgPerDay')}</span>
+                <Amount value={premiumStats.avgPerDay} currency={baseCurrency} size="sm" tone="neutral" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.busiestDay')}</span>
+                <span className="truncate text-label font-medium text-fg-primary">
+                  {premiumStats.busiestDay ?? '—'}
+                </span>
+                <Amount value={premiumStats.busiestDayValue} currency={baseCurrency} size="sm" tone="negative" />
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 

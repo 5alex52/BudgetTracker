@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -74,7 +74,7 @@ const axisProps = {
 
 /* -------------------------------- линейный -------------------------------- */
 
-export function LineChart({
+function LineChartImpl({
   points,
   height = 160,
   color = 'var(--accent)',
@@ -135,7 +135,7 @@ export interface CashflowPoint {
   expense: number
 }
 
-export function BarChart({
+function BarChartImpl({
   points,
   height = 160,
   positiveColor = 'var(--positive)',
@@ -170,7 +170,7 @@ export function BarChart({
 
 /* --------------------------------- кольцо --------------------------------- */
 
-export function DonutChart({
+function DonutChartImpl({
   segments,
   size = 168,
   thickness = 16,
@@ -214,3 +214,13 @@ export function DonutChart({
     </figure>
   )
 }
+
+/*
+ * Кеширование компонентов графика: страница перерисовывается на любое
+ * изменение состояния (фильтры, меню, тосты), а сам график зависит только от
+ * `points`. `memo` отсекает повторный ре-рендер дерева recharts — это самое
+ * дорогое, что есть на «Обзоре» и «Аналитике». Данные при этом не кешируются.
+ */
+export const LineChart = memo(LineChartImpl)
+export const BarChart = memo(BarChartImpl)
+export const DonutChart = memo(DonutChartImpl)

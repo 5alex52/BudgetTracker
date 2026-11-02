@@ -17,7 +17,9 @@ import { SettingsPrivacyPage, SettingsRulesPage, SettingsTagsPage, SettingsTempl
 import { SettingsPaymentsPage } from '../__pages__/SettingsPayments'
 import { AccountDetailPage } from '../__pages__/AccountDetail'
 import { LoginPage } from '../__pages__/Login'
-import { DesignPage } from '../__pages__/Design'
+import { RegisterPage } from '../__pages__/Register'
+import { VerifyEmailPage } from '../__pages__/VerifyEmail'
+import { FeaturesPage } from '../__pages__/Features'
 import { AddRecordDialog } from '../components/records/AddRecordDialog'
 import { RecordDialogProvider } from '../components/records/RecordDialogContext'
 import '../styles/globals.css'
@@ -48,6 +50,9 @@ function App() {
               <RecordDialogProvider value={{ openCreate: openAddRecord, openEdit: openEditRecord }}>
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/verify-email" element={<VerifyEmailPage />} />
+                  <Route path="/features" element={<FeaturesPage />} />
                   <Route path="/" element={guarded(<DashboardPage />)} />
                   <Route path="/accounts" element={guarded(<AccountsPage />)} />
                   <Route path="/accounts/:accountId" element={guarded(<AccountDetailPage />)} />
@@ -62,7 +67,6 @@ function App() {
                   <Route path="/settings/payments" element={guarded(<SettingsPaymentsPage />)} />
                   <Route path="/settings/privacy" element={guarded(<SettingsPrivacyPage />)} />
                   {/* Витрина компонентов: не требует данных и остаётся доступной */}
-                  <Route path="/design" element={<DesignPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
                 <AddRecordDialog

@@ -7,7 +7,6 @@ import { GlassSurface } from '@/components/glass/GlassSurface'
 import { Button } from '@/components/ui/button'
 import { Wordmark } from '@/components/brand/Logo'
 import { UserMenu } from './UserMenu'
-import { ThemeSwitcher } from './Switchers'
 
 /**
  * Плавающая верхняя панель: не на всю ширину, а «капсулой» с отступами,
@@ -53,9 +52,6 @@ export function TopBar({
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <div className="hidden md:block">
-          <ThemeSwitcher compact />
-        </div>
         <Button size="sm" pill onClick={onAddRecord} className="gap-1.5">
           <Plus className="size-4" aria-hidden="true" />
           <span className="hidden sm:inline">{t('nav.addRecord')}</span>

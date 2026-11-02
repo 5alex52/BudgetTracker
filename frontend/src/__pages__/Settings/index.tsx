@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Languages, Palette, SlidersHorizontal, Wallet } from 'lucide-react'
+import { CalendarDays, Languages, SlidersHorizontal, Wallet } from 'lucide-react'
 import { useI18n } from '@/i18n'
-import { useTheme, type ThemeMode } from '@/hooks/useTheme'
 import { ApiError, usersApi } from '@/api'
 import { useAuthStore } from '@/store/auth'
 import { useFinanceStore } from '@/store/finance'
@@ -9,20 +8,21 @@ import { SettingsLayout } from '@/components/settings/SettingsLayout'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
-import { SegmentedControl, Switch } from '@/components/ui/toggles'
+import { Switch } from '@/components/ui/toggles'
 import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
 
 /**
  * «Настройки»: профиль, оформление, язык и базовая валюта.
  *
- * Профиль пишется на сервер через `PATCH /users/me`; тема и язык дублируются
+ * Профиль пишется на сервер через `PATCH /users/me`; язык дублируется
  * в профиле, чтобы настройки переезжали между устройствами, но интерфейс
  * реагирует мгновенно — локально, без ожидания ответа.
+ * Тема выбирается только в выпадающем меню пользователя, а базовая валюта —
+ * только в блоке «Внешний вид»: в форме профиля она была продублирована.
  */
 export function SettingsPage() {
   const { t, locale, setLocale } = useI18n()
-  const { mode, setMode } = useTheme()
   const { toast } = useToast()
 
   const user = useAuthStore((state) => state.user)
@@ -34,6 +34,7 @@ export function SettingsPage() {
   const [lastname, setLastname] = useState('')
   const [email, setEmail] = useState('')
   const [currency, setCurrency] = useState(baseCurrency)
+  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [pending, setPending] = useState(false)
 
   /* Профиль приходит асинхронно: заполняем форму, когда он появился */
@@ -46,6 +47,11 @@ export function SettingsPage() {
 
   useEffect(() => setCurrency(baseCurrency), [baseCurrency])
 
+  useEffect(() => {
+    const saved = user?.default_period
+    if (saved === 'day' || saved === 'week' || saved === 'month') setPeriod(saved)
+  }, [user])
+
   const save = async () => {
     setPending(true)
     try {
@@ -53,12 +59,9 @@ export function SettingsPage() {
         firstname: firstname.trim(),
         lastname: lastname.trim(),
         email: email.trim(),
-        base_currency: currency,
       })
       setUser(updated)
       toast({ title: t('profile.saved'), tone: 'success' })
-      // Базовая валюта влияет на суммы в аналитике — перечитываем курсы
-      await useFinanceStore.getState().reloadRates()
     } catch (caught) {
       toast({
         title: t('profile.saveFailed'),
@@ -75,9 +78,41 @@ export function SettingsPage() {
     void usersApi.updateProfile({ locale: next }).catch(() => undefined)
   }
 
-  const changeTheme = (next: ThemeMode) => {
-    setMode(next)
-    void usersApi.updateProfile({ theme: next }).catch(() => undefined)
+  /* Базовая валюта из блока «Внешний вид» сохраняется сразу: без кнопки «Обновить» */
+  const changeCurrency = async (next: string) => {
+    if (next === currency) return
+    setCurrency(next)
+    try {
+      const updated = await usersApi.updateProfile({ base_currency: next })
+      setUser(updated)
+      // От базовой валюты зависят суммы в аналитике — перечитываем курсы
+      await useFinanceStore.getState().reloadRates()
+      toast({ title: t('profile.saved'), tone: 'success' })
+    } catch (caught) {
+      setCurrency(baseCurrency)
+      toast({
+        title: t('profile.saveFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
+  }
+
+  /* Базовый период тоже сохраняется сразу: от него зависят «Обзор» и «Аналитика» */
+  const changePeriod = async (next: 'day' | 'week' | 'month') => {
+    if (next === period) return
+    setPeriod(next)
+    try {
+      const updated = await usersApi.updateProfile({ default_period: next })
+      setUser(updated)
+      toast({ title: t('profile.saved'), tone: 'success' })
+    } catch (caught) {
+      toast({
+        title: t('profile.saveFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
   }
 
   return (
@@ -101,17 +136,6 @@ export function SettingsPage() {
             <Field label={t('settings.email')} className="sm:col-span-2">
               <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
             </Field>
-            <Field label={t('profile.baseCurrency')} hint={t('settings.baseCurrencyHint')}>
-              <FilterSelect
-                ariaLabel={t('profile.baseCurrency')}
-                value={currency}
-                onValueChange={setCurrency}
-                options={rates.map((rate) => ({
-                  value: rate.code,
-                  label: `${rate.code} · ${rate.name}`,
-                }))}
-              />
-            </Field>
             <div className="flex items-end sm:col-span-2">
               <Button type="submit" disabled={pending || !email.trim()}>
                 {pending ? t('state.saving') : t('settings.update')}
@@ -123,20 +147,6 @@ export function SettingsPage() {
         <Card>
           <CardHeader title={t('settings.appearance')} subtitle={t('settings.language')} />
           <div className="mt-4 space-y-4">
-            <SettingRow label={t('settings.appearance')} icon={<Palette className="size-4" />}>
-              <SegmentedControl
-                className="[&>*]:px-2.5 [&>*]:text-caption sm:[&>*]:px-3 sm:[&>*]:text-label"
-                aria-label={t('settings.appearance')}
-                value={mode}
-                onValueChange={(value) => changeTheme(value as ThemeMode)}
-                items={[
-                  { value: 'system', label: t('settings.appearance.system') },
-                  { value: 'light', label: t('settings.appearance.light') },
-                  { value: 'dark', label: t('settings.appearance.dark') },
-                ]}
-              />
-            </SettingRow>
-
             <SettingRow label={t('settings.language')} icon={<Languages className="size-4" />}>
               <div className="w-44">
                 <FilterSelect
@@ -156,8 +166,26 @@ export function SettingsPage() {
                 <FilterSelect
                   ariaLabel={t('profile.baseCurrency')}
                   value={currency}
-                  onValueChange={setCurrency}
-                  options={rates.map((rate) => ({ value: rate.code, label: rate.code }))}
+                  onValueChange={(next) => void changeCurrency(next)}
+                  options={rates.map((rate) => ({
+                    value: rate.code,
+                    label: `${rate.code} · ${rate.name}`,
+                  }))}
+                />
+              </div>
+            </SettingRow>
+
+            <SettingRow label={t('settings.defaultPeriod')} icon={<CalendarDays className="size-4" />}>
+              <div className="w-44">
+                <FilterSelect
+                  ariaLabel={t('settings.defaultPeriod')}
+                  value={period}
+                  onValueChange={(value) => void changePeriod(value as 'day' | 'week' | 'month')}
+                  options={[
+                    { value: 'day', label: t('settings.periodDay') },
+                    { value: 'week', label: t('settings.periodWeek') },
+                    { value: 'month', label: t('settings.periodMonth') },
+                  ]}
                 />
               </div>
             </SettingRow>

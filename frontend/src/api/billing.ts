@@ -2,6 +2,7 @@
 import { request } from './client'
 import type {
   CheckoutSessionDto,
+  EntitlementsDto,
   PaymentDto,
   PaymentMethodDto,
   PlanDto,
@@ -19,6 +20,11 @@ export function listProviders(): Promise<ProviderInfoDto[]> {
 
 export function getSubscription(): Promise<SubscriptionDto> {
   return request<SubscriptionDto>('/billing/subscription')
+}
+
+/** Лимиты тарифа: сколько счетов можно, доступны ли валюты и премиум-виджеты. */
+export function getEntitlements(): Promise<EntitlementsDto> {
+  return request<EntitlementsDto>('/billing/entitlements')
 }
 
 /** Оформление подписки: mock подтверждает сразу, реальный провайдер вернёт checkout_url. */

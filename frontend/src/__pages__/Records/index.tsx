@@ -115,7 +115,14 @@ export function RecordsPage() {
     return [...map.entries()]
   }, [records])
 
-  const totalAmount = records.reduce((sum, item) => sum + item.amount, 0)
+  /** Итог разбит по валютам: складывать рубли с долларами нельзя */
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, number>()
+    records.forEach((item) => {
+      map.set(item.currency, (map.get(item.currency) ?? 0) + item.amount)
+    })
+    return [...map.entries()].sort((left, right) => Math.abs(right[1]) - Math.abs(left[1]))
+  }, [records])
   const allSelected = records.length > 0 && selected.length === records.length
 
   /** Массовое удаление: сервер принимает список id одним запросом */
@@ -233,9 +240,15 @@ export function RecordsPage() {
               </Button>
             </>
           )}
-          <span className="ml-auto flex items-center gap-1 text-caption text-fg-tertiary">
+          <span className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-fg-tertiary">
             {t('records.total')}:
-            <Amount value={totalAmount} size="sm" tone="neutral" />
+            {totalsByCurrency.length === 0 ? (
+              <Amount value={0} size="sm" tone="neutral" />
+            ) : (
+              totalsByCurrency.map(([currency, value]) => (
+                <Amount key={currency} value={value} currency={currency} size="sm" tone="neutral" />
+              ))
+            )}
           </span>
         </div>
 

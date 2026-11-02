@@ -4,6 +4,7 @@ import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { useAuthStore } from '@/store/auth'
 import { ADMIN_CREDENTIALS, DEMO_CREDENTIALS, DEMO_HINT_ENABLED } from '@/__shared__/constants/demo'
+import { oauthStartUrl } from '@/api/auth'
 import { Wordmark } from '@/components/brand/Logo'
 import { GlassBackdrop } from '@/components/glass/GlassBackdrop'
 import { GlassSurface } from '@/components/glass/GlassSurface'
@@ -38,7 +39,23 @@ export function LoginPage() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const socialClick = () => toast({ title: t('login.socialSoon'), tone: 'info' })
+  /**
+   * Внешний вход: уводим браузер на backend, тот редиректит к провайдеру.
+   * Ключи ещё не выданы — сервер ответит 503, поэтому проверяем доступность
+   * пробным запросом и показываем понятный тост вместо «битой» страницы.
+   */
+  const startOAuth = async (provider: 'google' | 'yandex' | 'github') => {
+    try {
+      const response = await fetch(oauthStartUrl(provider), { redirect: 'manual' })
+      if (response.status === 503) {
+        toast({ title: t('login.oauthUnavailable', { provider }), tone: 'info' })
+        return
+      }
+      window.location.href = oauthStartUrl(provider)
+    } catch {
+      toast({ title: t('login.oauthUnavailable', { provider }), tone: 'info' })
+    }
+  }
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -78,7 +95,7 @@ export function LoginPage() {
             </h1>
             <p className="mt-3 max-w-xl text-body leading-relaxed text-fg-secondary">{t('login.subline')}</p>
             <Link
-              to="/design"
+              to="/features"
               className="mt-3 inline-flex items-center gap-1.5 rounded-xs text-label font-medium text-accent hover:underline"
             >
               {t('login.learnMore')}
@@ -100,28 +117,40 @@ export function LoginPage() {
             <GlassSurface level="lg" className="p-6">
               <h2 className="text-title font-semibold text-fg-primary">{t('login.title')}</h2>
 
-              {/* Соцсети появятся позже: провайдеры не настроены на backend */}
+              {/* Вход через сервисы: Google, Yandex, GitHub */}
               <div className="mt-4 space-y-2">
-                <Button variant="subtle" block className="justify-start gap-2" onClick={socialClick}>
+                <Button
+                  variant="subtle"
+                  block
+                  className="justify-start gap-2"
+                  onClick={() => void startOAuth('google')}
+                >
                   <span className="grid size-5 place-items-center rounded-pill bg-surface-3 text-caption font-semibold">
                     G
                   </span>
                   {t('login.viaGoogle')}
-                  <span className="ml-auto text-caption text-fg-tertiary">{t('common.soon')}</span>
                 </Button>
-                <Button variant="subtle" block className="justify-start gap-2" onClick={socialClick}>
-                  <span className="grid size-5 place-items-center rounded-pill bg-[#1557b0] text-caption font-semibold text-white">
-                    f
+                <Button
+                  variant="subtle"
+                  block
+                  className="justify-start gap-2"
+                  onClick={() => void startOAuth('yandex')}
+                >
+                  <span className="grid size-5 place-items-center rounded-pill bg-[#fc3f1d] text-caption font-semibold text-white">
+                    Я
                   </span>
-                  {t('login.viaFacebook')}
-                  <span className="ml-auto text-caption text-fg-tertiary">{t('common.soon')}</span>
+                  {t('login.viaYandex')}
                 </Button>
-                <Button variant="subtle" block className="justify-start gap-2" onClick={socialClick}>
+                <Button
+                  variant="subtle"
+                  block
+                  className="justify-start gap-2"
+                  onClick={() => void startOAuth('github')}
+                >
                   <span className="grid size-5 place-items-center rounded-pill bg-fg-primary text-caption font-semibold text-bg-base">
-                    A
+                    GH
                   </span>
-                  {t('login.viaApple')}
-                  <span className="ml-auto text-caption text-fg-tertiary">{t('common.soon')}</span>
+                  {t('login.viaGithub')}
                 </Button>
               </div>
 
@@ -178,6 +207,13 @@ export function LoginPage() {
                   {pending ? t('state.loading') : t('login.submit')}
                 </Button>
               </form>
+
+              <p className="mt-3 text-caption text-fg-tertiary">
+                {t('login.noAccount')}{' '}
+                <Link to="/register" className="font-medium text-accent hover:underline">
+                  {t('login.createAccount')}
+                </Link>
+              </p>
 
               <p className="mt-4 text-caption leading-relaxed text-fg-tertiary">
                 {t('login.legal')}{' '}
