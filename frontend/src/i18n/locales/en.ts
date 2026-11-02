@@ -386,6 +386,7 @@ export const en: Translations = {
   'login.signOut': 'Sign out',
 
   // --------------------------- loading and errors --------------------------
+  'api.requestFailed': 'Failed to load data',
   'api.unauthorized': 'Session expired, please sign in again',
   'api.network': 'Server is unavailable, check your connection',
 

@@ -8,6 +8,7 @@ import { useApiQuery } from '@/hooks/useApi'
 import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
 import { AccountCard } from '@/components/data/AccountCard'
+import { QueryError } from '@/components/data/QueryError'
 import { useRecordDialog } from '@/components/records/RecordDialogContext'
 import { PeriodPicker } from '@/components/data/PeriodPicker'
 import { Amount, TrendBadge } from '@/components/data/Amount'
@@ -199,6 +200,12 @@ export function DashboardPage() {
           {t('dashboard.addCard')}
         </Button>
       </div>
+
+      {/* Сбой загрузки: иначе нули в KPI выглядят как настоящие данные */}
+      <QueryError
+        error={summary.error ?? balanceSeries.error ?? cashflowSeries.error ?? expenseStructure.error}
+        className="mb-4"
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Обзор: три KPI + линия остатка */}

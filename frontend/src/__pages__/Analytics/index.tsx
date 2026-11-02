@@ -23,6 +23,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { BarChart, DonutChart, LineChart } from '@/components/charts/charts'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/overlays'
+import { QueryError } from '@/components/data/QueryError'
 
 type TabKey = 'report' | 'balance' | 'cashflow' | 'advanced'
 
@@ -130,6 +131,11 @@ export function AnalyticsPage() {
       </div>
 
       {/* Итоги периода */}
+      <QueryError
+        error={matrix.error ?? summary.error ?? balanceSeries.error ?? cashflowSeries.error ?? expenseStructure.error}
+        className="mb-4"
+      />
+
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryTile
           label={t('analytics.totalIncome')}

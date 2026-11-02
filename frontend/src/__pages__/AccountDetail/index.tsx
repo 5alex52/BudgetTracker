@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/overlays'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
+import { QueryError } from '@/components/data/QueryError'
 
 const KIND_LABEL: Record<AccountKind, TranslationKey> = {
   checking: 'accounts.type.checking',
@@ -229,6 +230,8 @@ export function AccountDetailPage() {
       }
     >
       <div className="w-full space-y-4">
+        <QueryError error={recordsQuery.error ?? summary.error ?? balanceSeries.error} />
+
         <Card>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <dl className="grid gap-3 sm:grid-cols-2">

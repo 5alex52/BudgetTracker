@@ -71,29 +71,3 @@ export function useDebounced<T>(value: T, delay = 350): T {
   }, [value, delay])
   return debounced
 }
-
-/** Асинхронное действие с состоянием «выполняется» — для кнопок сохранения. */
-export function useMutation<TArgs extends unknown[], TResult>(
-  action: (...args: TArgs) => Promise<TResult>,
-): { run: (...args: TArgs) => Promise<TResult | null>; pending: boolean; error: ApiError | null } {
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<ApiError | null>(null)
-
-  const run = useCallback(
-    async (...args: TArgs) => {
-      setPending(true)
-      setError(null)
-      try {
-        return await action(...args)
-      } catch (caught) {
-        setError(caught instanceof ApiError ? caught : new ApiError(0, String(caught)))
-        return null
-      } finally {
-        setPending(false)
-      }
-    },
-    [action],
-  )
-
-  return { run, pending, error }
-}
