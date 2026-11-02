@@ -40,6 +40,25 @@ docker compose up --build
 
 Исходники примонтированы томами, поэтому правки в `backend/` и `frontend/` подхватываются без пересборки.
 
+### Демо-данные
+
+Пустая база выглядит как сломанный интерфейс: нет счетов, категорий и записей.
+Один скрипт создаёт готовый набор — проверенного пользователя, 6 счетов,
+25 категорий, 4 метки, 387 записей за полгода, шаблоны и правила:
+
+```bash
+cd backend
+python -m scripts.seed_demo            # создать (повторный запуск обновит данные)
+python -m scripts.seed_demo --reset    # удалить данные пользователя и засеять заново
+```
+
+Логин и пароль по умолчанию печатает сам скрипт; их можно переопределить
+переменными `DEMO_USER_EMAIL` и `DEMO_USER_PASSWORD`. В dev-сборке фронтенд
+показывает эти данные прямо под формой входа (см. `frontend/src/__shared__/constants/demo.ts`).
+
+Пользователь сразу `is_verified`, иначе вход запрещён: обычная регистрация требует
+подтверждения почты, а для неё нужны Redis и настроенный отправитель писем.
+
 ### Полезные команды
 
 ```bash
@@ -138,6 +157,51 @@ POSTGRES_HOST=127.0.0.1 TEST_POSTGRES_HOST=127.0.0.1 python -m pytest tests -q
 
 Тесты создают и удаляют собственные БД, поэтому нужен доступ к серверу PostgreSQL.
 
+## Как фронтенд работает с API
+
+Всё, что видно на экранах, приходит с backend — мок-данные остались только на
+витрине компонентов `/design`. Слой доступа разложен по трём уровням:
+
+```
+src/api/types.ts     — DTO как в OpenAPI (snake_case, ничего не выдумываем)
+src/api/*.ts         — по модулю на домен: auth, users, accounts, categories,
+                       transactions, currencies, analytics, tags, templates,
+                       rules, billing
+src/api/mappers.ts   — DTO → модель интерфейса (camelCase, знак суммы, подписи осей)
+src/store/*.ts       — zustand: сессия, справочники, список записей
+```
+
+- **Сессия.** JWT лежит в httpOnly-куке `access_token`, поэтому «вошёл или нет»
+  определяется запросом `GET /api/users/me` при старте (`src/app/SessionGate.tsx`).
+  Любой 401 сбрасывает состояние и уводит на `/login` с запоминанием адреса.
+- **Запросы.** `fetch` с `credentials: 'include'`; на 401 клиент зовёт обработчик,
+  на ошибки FastAPI разбирает `{detail}` (в том числе массив ошибок валидации).
+- **Фильтры записей** уходят на сервер целиком: `q`, `account_ids`, `category_ids`,
+  `tag_ids`, `currency_ids`, `types`, `amount_min`, `amount_max`, `sort`.
+  Количество найденного берётся из заголовка `X-Total-Count`.
+- **Справочники** (счета, дерево категорий, метки, шаблоны, правила, курсы)
+  загружаются один раз после входа в `src/store/finance.ts`.
+- **Прокси.** Vite отправляет `/api` на backend (`VITE_API_PROXY_TARGET`,
+  по умолчанию `http://localhost:8000`), поэтому CORS и SameSite-куки
+  в разработке не мешают.
+
+Проверить связку без браузера можно скриптами: `python3 tools/smoke_write.py`
+(создаёт, правит и удаляет запись, метку, шаблон, правило, способ оплаты)
+и `bash tools/smoke-api.sh` (читающие эндпоинты всех экранов).
+
+## Ограничения текущей версии
+
+- **Переводы между счетами** пока не парные: `type=transfer` списывает сумму с
+  одного счёта и не создаёт приход на втором, поэтому в форме записи режим
+  перевода отключён.
+- **Синхронизация с банком** не подключена: поля `is_locked` у счёта и импорта
+  выписок нет, счета ведутся вручную.
+- **Оплата** идёт через провайдера из `BILLING_PROVIDER`; в локальной среде это
+  `mock`, который сразу подтверждает платёж. Провайдер без настроек отвечает 503,
+  а платёж помечается `failed` — тихого отката на mock нет.
+- **Подтверждение почты** требует Redis и отправителя писем; для локальной
+  работы используйте `scripts/seed_demo.py`.
+
 ## Миграции
 
 ```bash
@@ -159,14 +223,17 @@ alembic revision --autogenerate -m "add field"        # новая миграц�
 | Метод | Путь | Назначение |
 | --- | --- | --- |
 | POST | `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/refresh` | аутентификация |
-| GET/PATCH | `/api/users/me` | профиль |
-| CRUD | `/api/finance/accounts` | счета, `GET /api/finance/accounts/balance` — сводный баланс |
-| CRUD | `/api/finance/categories` | категории и подкатегории |
-| CRUD | `/api/finance/transactions` | транзакции, `GET /api/finance/transactions/summary` — аналитика |
-| CRUD | `/api/finance/subscriptions` | подписки, `GET .../upcoming`, `POST .../{id}/advance` |
+| GET/PATCH | `/api/users/me` | профиль, `GET .../export`, `DELETE .../me` |
+| CRUD | `/api/finance/accounts` | счета, `GET .../balance`, `GET .../{id}/summary` |
+| CRUD | `/api/finance/categories` | категории, `GET .../tree`, `GET .../stats` |
+| CRUD | `/api/finance/transactions` | записи, `.../summary`, `.../export`, `.../bulk-delete` |
+| CRUD | `/api/finance/tags`, `.../templates`, `.../rules` | метки, шаблоны, правила авто-категоризации |
+| PUT/DELETE | `/api/finance/currencies/{code}/rate` | личный курс валюты пользователя |
 | GET | `/api/finance/currencies` | справочник валют (публично); изменение — только суперпользователь |
+| GET | `/api/analytics/{summary,timeseries,by-category,by-account,matrix}` | аналитика (отдельное приложение) |
+| GET/POST/DELETE | `/api/billing/{plans,providers,subscription,payment-methods,payments}` | тарифы и оплата |
 
-Полное описание: http://localhost:8000/docs.
+Полное описание: http://localhost:8000/docs, подробности по контракту — `backend/docs/API.md`.
 
 ## Структура проекта
 
@@ -186,19 +253,25 @@ BudgetTracker/
 │   │   ├── database.py         # движок и сессии
 │   │   ├── dao.py / service.py / viewset.py / permissions.py   # общий каркас слоёв
 │   │   ├── users/              # домен пользователей (эталон архитектуры)
-│   │   ├── finance/            # финансовый домен
+│   │   ├── finance/            # счета, категории, записи, метки, шаблоны, правила
+│   │   ├── analytics/          # отдельное приложение аналитики (§8)
+│   │   ├── billing/            # тарифы, подписка, платежи, провайдеры
 │   │   ├── notifications/      # отправка уведомлений (email/telegram, заглушки)
 │   │   └── migrations/         # alembic env.py и версии миграций
-│   └── tests/                  # pytest: users/, finance/
+│   ├── scripts/seed_demo.py    # демо-данные для локальной разработки
+│   ├── docs/API.md             # контракт API и решения по эндпоинтам
+│   └── tests/                  # pytest: users/, finance/, analytics/, billing/
 └── frontend/
     ├── Dockerfile              # стадии: deps -> development / build -> production (nginx)
     ├── nginx.conf              # SPA + проксирование /api
     ├── vite.config.ts          # алиасы, dev-прокси, порт
     └── src/
-        ├── app/                # точка входа, роутинг
+        ├── app/                # точка входа, роутинг, проверка сессии
+        ├── api/                # DTO, модули эндпоинтов, мапперы
+        ├── store/              # zustand: сессия, справочники, записи
         ├── __pages__/          # страницы
-        ├── __widgets__/        # переиспользуемые UI-компоненты
-        └── __shared__/         # типы и утилиты
+        ├── components/         # переиспользуемые UI-компоненты
+        └── __shared__/         # общие типы, утилиты, демо-константы
 ```
 
 ## Возможности
