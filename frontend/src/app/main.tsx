@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from '../hooks/useTheme'
 import { I18nProvider } from '../i18n'
 import { AppRoot } from './AppRoot'
+import { RequireAuth, SessionGate } from './SessionGate'
 import { DashboardPage } from '../__pages__/Dashboard'
 import { AccountsPage } from '../__pages__/Accounts'
 import { RecordsPage } from '../__pages__/Records'
-import type { RecordItem } from '@/__shared__/mock/finance'
+import type { RecordItem } from '@/__shared__/types/models'
 import { AnalyticsPage } from '../__pages__/Analytics'
 import { SettingsPage } from '../__pages__/Settings'
 import { SettingsCurrenciesPage } from '../__pages__/SettingsCurrencies'
@@ -35,39 +36,45 @@ function App() {
     setAddOpen(true)
   }
 
+  /** Рабочие экраны — только после входа: сессия проверяется один раз в SessionGate. */
+  const guarded = (page: ReactNode) => <RequireAuth>{page}</RequireAuth>
+
   return (
     <ThemeProvider>
       <I18nProvider>
         <BrowserRouter>
           <AppRoot>
-            <RecordDialogProvider value={{ openCreate: openAddRecord, openEdit: openEditRecord }}>
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/accounts" element={<AccountsPage />} />
-              <Route path="/accounts/:accountId" element={<AccountDetailPage />} />
-              <Route path="/records" element={<RecordsPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/settings/currencies" element={<SettingsCurrenciesPage />} />
-              <Route path="/settings/categories" element={<SettingsCategoriesPage />} />
-              <Route path="/settings/templates" element={<SettingsTemplatesPage />} />
-              <Route path="/settings/tags" element={<SettingsTagsPage />} />
-              <Route path="/settings/rules" element={<SettingsRulesPage />} />
-              <Route path="/settings/payments" element={<SettingsPaymentsPage />} />
-              <Route path="/settings/privacy" element={<SettingsPrivacyPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/design" element={<DesignPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            </RecordDialogProvider>
-            <AddRecordDialog
-          open={addOpen}
-          onOpenChange={(next) => {
-            setAddOpen(next)
-            if (!next) setEditingRecord(null)
-          }}
-          record={editingRecord}
-        />
+            <SessionGate>
+              <RecordDialogProvider value={{ openCreate: openAddRecord, openEdit: openEditRecord }}>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/" element={guarded(<DashboardPage />)} />
+                  <Route path="/accounts" element={guarded(<AccountsPage />)} />
+                  <Route path="/accounts/:accountId" element={guarded(<AccountDetailPage />)} />
+                  <Route path="/records" element={guarded(<RecordsPage />)} />
+                  <Route path="/analytics" element={guarded(<AnalyticsPage />)} />
+                  <Route path="/settings" element={guarded(<SettingsPage />)} />
+                  <Route path="/settings/currencies" element={guarded(<SettingsCurrenciesPage />)} />
+                  <Route path="/settings/categories" element={guarded(<SettingsCategoriesPage />)} />
+                  <Route path="/settings/templates" element={guarded(<SettingsTemplatesPage />)} />
+                  <Route path="/settings/tags" element={guarded(<SettingsTagsPage />)} />
+                  <Route path="/settings/rules" element={guarded(<SettingsRulesPage />)} />
+                  <Route path="/settings/payments" element={guarded(<SettingsPaymentsPage />)} />
+                  <Route path="/settings/privacy" element={guarded(<SettingsPrivacyPage />)} />
+                  {/* Витрина компонентов: не требует данных и остаётся доступной */}
+                  <Route path="/design" element={<DesignPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+                <AddRecordDialog
+                  open={addOpen}
+                  onOpenChange={(next) => {
+                    setAddOpen(next)
+                    if (!next) setEditingRecord(null)
+                  }}
+                  record={editingRecord}
+                />
+              </RecordDialogProvider>
+            </SessionGate>
           </AppRoot>
         </BrowserRouter>
       </I18nProvider>
