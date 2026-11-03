@@ -42,20 +42,14 @@ class StripePaymentProvider(PaymentProvider):
 
     async def confirm(self, provider_reference: str) -> PaymentResult:
         # При подключении: stripe.checkout.Session.retrieve(provider_reference)
-        raise NotImplementedError(
-            "Stripe не подключён: confirm через stripe.checkout.Session.retrieve"
-        )
+        raise NotImplementedError("Stripe не подключён: confirm через stripe.checkout.Session.retrieve")
 
     async def attach_method(self, *, user_id, token=None) -> AttachedMethod:
         # При подключении: stripe.PaymentMethod.attach(token, customer=...) + сохранение id
-        raise NotImplementedError(
-            "Stripe не подключён: attach_method через stripe.PaymentMethod.attach"
-        )
+        raise NotImplementedError("Stripe не подключён: attach_method через stripe.PaymentMethod.attach")
 
     async def refund(self, provider_reference: str) -> PaymentResult:
-        raise NotImplementedError(
-            "Stripe не подключён: refund через stripe.Refund.create"
-        )
+        raise NotImplementedError("Stripe не подключён: refund через stripe.Refund.create")
 
     def verify_webhook(self, payload: bytes, signature: Optional[str]) -> bool:
         # При подключении: stripe.Webhook.construct_event(payload, signature, settings.STRIPE_WEBHOOK_SECRET)

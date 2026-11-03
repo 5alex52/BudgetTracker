@@ -40,6 +40,7 @@ from .schemas import TransactionCreate
 from .schemas import TransactionResponse
 from .schemas import TransactionType
 from .service import TransactionService
+from .service import _check_transaction_entitlement
 from .tags import ensure_tags_owned
 
 logger = logging.getLogger(__name__)
@@ -57,9 +58,7 @@ class TemplateDAO:
     model = TemplateModel
 
     @classmethod
-    async def find_all_by_user(
-        cls, session: AsyncSession, user_id: uuid.UUID
-    ) -> List[TemplateModel]:
+    async def find_all_by_user(cls, session: AsyncSession, user_id: uuid.UUID) -> List[TemplateModel]:
         stmt = (
             select(TemplateModel)
             .where(TemplateModel.user_id == user_id)
@@ -72,9 +71,7 @@ class TemplateDAO:
     async def find_one_by_user(
         cls, session: AsyncSession, template_id: int, user_id: uuid.UUID
     ) -> Optional[TemplateModel]:
-        stmt = select(TemplateModel).where(
-            TemplateModel.id == template_id, TemplateModel.user_id == user_id
-        )
+        stmt = select(TemplateModel).where(TemplateModel.id == template_id, TemplateModel.user_id == user_id)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
@@ -89,19 +86,14 @@ class TemplateDAO:
         return [row for row in result.scalars().all()]
 
     @classmethod
-    async def set_tags(
-        cls, session: AsyncSession, template_id: int, tag_ids: Sequence[int]
-    ) -> None:
+    async def set_tags(cls, session: AsyncSession, template_id: int, tag_ids: Sequence[int]) -> None:
         from .models import template_tags as table
 
         await session.execute(delete(table).where(table.c.template_id == template_id))
         if tag_ids:
             await session.execute(
                 insert(table),
-                [
-                    {"template_id": template_id, "tag_id": tag_id}
-                    for tag_id in set(tag_ids)
-                ],
+                [{"template_id": template_id, "tag_id": tag_id} for tag_id in set(tag_ids)],
             )
 
 
@@ -124,19 +116,14 @@ class TemplateService:
         return responses
 
     @classmethod
-    async def _to_response(
-        cls, session: AsyncSession, template: TemplateModel, tag_ids: List[int]
-    ) -> TemplateResponse:
+    async def _to_response(cls, session: AsyncSession, template: TemplateModel, tag_ids: List[int]) -> TemplateResponse:
         from .models import TagModel
 
         tags: List[TagInline] = []
         if tag_ids:
             stmt = select(TagModel).where(TagModel.id.in_(tag_ids))
             result = await session.execute(stmt)
-            tags = [
-                TagInline(id=tag.id, name=tag.name, color=tag.color)
-                for tag in result.scalars().all()
-            ]
+            tags = [TagInline(id=tag.id, name=tag.name, color=tag.color) for tag in result.scalars().all()]
         return TemplateResponse(
             id=template.id,
             name=template.name,
@@ -160,7 +147,7 @@ class TemplateService:
     ) -> TemplateResponse:
         maker = session_maker or async_session_maker
         async with maker() as session:
-            await cls._validate_links(session, schema, user_id)
+            await cls._validate_links(session, schema, user_id, session_maker=maker)
             data = schema.model_dump(exclude={"tag_ids"})
             template = TemplateModel(user_id=user_id, **data)
             session.add(template)
@@ -182,9 +169,7 @@ class TemplateService:
             template = await cls.dao.find_one_by_user(session, template_id, user_id)
             if template is None:
                 raise _not_found()
-            return await cls._to_response(
-                session, template, await cls.dao.tag_ids_of(session, template_id)
-            )
+            return await cls._to_response(session, template, await cls.dao.tag_ids_of(session, template_id))
 
     @classmethod
     async def update_for_user(
@@ -202,15 +187,31 @@ class TemplateService:
 
             data = schema.model_dump(exclude_unset=True)
             tag_ids = data.pop("tag_ids", None)
+            # Проверяем итоговое состояние шаблона: частичное обновление не
+            # должно обходить проверки счёта, категории и валюты.
+            await cls._validate_links(
+                session,
+                TemplateCreate(
+                    name=data.get("name", template.name),
+                    type=data.get("type", template.type),
+                    amount=data.get("amount", template.amount),
+                    currency_id=data.get("currency_id", template.currency_id),
+                    account_id=data.get("account_id", template.account_id),
+                    category_id=data.get("category_id", template.category_id),
+                    note=data.get("note", template.note),
+                    icon=data.get("icon", template.icon),
+                    tag_ids=(tag_ids if tag_ids is not None else await cls.dao.tag_ids_of(session, template_id)),
+                ),
+                user_id,
+                session_maker=maker,
+            )
             for field, value in data.items():
                 setattr(template, field, value)
             if tag_ids is not None:
                 await cls.dao.set_tags(session, template_id, tag_ids)
             await session.commit()
             await session.refresh(template)
-            return await cls._to_response(
-                session, template, await cls.dao.tag_ids_of(session, template_id)
-            )
+            return await cls._to_response(session, template, await cls.dao.tag_ids_of(session, template_id))
 
     @classmethod
     async def delete_for_user(
@@ -256,35 +257,36 @@ class TemplateService:
             await session.commit()
 
         # Запись создаётся тем же сервисом, что и обычная: правила и балансы — в одном месте
-        return await TransactionService.create_for_user(
-            schema=transaction_schema, user_id=user_id, session_maker=maker
-        )
+        return await TransactionService.create_for_user(schema=transaction_schema, user_id=user_id, session_maker=maker)
 
     @classmethod
     async def _validate_links(
-        cls, session: AsyncSession, schema: TemplateCreate, user_id: uuid.UUID
+        cls,
+        session: AsyncSession,
+        schema: TemplateCreate,
+        user_id: uuid.UUID,
+        session_maker: Optional[async_sessionmaker] = None,
     ) -> None:
         from .models import AccountModel
         from .models import CategoryModel
 
         account = await session.get(AccountModel, schema.account_id)
         if account is None or account.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown account"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown account")
         category = await session.get(CategoryModel, schema.category_id)
         if category is None or category.user_id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category")
         if schema.type == TransactionType.INCOME and category.type.value != "income":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Category type mismatch"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category type mismatch")
         if schema.type == TransactionType.EXPENSE and category.type.value != "expense":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Category type mismatch"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category type mismatch")
+        await _check_transaction_entitlement(
+            session,
+            user_id,
+            account,
+            schema.currency_id,
+            session_maker=session_maker,
+        )
         await ensure_tags_owned(session, schema.tag_ids, user_id)
 
 
@@ -300,9 +302,7 @@ class TemplateViewSet(BaseViewSet[int, TemplateCreate, TemplateUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[TemplateResponse]:
-        return await cls.service.get_list_by_user(
-            user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_list_by_user(user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="retrieve_template")
@@ -313,9 +313,7 @@ class TemplateViewSet(BaseViewSet[int, TemplateCreate, TemplateUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> TemplateResponse:
-        return await cls.service.get_by_user(
-            template_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_by_user(template_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="create_template")
@@ -326,9 +324,7 @@ class TemplateViewSet(BaseViewSet[int, TemplateCreate, TemplateUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> TemplateResponse:
-        return await cls.service.create_for_user(
-            schema=obj_data, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_template")
@@ -356,9 +352,7 @@ class TemplateViewSet(BaseViewSet[int, TemplateCreate, TemplateUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_for_user(
-            template_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        await cls.service.delete_for_user(template_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="apply_template")
@@ -370,31 +364,23 @@ class TemplateViewSet(BaseViewSet[int, TemplateCreate, TemplateUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> TransactionModel:
-        return await cls.service.apply(
-            template_id=obj_id, user_id=user.id, date=date, session_maker=session_maker
-        )
+        return await cls.service.apply(template_id=obj_id, user_id=user.id, date=date, session_maker=session_maker)
 
 
 templates_router = APIRouter(prefix="/api/finance/templates", tags=["Templates"])
 
 
-@templates_router.get(
-    "/", status_code=status.HTTP_200_OK, response_model=List[TemplateResponse]
-)
+@templates_router.get("/", status_code=status.HTTP_200_OK, response_model=List[TemplateResponse])
 async def list_templates(
     request: Request,
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[TemplateResponse]:
     """Шаблоны быстрого ввода, популярные сверху."""
-    return await TemplateViewSet.list(
-        request=request, user=user, session_maker=session_maker
-    )
+    return await TemplateViewSet.list(request=request, user=user, session_maker=session_maker)
 
 
-@templates_router.post(
-    "/", status_code=status.HTTP_201_CREATED, response_model=TemplateResponse
-)
+@templates_router.post("/", status_code=status.HTTP_201_CREATED, response_model=TemplateResponse)
 async def create_template(
     request: Request,
     user: CurrentUser,
@@ -402,14 +388,10 @@ async def create_template(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TemplateResponse:
     """Новый шаблон; счёт, категория и метки должны принадлежать пользователю."""
-    return await TemplateViewSet.create(
-        request=request, user=user, obj_data=payload, session_maker=session_maker
-    )
+    return await TemplateViewSet.create(request=request, user=user, obj_data=payload, session_maker=session_maker)
 
 
-@templates_router.get(
-    "/{template_id}", status_code=status.HTTP_200_OK, response_model=TemplateResponse
-)
+@templates_router.get("/{template_id}", status_code=status.HTTP_200_OK, response_model=TemplateResponse)
 async def get_template(
     request: Request,
     user: CurrentUser,
@@ -417,14 +399,10 @@ async def get_template(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TemplateResponse:
     """Шаблон по идентификатору."""
-    return await TemplateViewSet.retrieve(
-        request=request, user=user, obj_id=template_id, session_maker=session_maker
-    )
+    return await TemplateViewSet.retrieve(request=request, user=user, obj_id=template_id, session_maker=session_maker)
 
 
-@templates_router.patch(
-    "/{template_id}", status_code=status.HTTP_200_OK, response_model=TemplateResponse
-)
+@templates_router.patch("/{template_id}", status_code=status.HTTP_200_OK, response_model=TemplateResponse)
 async def update_template(
     request: Request,
     user: CurrentUser,
@@ -450,9 +428,7 @@ async def delete_template(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
     """Удаление шаблона; созданные по нему записи остаются."""
-    await TemplateViewSet.delete(
-        request=request, user=user, obj_id=template_id, session_maker=session_maker
-    )
+    await TemplateViewSet.delete(request=request, user=user, obj_id=template_id, session_maker=session_maker)
 
 
 @templates_router.post(

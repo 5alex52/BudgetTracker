@@ -19,6 +19,7 @@ from src.users.schemas import User
 from src.users.schemas import UserCreate
 from src.users.schemas import UserExport
 from src.users.schemas import UserProfileUpdate
+from src.users.schemas import DeviceInfo
 from src.users.schemas import UserUpdate
 from src.users.service import AuthService
 from src.users.service import UserService
@@ -42,9 +43,7 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         obj_data.is_verified = False
         obj_data.is_active = True
         obj_data.is_superuser = False
-        return await super().create(
-            obj_data=obj_data, session_maker=session_maker, **kwargs
-        )
+        return await super().create(obj_data=obj_data, session_maker=session_maker, **kwargs)
 
     @classmethod
     @check_permissions(action="get_profile")
@@ -54,9 +53,7 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> User:
-        return await cls.service.get_profile(
-            user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_profile(user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_profile")
@@ -67,9 +64,7 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> User:
-        return await cls.service.update_profile(
-            user_id=user.id, schema=obj_data, session_maker=session_maker
-        )
+        return await cls.service.update_profile(user_id=user.id, schema=obj_data, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="change_password")
@@ -80,9 +75,7 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.change_password(
-            user_id=user.id, schema=obj_data, session_maker=session_maker
-        )
+        await cls.service.change_password(user_id=user.id, schema=obj_data, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="export_data")
@@ -92,9 +85,7 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> UserExport:
-        return await cls.service.export_data(
-            user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.export_data(user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="delete_own_account")
@@ -105,9 +96,7 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_own_account(
-            user_id=user.id, schema=obj_data, session_maker=session_maker
-        )
+        await cls.service.delete_own_account(user_id=user.id, schema=obj_data, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="send_verification_email")
@@ -117,19 +106,18 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         request: Request,
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
     ) -> dict:
-        return await cls.service.send_verification_email(
-            user_email, request.base_url, session_maker
-        )
+        return await cls.service.send_verification_email(user_email, request.base_url, session_maker)
 
     @classmethod
     @check_permissions(action="verify_email")
     async def verify_email(
         cls,
         token: str,
+        device_info: DeviceInfo = None,
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
-    ) -> dict:
-        await UserService.verify_email(token, session_maker)
-        return {"message": "Email successfully verified"}
+    ) -> Optional[Token]:
+        result = await UserService.verify_email(token, session_maker, device_info)
+        return result
 
 
 class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
@@ -198,9 +186,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token not found",
             )
-        new_token = await cls.service.refresh_token(
-            uuid.UUID(refresh_token), session_maker
-        )
+        new_token = await cls.service.refresh_token(uuid.UUID(refresh_token), session_maker)
 
         response.set_cookie(
             "access_token",

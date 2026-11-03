@@ -13,9 +13,7 @@ class BaseNotifier(ABC):
     channel: str = "base"
 
     @abstractmethod
-    async def send(
-        self, recipient: str, subject: Optional[str], message: str, **kwargs
-    ) -> bool:
+    async def send(self, recipient: str, subject: Optional[str], message: str, **kwargs) -> bool:
         """Delivers a message to the recipient and returns True on success."""
         raise NotImplementedError
 
@@ -29,9 +27,7 @@ class EmailNotifier(BaseNotifier):
 
     channel = "email"
 
-    async def send(
-        self, recipient: str, subject: Optional[str], message: str, **kwargs
-    ) -> bool:
+    async def send(self, recipient: str, subject: Optional[str], message: str, **kwargs) -> bool:
         await self.deliver(recipient=recipient, subject=subject or "", message=message)
         return True
 
@@ -44,9 +40,7 @@ class TelegramNotifier(BaseNotifier):
 
     channel = "telegram"
 
-    async def send(
-        self, recipient: str, subject: Optional[str], message: str, **kwargs
-    ) -> bool:
+    async def send(self, recipient: str, subject: Optional[str], message: str, **kwargs) -> bool:
         await self.deliver(chat_id=recipient, message=message)
         return True
 
@@ -75,6 +69,4 @@ async def send_notification(
     notifier = NOTIFIERS.get(channel)
     if notifier is None:
         raise ValueError(f"Unknown notification channel: {channel}")
-    return await notifier.send(
-        recipient=recipient, subject=subject, message=message, **kwargs
-    )
+    return await notifier.send(recipient=recipient, subject=subject, message=message, **kwargs)

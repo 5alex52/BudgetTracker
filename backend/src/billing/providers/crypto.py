@@ -31,21 +31,15 @@ class CryptoPaymentProvider(PaymentProvider):
     ) -> CheckoutSession:
         # При подключении: POST /invoice {price_amount, price_currency, order_id, success_url}
         # → ответ содержит invoice_url и id инвойса
-        raise NotImplementedError(
-            "Крипто-провайдер не подключён: задайте CRYPTO_API_KEY и реализуйте создание инвойса"
-        )
+        raise NotImplementedError("Крипто-провайдер не подключён: задайте CRYPTO_API_KEY и реализуйте создание инвойса")
 
     async def confirm(self, provider_reference: str) -> PaymentResult:
         # При подключении: GET /invoice/{id} — статус waiting|confirming|confirmed|failed
-        raise NotImplementedError(
-            "Крипто-провайдер не подключён: confirm через статус инвойса"
-        )
+        raise NotImplementedError("Крипто-провайдер не подключён: confirm через статус инвойса")
 
     async def attach_method(self, *, user_id, token=None) -> AttachedMethod:
         # У крипты нет «сохранённых карт»: привязка кошелька не поддерживается
-        raise NotImplementedError(
-            "Крипто-провайдер не поддерживает сохранение способа оплаты"
-        )
+        raise NotImplementedError("Крипто-провайдер не поддерживает сохранение способа оплаты")
 
     async def refund(self, provider_reference: str) -> PaymentResult:
         # Возврат в крипте делается вручную через кабинет процессинга

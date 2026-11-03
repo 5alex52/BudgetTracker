@@ -20,9 +20,7 @@ def check_permissions(action: str):
         ):
             permission = BasePermission(request, action)
             await permission(**kwargs)
-            return await func(
-                request=request, session_maker=session_maker, *args, **kwargs
-            )
+            return await func(request=request, session_maker=session_maker, *args, **kwargs)
 
         return wrapper
 

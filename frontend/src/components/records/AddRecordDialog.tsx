@@ -90,8 +90,21 @@ export function AddRecordDialog({
     ])
   }, [availableCategories])
 
+  // На бесплатном тарифе часть счетов заблокирована: новые записи на них
+  // создать нельзя. При редактировании показываем все счета, чтобы запись
+  // можно было перенести на доступный.
+  const selectableAccounts = useMemo(
+    () => accounts.filter((item) => !item.archived && !item.locked),
+    [accounts],
+  )
+  const formAccounts = useMemo(
+    () => (editing && record ? accounts : selectableAccounts),
+    [accounts, editing, record, selectableAccounts],
+  )
+
   const account = accounts.find((item) => item.id === accountId)
   const currency = account?.currency ?? 'BYN'
+  const lockedAccount = Boolean(account?.locked)
 
   useEffect(() => {
     if (!open) return
@@ -111,7 +124,7 @@ export function AddRecordDialog({
 
     setType('expense')
     setAmount('')
-    setAccountId(accounts[0]?.id ?? '')
+    setAccountId(selectableAccounts[0]?.id ?? '')
     setCategoryId('')
     setNote('')
     setDate(new Date().toISOString().slice(0, 10))
@@ -157,7 +170,7 @@ export function AddRecordDialog({
 
   const submit = async () => {
     setTouched(true)
-    if (amountValue === null || !accountId || !categoryId) return
+    if (amountValue === null || !accountId || !categoryId || lockedAccount) return
     setPending(true)
     try {
       const payload = {
@@ -215,7 +228,7 @@ export function AddRecordDialog({
             <Button variant="subtle" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={() => void submit()} disabled={pending}>
+            <Button onClick={() => void submit()} disabled={pending || lockedAccount}>
               {pending ? t('state.saving') : editing ? t('common.save') : t('common.add')}
             </Button>
           </div>
@@ -260,13 +273,14 @@ export function AddRecordDialog({
             <Field
               label={t('recordForm.account')}
               error={accountInvalid ? t('recordForm.required') : undefined}
+              hint={lockedAccount ? t('accounts.lockedHint') : undefined}
               required
             >
               <FilterSelect
                 ariaLabel={t('recordForm.account')}
                 value={accountId}
                 onValueChange={setAccountId}
-                options={accounts.map((item) => ({
+                options={formAccounts.map((item) => ({
                   value: item.id,
                   label: `${item.name} · ${item.currency}`,
                   dotColor: item.tint,

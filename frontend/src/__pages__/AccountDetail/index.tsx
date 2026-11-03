@@ -55,6 +55,7 @@ export function AccountDetailPage() {
   const { accountId } = useParams()
 
   const accounts = useFinanceStore((state) => state.accounts)
+  const baseCurrency = useFinanceStore((state) => state.baseCurrency)
   const deleteAccount = useFinanceStore((state) => state.deleteAccount)
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -220,7 +221,13 @@ export function AccountDetailPage() {
                 <Trash2 className="size-4" aria-hidden="true" />
                 {t('common.delete')}
               </Button>
-              <Button size="sm" onClick={onAddRecord} className="gap-1.5">
+              <Button
+                size="sm"
+                onClick={onAddRecord}
+                disabled={Boolean(account.locked)}
+                title={account.locked ? t('accounts.lockedHint') : undefined}
+                className="gap-1.5"
+              >
                 <Plus className="size-4" aria-hidden="true" />
                 {t('nav.addRecord')}
               </Button>
@@ -273,12 +280,12 @@ export function AccountDetailPage() {
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-pill bg-positive" aria-hidden="true" />
                   {t('dashboard.incomes')}
-                  <Amount value={accountSummary.income} currency={account.currency} size="xs" tone="positive" />
+                  <Amount value={accountSummary.income} currency={baseCurrency} size="xs" tone="positive" />
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-pill bg-negative" aria-hidden="true" />
                   {t('dashboard.expenses')}
-                  <Amount value={-accountSummary.expense} currency={account.currency} size="xs" tone="negative" />
+                  <Amount value={-accountSummary.expense} currency={baseCurrency} size="xs" tone="negative" />
                 </span>
                 <span>
                   {t('records.found', { count: accountSummary.transactions_count })}

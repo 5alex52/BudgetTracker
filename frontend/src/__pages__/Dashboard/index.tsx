@@ -138,9 +138,10 @@ export function DashboardPage() {
   const totals = summary.data
   const change = summary.data?.change
 
-  /** Карточки счетов: исключённые из статистики и архивные не показываем */
+  /** Карточки счетов: архивные не показываем. Исключённые из статистики видны
+ * в списке, но не влияют на цифры — для этого и существует флаг «исключён». */
   const cards = useMemo(
-    () => accounts.filter((account) => !account.excluded && !account.archived).slice(0, 5),
+    () => accounts.filter((account) => !account.archived).slice(0, 5),
     [accounts],
   )
 
@@ -159,6 +160,9 @@ export function DashboardPage() {
   const entitlementsQuery = useEntitlements()
   const entitlements = entitlementsQuery.data
   const isPremium = entitlements?.advanced_analytics === true
+  const maxAccounts = entitlements?.max_accounts ?? null
+  const usedSlots = accounts.filter((account) => !account.archived).length
+  const atAccountLimit = maxAccounts !== null && usedSlots >= maxAccounts
 
   /** «Характер расходов»: главная категория, средний день и самый затратный день */
   const premiumStats = useMemo(() => {
@@ -222,7 +226,9 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={() => setAccountDialogOpen(true)}
-            className="flex h-[50px] items-center justify-center gap-1.5 rounded-md border border-dashed border-stroke-strong text-caption text-fg-tertiary transition-colors hover:border-accent hover:text-accent xl:hidden"
+            disabled={atAccountLimit}
+            title={atAccountLimit ? t('accounts.limitReached', { max: maxAccounts ?? 0 }) : undefined}
+            className="flex h-[50px] items-center justify-center gap-1.5 rounded-md border border-dashed border-stroke-strong text-caption text-fg-tertiary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45 xl:hidden"
           >
             <Plus className="size-3.5" aria-hidden="true" />
             {t('dashboard.addAccount')}
@@ -232,7 +238,9 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={() => setAccountDialogOpen(true)}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-stroke-strong py-3 text-caption text-fg-tertiary transition-colors hover:border-accent hover:text-accent"
+            disabled={atAccountLimit}
+            title={atAccountLimit ? t('accounts.limitReached', { max: maxAccounts ?? 0 }) : undefined}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-stroke-strong py-3 text-caption text-fg-tertiary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
           >
             <Plus className="size-3.5" aria-hidden="true" />
             {t('dashboard.addAccount')}
@@ -262,6 +270,8 @@ export function DashboardPage() {
           pill
           className="gap-1.5"
           onClick={() => setAccountDialogOpen(true)}
+          disabled={atAccountLimit}
+          title={atAccountLimit ? t('accounts.limitReached', { max: maxAccounts ?? 0 }) : undefined}
         >
           <Plus className="size-4" aria-hidden="true" />
           {t('dashboard.addCard')}
@@ -338,17 +348,16 @@ export function DashboardPage() {
           <div className="mt-4 grid grid-cols-3 gap-3">
             {([
               { key: 'balance' as const, label: t('dashboard.balance'), value: totalBalance, currency: baseCurrency },
-              { key: 'cashflow' as const, label: t('dashboard.cashflow'), value: totals?.net ?? 0, currency: '' },
-              { key: 'expenses' as const, label: t('dashboard.expenses'), value: -(totals?.expense ?? 0), currency: '' },
+              { key: 'cashflow' as const, label: t('dashboard.cashflow'), value: totals?.net ?? 0, currency: baseCurrency },
+              { key: 'expenses' as const, label: t('dashboard.expenses'), value: -(totals?.expense ?? 0), currency: baseCurrency },
             ]).filter((item) => !hiddenKpi.includes(item.key)).map((item) => (
               <div key={item.label} className="flex flex-col gap-1">
                 <span className="text-overline uppercase text-fg-tertiary">{item.label}</span>
                 <Amount
                   value={item.value}
-                  currency={item.currency || undefined}
+                  currency={item.currency}
                   size="sm"
                   tone="neutral"
-                  hideDecimals
                 />
               </div>
             ))}
@@ -403,7 +412,7 @@ export function DashboardPage() {
             subtitle={t('dashboard.vsPrevious')}
             actions={
               change?.net !== null && change?.net !== undefined ? (
-                <TrendBadge value={Math.round(change.net)} />
+                <TrendBadge value={change.net} />
               ) : undefined
             }
           />
@@ -427,7 +436,7 @@ export function DashboardPage() {
             subtitle={t('dashboard.vsPrevious')}
             actions={
               change?.income !== null && change?.income !== undefined ? (
-                <TrendBadge value={Math.round(change.income)} />
+                <TrendBadge value={change.income} />
               ) : undefined
             }
           />
@@ -472,7 +481,7 @@ export function DashboardPage() {
                 ariaLabel={t('dashboard.expenseStructure')}
                 center={
                   <span className="flex flex-col items-center">
-                    <Amount value={-(totals?.expense ?? 0)} size="sm" tone="negative" hideDecimals />
+                    <Amount value={-(totals?.expense ?? 0)} size="sm" tone="negative" />
                   </span>
                 }
                 size={132}

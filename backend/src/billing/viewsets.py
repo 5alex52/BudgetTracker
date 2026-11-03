@@ -49,9 +49,7 @@ class BillingViewSet(BaseViewSet[int, PaymentMethodCreate, PaymentMethodCreate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> SubscriptionResponse:
-        return await cls.service.get_subscription(
-            user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_subscription(user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="retrieve_entitlements")
@@ -61,9 +59,7 @@ class BillingViewSet(BaseViewSet[int, PaymentMethodCreate, PaymentMethodCreate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> Entitlements:
-        return await cls.service.get_entitlements(
-            user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_entitlements(user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="change_subscription")
@@ -74,9 +70,7 @@ class BillingViewSet(BaseViewSet[int, PaymentMethodCreate, PaymentMethodCreate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> CheckoutSession:
-        return await cls.service.change_plan(
-            user_id=user.id, request=payload, session_maker=session_maker
-        )
+        return await cls.service.change_plan(user_id=user.id, request=payload, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="cancel_subscription")
@@ -99,9 +93,7 @@ class BillingViewSet(BaseViewSet[int, PaymentMethodCreate, PaymentMethodCreate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[PaymentMethodResponse]:
-        return await cls.service.get_payment_methods(
-            user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_payment_methods(user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="create_payment_method")
@@ -130,9 +122,7 @@ class BillingViewSet(BaseViewSet[int, PaymentMethodCreate, PaymentMethodCreate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_payment_method(
-            user_id=user.id, method_id=obj_id, session_maker=session_maker
-        )
+        await cls.service.delete_payment_method(user_id=user.id, method_id=obj_id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_payment_method")
@@ -157,6 +147,4 @@ class BillingViewSet(BaseViewSet[int, PaymentMethodCreate, PaymentMethodCreate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[PaymentResponse]:
-        return await cls.service.get_payments(
-            user_id=user.id, offset=offset, limit=limit, session_maker=session_maker
-        )
+        return await cls.service.get_payments(user_id=user.id, offset=offset, limit=limit, session_maker=session_maker)

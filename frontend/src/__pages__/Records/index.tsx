@@ -4,6 +4,7 @@ import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import type { RecordItem } from '@/__shared__/types/models'
 import { useRecordsStore } from '@/store/records'
+import { useFinanceStore } from '@/store/finance'
 import { ApiError } from '@/api'
 import { useRecordDialog } from '@/components/records/RecordDialogContext'
 import { readableOnTint } from '@/__shared__/utils/contrast'
@@ -68,7 +69,9 @@ export function RecordsPage() {
   const { t, locale } = useI18n()
 
   const records = useRecordsStore((state) => state.items)
-  const total = useRecordsStore((state) => state.total)
+  const totals = useRecordsStore((state) => state.total)
+  const rates = useFinanceStore((state) => state.rates)
+  const baseCurrency = useFinanceStore((state) => state.baseCurrency)
   const loading = useRecordsStore((state) => state.loading)
   const error = useRecordsStore((state) => state.error)
   const load = useRecordsStore((state) => state.load)
@@ -115,14 +118,16 @@ export function RecordsPage() {
     return [...map.entries()]
   }, [records])
 
-  /** Итог разбит по валютам: складывать рубли с долларами нельзя */
-  const totalsByCurrency = useMemo(() => {
-    const map = new Map<string, number>()
+  /** Итог в базовой валюте: все записи пересчитываются по актуальному курсу */
+  const totalInBase = useMemo(() => {
+    const rateMap = new Map(rates.map((rate) => [rate.code, rate.rate]))
+    let sum = 0
     records.forEach((item) => {
-      map.set(item.currency, (map.get(item.currency) ?? 0) + item.amount)
+      const rate = rateMap.get(item.currency) ?? 1
+      sum += item.amount / rate
     })
-    return [...map.entries()].sort((left, right) => Math.abs(right[1]) - Math.abs(left[1]))
-  }, [records])
+    return sum
+  }, [records, rates])
   const allSelected = records.length > 0 && selected.length === records.length
 
   /** Массовое удаление: сервер принимает список id одним запросом */
@@ -223,7 +228,7 @@ export function RecordsPage() {
             onCheckedChange={(value) => setSelected(value === true ? records.map((item) => item.id) : [])}
             aria-label={t('records.selectAll')}
           />
-          <span className="text-caption text-fg-tertiary">{t('records.found', { count: total })}</span>
+          <span className="text-caption text-fg-tertiary">{t('records.found', { count: totals })}</span>
           {selected.length > 0 && (
             <>
               <span className="text-caption text-accent">
@@ -242,13 +247,7 @@ export function RecordsPage() {
           )}
           <span className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-fg-tertiary">
             {t('records.total')}:
-            {totalsByCurrency.length === 0 ? (
-              <Amount value={0} size="sm" tone="neutral" />
-            ) : (
-              totalsByCurrency.map(([currency, value]) => (
-                <Amount key={currency} value={value} currency={currency} size="sm" tone="neutral" />
-              ))
-            )}
+            <Amount value={totalInBase} currency={baseCurrency} size="sm" tone="neutral" />
           </span>
         </div>
 
@@ -304,7 +303,7 @@ export function RecordsPage() {
         })}
 
         {/* Догрузка: сервер отдаёт страницы по 100 записей */}
-        {records.length < total && (
+        {records.length < totals && (
           <div className="border-t border-stroke-subtle px-4 py-3 text-center">
             <Button
               variant="subtle"

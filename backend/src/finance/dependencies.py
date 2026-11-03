@@ -33,9 +33,7 @@ class TransactionFilters(BaseModel):
 
 def get_pagination(
     offset: int = Query(0, ge=0, description="Сколько записей пропустить"),
-    limit: int = Query(
-        100, ge=1, le=500, description="Максимальное количество записей"
-    ),
+    limit: int = Query(100, ge=1, le=500, description="Максимальное количество записей"),
 ) -> PaginationParams:
     """Pagination dependency."""
     return PaginationParams(offset=offset, limit=limit)
@@ -44,9 +42,7 @@ def get_pagination(
 def get_transaction_filters(
     account_id: Optional[int] = Query(None, description="Фильтр по счету"),
     category_id: Optional[int] = Query(None, description="Фильтр по категории"),
-    transaction_type: Optional[TransactionType] = Query(
-        None, description="Тип транзакции"
-    ),
+    transaction_type: Optional[TransactionType] = Query(None, description="Тип транзакции"),
     start_date: Optional[datetime] = Query(None, description="Начало периода"),
     end_date: Optional[datetime] = Query(None, description="Конец периода"),
 ) -> TransactionFilters:

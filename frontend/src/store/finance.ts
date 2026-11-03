@@ -199,8 +199,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       saveAccountTint(account.id, tint)
       account.tint = tint
     }
-    set((state) => ({ accounts: [...state.accounts, account] }))
-    return account
+    // Перезагружаем список целиком: создание меняет лимит и блокировки
+    // остальных счетов на бесплатном тарифе.
+    await get().reloadAccounts()
+    return get().accountById(account.id) ?? account
   },
 
   updateAccount: async (id, payload, tint) => {
@@ -210,15 +212,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       saveAccountTint(account.id, tint)
       account.tint = tint
     }
-    set((state) => ({
-      accounts: state.accounts.map((item) => (item.id === account.id ? account : item)),
-    }))
-    return account
+    // Архивация/смена валюты пересчитывает блокировки всех счетов.
+    await get().reloadAccounts()
+    return get().accountById(account.id) ?? account
   },
 
   deleteAccount: async (id) => {
     await accountsApi.deleteAccount(id)
-    set((state) => ({ accounts: state.accounts.filter((item) => item.id !== String(id)) }))
+    // Удаление освобождает слот бесплатного тарифа для других счетов.
+    await get().reloadAccounts()
   },
 
   createCategory: async (payload) => {

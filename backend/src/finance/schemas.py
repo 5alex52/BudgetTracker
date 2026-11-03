@@ -86,6 +86,9 @@ class AccountResponse(AccountBase):
     user_id: uuid.UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
+    #: Счёт доступен только для чтения: лимит или валюта требуют подписки
+    is_locked: bool = False
+    lock_reason: Optional[str] = None
 
 
 class AccountInline(BaseModel):
@@ -96,6 +99,8 @@ class AccountInline(BaseModel):
     balance: float
     is_archived: bool
     is_excluded: bool = False
+    is_locked: bool = False
+    lock_reason: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -236,14 +241,30 @@ class TransactionSummary(BaseModel):
     end_date: Optional[datetime] = None
 
 
+class BalanceOverviewAccount(BaseModel):
+    """Остаток счёта на конец периода: в своей валюте и в базовой."""
+
+    account_id: int
+    name: str
+    currency_id: str
+    balance: float
+    balance_base: float
+    is_archived: bool = False
+    is_excluded: bool = False
+    is_locked: bool = False
+    lock_reason: Optional[str] = None
+
+
 class BalanceOverview(BaseModel):
     """Общий баланс пользователя.
 
-    Отдаётся только итог в базовой валюте пользователя: остатки по отдельным
-    счетам считаются в своих валютах, и складывать их на клиенте нельзя.
+    ``total`` и ``balance_base`` уже пересчитаны в базовой валюте пользователя
+    по действующим (включая личные) курсам: складывать остатки разных валют на
+    клиенте нельзя.
     """
 
     total: float
+    accounts: List[BalanceOverviewAccount] = Field(default_factory=list)
 
 
 class SubscriptionBase(BaseModel):
@@ -312,6 +333,8 @@ class AccountSummary(BaseModel):
     balance: float
     is_archived: bool = False
     is_excluded: bool = False
+    is_locked: bool = False
+    lock_reason: Optional[str] = None
     income: float
     expense: float
     net: float

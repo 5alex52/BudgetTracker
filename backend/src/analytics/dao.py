@@ -21,6 +21,7 @@ from src.finance.models import AccountModel
 from src.finance.models import CategoryModel
 from src.finance.models import CurrencyModel
 from src.finance.models import TransactionModel
+from src.finance.models import UserCurrencyRateModel
 from src.finance.schemas import CategoryType
 from src.finance.schemas import TransactionType
 from src.users.models import UserModel
@@ -58,6 +59,24 @@ class AnalyticsDAO:
         return float(rate) if rate and rate > 0 else 1.0
 
     @classmethod
+    def _effective_rate(cls, user_id, currency_code_column):
+        """Курс валюты с учётом личного курса пользователя.
+
+        В справочнике лежит курс относительно USD, но пользователь может задать
+        свой курс. Для всех агрегатов важен именно личный курс: иначе итоги на
+        экране «Аналитика» расходятся с настройками валют.
+        """
+        override = (
+            select(UserCurrencyRateModel.rate)
+            .where(
+                UserCurrencyRateModel.user_id == user_id,
+                UserCurrencyRateModel.code == currency_code_column,
+            )
+            .scalar_subquery()
+        )
+        return func.coalesce(override, CurrencyModel.exchange_rate_to_base)
+
+    @classmethod
     def _statistics_condition(cls) -> tuple:
         """Условия «участвует в статистике»: счёт не исключён и запись не скрыта правилом."""
         return (
@@ -79,9 +98,8 @@ class AnalyticsDAO:
     ) -> Select:
         """Плоский срез записей пользователя с уже посчитанной суммой в базовой валюте."""
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
-        amount_base = (
-            TransactionModel.amount * CurrencyModel.exchange_rate_to_base / divisor
-        )
+        rate = cls._effective_rate(user_id, CurrencyModel.code)
+        amount_base = TransactionModel.amount * rate / divisor
         signed = case(
             (TransactionModel.type == TransactionType.INCOME, TransactionModel.amount),
             else_=-TransactionModel.amount,
@@ -103,15 +121,18 @@ class AnalyticsDAO:
                 CategoryModel.parent_id.label("category_parent_id"),
                 CategoryModel.type.label("category_type"),
                 amount_base.label("amount_base"),
-                (signed * CurrencyModel.exchange_rate_to_base / divisor).label(
-                    "signed_base"
-                ),
+                (signed * rate / divisor).label("signed_base"),
             )
             .select_from(TransactionModel)
             .join(AccountModel, TransactionModel.account_id == AccountModel.id)
             .join(CategoryModel, TransactionModel.category_id == CategoryModel.id)
             .join(CurrencyModel, TransactionModel.currency_id == CurrencyModel.code)
-            .where(AccountModel.user_id == user_id)
+            .where(
+                AccountModel.user_id == user_id,
+                # Переводы не доход и не расход: они не должны попадать в
+                # структуру расходов, KPI и счётчик записей аналитики.
+                TransactionModel.type != TransactionType.TRANSFER,
+            )
         )
         if only_statistics:
             stmt = stmt.where(*cls._statistics_condition())
@@ -120,9 +141,7 @@ class AnalyticsDAO:
         if end_date is not None:
             stmt = stmt.where(TransactionModel.date <= end_date)
         if category_type is not None:
-            stmt = stmt.where(
-                TransactionModel.type == TransactionType(category_type.value)
-            )
+            stmt = stmt.where(TransactionModel.type == TransactionType(category_type.value))
         if category_ids:
             stmt = stmt.where(TransactionModel.category_id.in_(list(category_ids)))
         if account_ids:
@@ -134,14 +153,11 @@ class AnalyticsDAO:
         """Сумма балансов счетов в базовой валюте — точка отсчёта для графика остатка."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
+        rate = cls._effective_rate(user_id, CurrencyModel.code)
         stmt = (
             select(
                 func.coalesce(
-                    func.sum(
-                        AccountModel.balance
-                        * CurrencyModel.exchange_rate_to_base
-                        / divisor
-                    ),
+                    func.sum(AccountModel.balance * rate / divisor),
                     0.0,
                 )
             )
@@ -149,7 +165,9 @@ class AnalyticsDAO:
             .join(CurrencyModel, AccountModel.currency_id == CurrencyModel.code)
             .where(
                 AccountModel.user_id == user_id,
-                AccountModel.is_archived.is_(False),
+                # Архивные счета участвуют в статистике — пользователь может
+                # посмотреть итоги за любой период. Исключённые из статистики
+                # не влияют ни на баланс, ни на обороты.
                 AccountModel.is_excluded.is_(False),
             )
         )
@@ -203,17 +221,14 @@ class AnalyticsDAO:
         """Доходы и расходы по дням/неделям/месяцам."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
+        rate = cls._effective_rate(user_id, CurrencyModel.code)
         when = func.date_trunc(group_by, TransactionModel.date).label("bucket")
         stmt = (
             select(
                 when,
                 TransactionModel.type.label("type"),
                 func.coalesce(
-                    func.sum(
-                        TransactionModel.amount
-                        * CurrencyModel.exchange_rate_to_base
-                        / divisor
-                    ),
+                    func.sum(TransactionModel.amount * rate / divisor),
                     0.0,
                 ).label("total"),
             )
@@ -222,7 +237,10 @@ class AnalyticsDAO:
             .select_from(TransactionModel)
             .join(AccountModel, TransactionModel.account_id == AccountModel.id)
             .join(CurrencyModel, TransactionModel.currency_id == CurrencyModel.code)
-            .where(AccountModel.user_id == user_id)
+            .where(
+                AccountModel.user_id == user_id,
+                TransactionModel.type != TransactionType.TRANSFER,
+            )
         )
         if only_statistics:
             stmt = stmt.where(*cls._statistics_condition())
@@ -247,6 +265,7 @@ class AnalyticsDAO:
         """Подписанные обороты по бакетам — из них собирается кривая остатка."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
+        rate = cls._effective_rate(user_id, CurrencyModel.code)
         when = func.date_trunc(group_by, TransactionModel.date).label("bucket")
         signed = case(
             (TransactionModel.type == TransactionType.INCOME, TransactionModel.amount),
@@ -256,7 +275,7 @@ class AnalyticsDAO:
             select(
                 when,
                 func.coalesce(
-                    func.sum(signed * CurrencyModel.exchange_rate_to_base / divisor),
+                    func.sum(signed * rate / divisor),
                     0.0,
                 ).label("total"),
             )
@@ -286,6 +305,7 @@ class AnalyticsDAO:
         """Суммарный подписанный оборот после указанного момента."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
+        rate = cls._effective_rate(user_id, CurrencyModel.code)
         signed = case(
             (TransactionModel.type == TransactionType.INCOME, TransactionModel.amount),
             else_=-TransactionModel.amount,
@@ -293,7 +313,7 @@ class AnalyticsDAO:
         stmt = (
             select(
                 func.coalesce(
-                    func.sum(signed * CurrencyModel.exchange_rate_to_base / divisor),
+                    func.sum(signed * rate / divisor),
                     0.0,
                 )
             )
@@ -332,12 +352,8 @@ class AnalyticsDAO:
         count = func.count(scope.c.id).label("count")
 
         if rollup:
-            group_id = func.coalesce(
-                scope.c.category_parent_id, scope.c.category_id
-            ).label("group_id")
-            stmt = (
-                select(group_id, total, count).group_by(group_id).order_by(total.desc())
-            )
+            group_id = func.coalesce(scope.c.category_parent_id, scope.c.category_id).label("group_id")
+            stmt = select(group_id, total, count).group_by(group_id).order_by(total.desc())
         else:
             stmt = (
                 select(
@@ -394,7 +410,7 @@ class AnalyticsDAO:
         expense = func.coalesce(
             func.sum(
                 case(
-                    (scope.c.type != TransactionType.INCOME, scope.c.amount_base),
+                    (scope.c.type == TransactionType.EXPENSE, scope.c.amount_base),
                     else_=0.0,
                 )
             ),
@@ -409,9 +425,7 @@ class AnalyticsDAO:
                 expense.label("expense"),
                 func.count(scope.c.id).label("count"),
             )
-            .group_by(
-                scope.c.account_id, scope.c.account_name, scope.c.account_currency_id
-            )
+            .group_by(scope.c.account_id, scope.c.account_name, scope.c.account_currency_id)
             .order_by(func.sum(scope.c.amount_base).desc())
         )
         result = await session.execute(stmt)
@@ -443,9 +457,7 @@ class AnalyticsDAO:
         ).subquery()
         bucket = func.date_trunc(group_by, scope.c.date).label("bucket")
         group_id = (
-            func.coalesce(scope.c.category_parent_id, scope.c.category_id)
-            if rollup
-            else scope.c.category_id
+            func.coalesce(scope.c.category_parent_id, scope.c.category_id) if rollup else scope.c.category_id
         ).label("group_id")
         stmt = (
             select(

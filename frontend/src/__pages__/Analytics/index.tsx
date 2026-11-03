@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Info } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { CheckCircle2, Info, Sparkles } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import { analyticsApi } from '@/api'
@@ -9,14 +10,16 @@ import {
   toCashflowPoints,
   toDonutSegments,
   toAccountShares,
+  toBarSegments,
 } from '@/api/mappers'
 import { useApiQuery } from '@/hooks/useApi'
+import { useEntitlements } from '@/hooks/useEntitlements'
 import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
 import { Amount, TrendBadge } from '@/components/data/Amount'
 import { Card, CardHeader } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { SegmentedControl } from '@/components/ui/toggles'
+import { Button } from '@/components/ui/button'
 import { PeriodPicker } from '@/components/data/PeriodPicker'
 import { readableOnTint } from '@/__shared__/utils/contrast'
 import { useTheme } from '@/hooks/useTheme'
@@ -38,6 +41,7 @@ type TabKey = 'report' | 'balance' | 'cashflow' | 'advanced'
 export function AnalyticsPage() {
   const { t, locale } = useI18n()
   const { isDark } = useTheme()
+  const navigate = useNavigate()
   const baseCurrency = useFinanceStore((state) => state.baseCurrency)
 
   const [tab, setTab] = useState<TabKey>('report')
@@ -71,15 +75,27 @@ export function AnalyticsPage() {
     () => analyticsApi.getByCategory({ type: 'expense', startDate, endDate }),
     [startDate, endDate],
   )
+  const incomeStructure = useApiQuery(
+    () => analyticsApi.getByCategory({ type: 'income', startDate, endDate }),
+    [startDate, endDate],
+  )
   const accountShares = useApiQuery(() => analyticsApi.getByAccount({ startDate, endDate }), [
     startDate,
     endDate,
   ])
 
-  const report = matrix.data ? toAnalyticsRows(matrix.data) : { months: [], rows: [] }
+  /* Расширенная аналитика (только для подписки) */
+  const isPremium = useEntitlements().data?.advanced_analytics === true
+  const topCategories = isPremium
+    ? useApiQuery(() => analyticsApi.getByCategory({ type: 'expense', startDate, endDate }), [startDate, endDate])
+    : { data: null, loading: false, error: null }
+
+  const report = matrix.data ? toAnalyticsRows(matrix.data, txType) : { months: [], rows: [] }
   const balancePoints = balanceSeries.data ? toBalancePoints(balanceSeries.data, locale) : []
   const cashflowPoints = cashflowSeries.data ? toCashflowPoints(cashflowSeries.data, locale) : []
   const segments = expenseStructure.data ? toDonutSegments(expenseStructure.data.items, 6) : []
+  const incomeSegments = incomeStructure.data ? toBarSegments(incomeStructure.data.items, 6) : []
+  const expenseSegments = expenseStructure.data ? toBarSegments(expenseStructure.data.items, 6) : []
   const shares = accountShares.data ? toAccountShares(accountShares.data.items) : []
 
   const monthLabel = useMemo(
@@ -357,11 +373,170 @@ export function AnalyticsPage() {
       )}
 
       {tab === 'advanced' && (
-        <Card className="p-8 text-center">
-          <p className="text-headline font-semibold text-fg-primary">{t('analytics.tab.advanced')}</p>
-          <p className="mx-auto mt-2 max-w-md text-label text-fg-secondary">{t('dashboard.upgradeHint')}</p>
-          <Button className="mt-4">{t('dashboard.upgradePremium')}</Button>
-        </Card>
+        <div className="space-y-4">
+          {!isPremium && (
+            <Card className="p-6 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-accent/20 to-accent/40">
+                <Sparkles className="h-8 w-8 text-accent" />
+              </div>
+              <h2 className="text-title font-semibold text-fg-primary">{t('analytics.premiumTitle')}</h2>
+              <p className="mt-2 text-label text-fg-secondary">{t('analytics.premiumDescription')}</p>
+              <ul className="mx-auto mt-4 max-w-md space-y-2 text-left text-caption text-fg-secondary">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-positive" />
+                  {t('analytics.premiumFeature1')}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-positive" />
+                  {t('analytics.premiumFeature2')}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-positive" />
+                  {t('analytics.premiumFeature3')}
+                </li>
+              </ul>
+              <Button className="mt-6" onClick={() => navigate('/settings/payments')}>
+                {t('analytics.premiumCta')}
+              </Button>
+            </Card>
+          )}
+
+          {isPremium && (
+            <>
+              {/* Сравнение с предыдущим периодом */}
+              <Card className="p-4">
+                <CardHeader title={t('dashboard.periodComparison')} subtitle={t('dashboard.vsPrevious')} />
+                {totals?.previous ? (
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-overline uppercase text-fg-tertiary">{t('analytics.totalIncome')}</span>
+                      <div className="flex items-baseline gap-2">
+                        <Amount value={totals.income ?? 0} currency={baseCurrency} size="md" tone="positive" />
+                        {typeof change?.income === 'number' && change.income !== 0 && (
+                          <TrendBadge value={change.income} />
+                        )}
+                      </div>
+                      <span className="text-caption text-fg-tertiary">
+                        {t('analytics.vsPrevious', { value: totals.previous.income })}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-overline uppercase text-fg-tertiary">{t('analytics.totalExpense')}</span>
+                      <div className="flex items-baseline gap-2">
+                        <Amount value={-(totals.expense ?? 0)} currency={baseCurrency} size="md" tone="negative" />
+                        {typeof change?.expense === 'number' && change.expense !== 0 && (
+                          <TrendBadge value={change.expense} />
+                        )}
+                      </div>
+                      <span className="text-caption text-fg-tertiary">
+                        {t('analytics.vsPrevious', { value: -totals.previous.expense })}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.cashflowTitle')}</span>
+                      <div className="flex items-baseline gap-2">
+                        <Amount value={totals.net ?? 0} currency={baseCurrency} size="md" tone="neutral" />
+                        {typeof change?.net === 'number' && change.net !== 0 && (
+                          <TrendBadge value={change.net} />
+                        )}
+                      </div>
+                      <span className="text-caption text-fg-tertiary">
+                        {t('analytics.vsPrevious', { value: totals.previous.net })}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-caption text-fg-tertiary">{t('state.empty')}</p>
+                )}
+              </Card>
+
+              {/* Доходы по категориям */}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader title={t('dashboard.incomes')} subtitle={t('analytics.byCategory')} />
+                  {incomeSegments.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {incomeSegments.map((seg) => (
+                        <div key={seg.label} className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-caption text-fg-secondary">{seg.label}</span>
+                          <Amount value={seg.value} currency={baseCurrency} size="sm" tone="positive" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-caption text-fg-tertiary">
+                      {incomeStructure.loading ? t('state.loading') : t('state.empty')}
+                    </p>
+                  )}
+                </Card>
+
+                {/* Расходы по категориям */}
+                <Card>
+                  <CardHeader title={t('dashboard.expenses')} subtitle={t('analytics.byCategory')} />
+                  {expenseSegments.length > 0 ? (
+                    <div className="mt-4 space-y-2">
+                      {expenseSegments.map((seg) => (
+                        <div key={seg.label} className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-caption text-fg-secondary">{seg.label}</span>
+                          <Amount value={-seg.value} currency={baseCurrency} size="sm" tone="negative" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-caption text-fg-tertiary">
+                      {expenseStructure.loading ? t('state.loading') : t('state.empty')}
+                    </p>
+                  )}
+                </Card>
+              </div>
+
+              {/* Дополнительные графики */}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader title={t('analytics.categoryTrends')} subtitle={t('analytics.last3Months')} />
+                  <div className="mt-4 space-y-2">
+                    {topCategories.data?.items.slice(0, 5).map((item) => (
+                      <div key={item.category_id} className="space-y-1">
+                        <div className="flex items-center justify-between text-caption">
+                          <span className="text-fg-secondary">{item.name}</span>
+                          <Amount value={item.total} currency={baseCurrency} size="xs" tone="negative" />
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              backgroundColor: item.color || undefined,
+                              width: `${(item.total / (topCategories.data?.total ?? 1)) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card>
+                  <CardHeader title={t('analytics.accountActivity')} subtitle={t('analytics.transactionsByAccount')} />
+                  <div className="mt-4 space-y-2">
+                    {shares.map((share) => (
+                      <div key={share.account_id} className="flex items-center gap-3">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: share.tint }}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-caption text-fg-secondary">
+                          {share.name}
+                        </span>
+                        <span className="text-caption text-fg-tertiary">{share.transactions_count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </AppShell>
   )

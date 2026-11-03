@@ -92,6 +92,8 @@ export function toAccount(dto: AccountDto): Account {
     tint: accountTint(dto.id),
     excluded: dto.is_excluded,
     archived: dto.is_archived,
+    locked: Boolean(dto.is_locked),
+    lockReason: dto.lock_reason ?? null,
   }
 }
 
@@ -250,8 +252,29 @@ export function toDonutSegments(items: CategoryShareDto[], limit = 5) {
   }))
 }
 
+/** Бары для столбчатой диаграммы: категория + сумма + цвет. */
+export function toBarSegments(items: CategoryShareDto[], limit = 8) {
+  return items.slice(0, limit).map((item) => ({
+    label: item.name,
+    value: Math.abs(item.total),
+    color: item.color || DEFAULT_CATEGORY_COLOR,
+    transactionsCount: item.transactions_count,
+  }))
+}
+
 /** Строки отчёта «категории × месяцы»: суммы расходов со знаком минус. */
-export function toAnalyticsRows(matrix: MatrixDto): { months: string[]; rows: AnalyticsRow[] } {
+/**
+ * Матрица «категории × месяцы».
+ *
+ * Бэкенд всегда отдаёт абсолютные значения ( amount_base ≥ 0 ). Для расходов
+ *_UI_ показывает их со знаком «−», чтобы было видно, что деньги уходят.
+ * Доходы остаются положительными — иначе в отчёте о доходах всё выглядело бы
+ * как убыток.
+ */
+export function toAnalyticsRows(
+  matrix: MatrixDto,
+  txType?: 'expense' | 'income',
+): { months: string[]; rows: AnalyticsRow[] } {
   return {
     months: matrix.months,
     rows: matrix.rows.map((row) => ({
@@ -259,7 +282,10 @@ export function toAnalyticsRows(matrix: MatrixDto): { months: string[]; rows: An
       name: row.name,
       icon: row.icon || undefined,
       color: row.color || undefined,
-      values: row.values.map((value) => (value > 0 ? -value : value)),
+      values:
+        txType === 'expense'
+          ? row.values.map((value) => (value > 0 ? -value : value))
+          : row.values,
       trends: row.trends,
     })),
   }

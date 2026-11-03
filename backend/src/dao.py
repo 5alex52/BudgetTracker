@@ -29,9 +29,7 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     model = None
 
     @classmethod
-    async def find_one_or_none(
-        cls, session: AsyncSession, *filter, **filter_by
-    ) -> Optional[ModelType]:
+    async def find_one_or_none(cls, session: AsyncSession, *filter, **filter_by) -> Optional[ModelType]:
         stmt = select(cls.model).filter(*filter).filter_by(**filter_by)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
@@ -45,13 +43,7 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         limit: int = 100,
         **filter_by,
     ) -> List[ModelType]:
-        stmt = (
-            select(cls.model)
-            .filter(*filter)
-            .filter_by(**filter_by)
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(cls.model).filter(*filter).filter_by(**filter_by).offset(offset).limit(limit)
         result = await session.execute(stmt)
         return result.scalars().all()
 
@@ -78,9 +70,7 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 print(f"{e}")
                 msg = "Unknown Exc: Cannot insert data into table"
             elif isinstance(e, IntegrityError):
-                raise HTTPException(
-                    detail=http_exc_text, status_code=status.HTTP_400_BAD_REQUEST
-                )
+                raise HTTPException(detail=http_exc_text, status_code=status.HTTP_400_BAD_REQUEST)
             print(msg)
             return None
 
@@ -139,19 +129,13 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             # Пустой PATCH не должен приводить к генерации UPDATE без SET
             db_obj = await cls.find_one_or_none(session, *where)
             if db_obj is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Object not found"
-                )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
             return db_obj
-        stmt = (
-            update(cls.model).where(*where).values(**update_data).returning(cls.model)
-        )
+        stmt = update(cls.model).where(*where).values(**update_data).returning(cls.model)
         result = await session.execute(stmt)
         db_obj = result.scalars().one_or_none()
         if db_obj is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Object not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
         return db_obj
 
     @classmethod
@@ -183,11 +167,6 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     @classmethod
     async def count(cls, session: AsyncSession, *filter, **filter_by):
-        stmt = (
-            select(func.count())
-            .select_from(cls.model)
-            .filter(*filter)
-            .filter_by(**filter_by)
-        )
+        stmt = select(func.count()).select_from(cls.model).filter(*filter).filter_by(**filter_by)
         result = await session.execute(stmt)
         return result.scalar()

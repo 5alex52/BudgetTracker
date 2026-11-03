@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, RotateCcw, Sparkles } from 'lucide-react'
+import { Lock, Pencil, RotateCcw, Sparkles } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { ApiError } from '@/api'
 import { useFinanceStore } from '@/store/finance'
@@ -19,23 +19,51 @@ import { useEntitlements } from '@/hooks/useEntitlements'
  * Справочник курсов общий для всех — его ведёт сервис. Пользователь может
  * задать свой курс для любой валюты: он используется только в его расчётах
  * (`PUT /currencies/{code}/rate`) и сбрасывается к справочному одним нажатием.
+ *
+ * Валюты, которые пользователь использует в своих счетах, показываются сверху
+ * в обычном цвете. Остальные идут ниже приглушённым тоном — это справочник,
+ * который может пригодиться, если счёт будет открыт в новой валюте.
  */
 export function SettingsCurrenciesPage() {
   const { t } = useI18n()
   const { toast } = useToast()
   const rates = useFinanceStore((state) => state.rates)
+  const accounts = useFinanceStore((state) => state.accounts)
   const setUserRate = useFinanceStore((state) => state.setUserRate)
   const resetUserRate = useFinanceStore((state) => state.resetUserRate)
 
   const navigate = useNavigate()
   const entitlements = useEntitlements()
-  const multiCurrency = entitlements.data?.multi_currency !== false
+  const multiCurrency = entitlements.data?.multi_currency === true
 
   const [draft, setDraft] = useState<CurrencyRate | null>(null)
   const [value, setValue] = useState('')
   const [pending, setPending] = useState(false)
 
   const base = rates.find((item) => item.base) ?? rates[0]
+
+  /** Валюты, которые уже встречаются в открытых счетах пользователя */
+  const usedCurrencies = useMemo(() => {
+    const codes = new Set<string>()
+    accounts.forEach((account) => {
+      if (!account.archived) codes.add(account.currency)
+    })
+    return codes
+  }, [accounts])
+
+  /** Справочник валют: активные сверху, остальные ниже приглушённые */
+  const { active, inactive } = useMemo(() => {
+    const activeList: CurrencyRate[] = []
+    const inactiveList: CurrencyRate[] = []
+    for (const rate of rates) {
+      if (rate.base || usedCurrencies.has(rate.code)) {
+        activeList.push(rate)
+      } else {
+        inactiveList.push(rate)
+      }
+    }
+    return { active: activeList, inactive: inactiveList }
+  }, [rates, usedCurrencies])
 
   const openEdit = (rate: CurrencyRate) => {
     setDraft(rate)
@@ -144,7 +172,8 @@ export function SettingsCurrenciesPage() {
                   </td>
                 </tr>
               )}
-              {rates.map((item, index) => (
+              {/* Сначала активные валюты (в счетах пользователя) */}
+              {active.map((item, index) => (
                 <tr key={item.code} className={index > 0 ? 'border-t border-stroke-subtle' : undefined}>
                   <th scope="row" className="px-3 py-2.5 text-left font-normal sm:px-4">
                     <span className="flex items-center gap-2">
@@ -160,6 +189,11 @@ export function SettingsCurrenciesPage() {
                           {item.custom && (
                             <span className="rounded-xs bg-accent-soft px-1.5 py-0.5 text-accent-on-soft">
                               {t('currencies.customRate')}
+                            </span>
+                          )}
+                          {usedCurrencies.has(item.code) && !item.base && (
+                            <span className="text-[10px] uppercase tracking-wide text-fg-tertiary">
+                              {t('currencies.inUse')}
                             </span>
                           )}
                         </span>
@@ -187,11 +221,18 @@ export function SettingsCurrenciesPage() {
                   <td className="px-3 py-2.5 sm:px-4">
                     {!item.base && (
                       <div className="flex justify-end gap-1">
+                        {!multiCurrency && (
+                          <Lock
+                            className="size-3.5 text-fg-tertiary"
+                            aria-label={t('currencies.premiumTitle')}
+                          />
+                        )}
                         <Button
                           variant="ghost"
                           size="icon-sm"
                           aria-label={t('currencies.setCustom')}
-                          title={t('currencies.setCustom')}
+                          title={multiCurrency ? t('currencies.setCustom') : t('currencies.premiumTitle')}
+                          disabled={!multiCurrency}
                           onClick={() => openEdit(item)}
                         >
                           <Pencil className="size-3.5 text-accent" aria-hidden="true" />
@@ -200,8 +241,8 @@ export function SettingsCurrenciesPage() {
                           variant="ghost"
                           size="icon-sm"
                           aria-label={t('currencies.resetCustom')}
-                          title={t('currencies.resetCustom')}
-                          disabled={!item.custom || pending}
+                          title={multiCurrency ? t('currencies.resetCustom') : t('currencies.premiumTitle')}
+                          disabled={!multiCurrency || !item.custom || pending}
                           onClick={() => void resetRate(item)}
                         >
                           <RotateCcw className="size-3.5 text-fg-tertiary" aria-hidden="true" />
@@ -211,6 +252,71 @@ export function SettingsCurrenciesPage() {
                   </td>
                 </tr>
               ))}
+              {/* Неактивные валюты справочника — приглушённым тоном */}
+              {inactive.length > 0 && (
+                <>
+                  {active.length > 0 && (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="px-4 py-3 text-caption text-fg-tertiary"
+                      >
+                        {t('currencies.available')}
+                      </td>
+                    </tr>
+                  )}
+                  {inactive.map((item) => (
+                    <tr key={item.code} className="border-t border-stroke-subtle opacity-50 transition-opacity hover:opacity-75">
+                      <th scope="row" className="px-3 py-2.5 text-left font-normal sm:px-4">
+                        <span className="flex items-center gap-2">
+                          <span className="grid size-7 place-items-center rounded-pill bg-surface-2 text-caption font-semibold text-fg-tertiary">
+                            {item.code.slice(0, 2)}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-label font-medium text-fg-secondary">
+                              {item.code} · {item.name}
+                            </span>
+                          </span>
+                        </span>
+                      </th>
+                      <td className="px-3 py-2.5 text-fg-tertiary sm:px-4">
+                        <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-caption">
+                          <span>
+                            {t('currencies.rateHint', {
+                              base: base?.code ?? '',
+                              rate: item.rate.toFixed(4),
+                              code: item.code,
+                            })}
+                          </span>
+                          <span className="text-fg-tertiary">
+                            1 {item.code} = {(1 / item.rate).toFixed(3)} {base?.code ?? ''}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 sm:px-4">
+                        <div className="flex justify-end gap-1">
+                          {!multiCurrency && (
+                            <Lock
+                              className="size-3.5 text-fg-tertiary"
+                              aria-label={t('currencies.premiumTitle')}
+                            />
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={t('currencies.setCustom')}
+                            title={multiCurrency ? t('currencies.setCustom') : t('currencies.premiumTitle')}
+                            disabled={!multiCurrency}
+                            onClick={() => openEdit(item)}
+                          >
+                            <Pencil className="size-3.5 text-accent" aria-hidden="true" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              )}
             </tbody>
           </table>
         </div>

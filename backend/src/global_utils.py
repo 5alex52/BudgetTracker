@@ -14,17 +14,13 @@ def get_user_id(request: Request):
     return verify_token(request)
 
 
-def verify_token(
-    request: Optional[Request] = None, token: Optional[str] = None
-) -> Optional[str]:
+def verify_token(request: Optional[Request] = None, token: Optional[str] = None) -> Optional[str]:
     if token is None:
         if request is None:
             raise InvalidTokenException
         token = get_token(request)
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id = payload.get("sub")
         if user_id is None:
             raise InvalidTokenException
@@ -59,9 +55,7 @@ _TIME_UNITS = (
 _COMPACT_SUFFIXES = {"day": "d", "hour": "h", "minute": "m", "second": "s"}
 
 
-def get_human_readable_time(
-    seconds: float, compact: bool = False, use_days: bool = True
-) -> str:
+def get_human_readable_time(seconds: float, compact: bool = False, use_days: bool = True) -> str:
     """Formats a duration in seconds into a human readable string.
 
     >>> get_human_readable_time(24 * 60 * 60, compact=True, use_days=False)

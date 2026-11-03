@@ -154,6 +154,18 @@ export const en: Translations = {
   'analytics.income': 'Income',
   'analytics.totalExpense': 'Total expenses',
   'analytics.category': 'Category',
+  'analytics.byCategory': 'by category',
+  'analytics.vsPrevious': 'Previous period: {value}',
+  'analytics.premiumTitle': 'Advanced Analytics',
+  'analytics.premiumDescription': 'Get access to detailed reports, trends and forecasts',
+  'analytics.premiumFeature1': 'Category trends over the last few months',
+  'analytics.premiumFeature2': 'Account activity and period comparison',
+  'analytics.premiumFeature3': 'Data export and transaction details',
+  'analytics.premiumCta': 'Subscribe',
+  'analytics.categoryTrends': 'Category trends',
+  'analytics.last3Months': 'last 3 months',
+  'analytics.accountActivity': 'Account activity',
+  'analytics.transactionsByAccount': 'by transaction count',
 
   'settings.title': 'Settings',
   'settings.group.wallet': 'WALLET',
@@ -257,6 +269,11 @@ export const en: Translations = {
   'accounts.color': 'Color',
   'accounts.exclude': 'Exclude from statistics',
   'accounts.locked': 'Read only',
+  'accounts.lockedHint': 'This account is read-only until the subscription is renewed: you can still archive it or exclude it from statistics.',
+  'accounts.lockedCurrency': 'An account in this currency is available with a subscription and is locked for now.',
+  'accounts.lockedLimit': 'An account above the free plan limit is locked until the subscription is renewed.',
+  'accounts.limitReached': 'The free plan allows up to {max} accounts in the base currency.',
+  'accounts.limitCta': 'See plans',
   'accounts.deleteConfirm': 'Delete account?',
   'accounts.deleteWarning': 'Account records stay in history, but the account disappears from the list and statistics.',
   'accounts.dedupeWarning': 'Compares up to 500 recent account records: a duplicate has the same amount, the same minute and the same category.',
@@ -458,6 +475,8 @@ export const en: Translations = {
   'currencies.code': 'Code',
   'currencies.name': 'Name',
   'currencies.rate': 'Rate',
+  'currencies.inUse': 'in use',
+  'currencies.available': 'Available for opening new accounts',
 
   // ------------------------------ billing (API) ----------------------------
   'billing.currentPlan': 'Current plan',
@@ -573,6 +592,8 @@ export const en: Translations = {
   'register.haveAccount': 'Already have an account?',
   'register.signIn': 'Sign in',
   'register.done': 'Account created',
+  'register.emailSent': 'Confirmation link sent to {email}',
+  'register.emailSentHint': 'Check your inbox and follow the link to sign in',
 
   /* --------------------------- email verification ----------------------- */
   'verify.checking': 'Checking the link…',

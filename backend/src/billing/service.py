@@ -81,9 +81,7 @@ class BillingService:
     # ------------------------------------------------------------------ #
 
     @classmethod
-    async def get_plans(
-        cls, session_maker: Optional[async_sessionmaker] = None
-    ) -> List[PlanResponse]:
+    async def get_plans(cls, session_maker: Optional[async_sessionmaker] = None) -> List[PlanResponse]:
         """Каталог тарифов.
 
         Меняется редко, а спрашивается на каждой странице оплаты — держим в Redis
@@ -101,9 +99,7 @@ class BillingService:
         return plans
 
     @classmethod
-    async def _get_plans(
-        cls, session_maker: Optional[async_sessionmaker] = None
-    ) -> List[PlanResponse]:
+    async def _get_plans(cls, session_maker: Optional[async_sessionmaker] = None) -> List[PlanResponse]:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             plans = await PlanDAO.find_all_active(session)
@@ -194,15 +190,11 @@ class BillingService:
         )
 
     @classmethod
-    def _subscription_response(
-        cls, subscription: PlanSubscriptionModel
-    ) -> SubscriptionResponse:
+    def _subscription_response(cls, subscription: PlanSubscriptionModel) -> SubscriptionResponse:
         return SubscriptionResponse(
             id=subscription.id,
             plan_code=subscription.plan_code,
-            plan_name=(
-                subscription.plan.name if subscription.plan else subscription.plan_code
-            ),
+            plan_name=(subscription.plan.name if subscription.plan else subscription.plan_code),
             status=subscription.status,
             started_at=subscription.started_at,
             current_period_end=subscription.current_period_end,
@@ -273,12 +265,8 @@ class BillingService:
             except NotImplementedError as error:
                 # Провайдер выбран, но не настроен: честно говорим об этом,
                 # а не выдаём пользователю подписку без оплаты
-                logger.warning(
-                    "Payment provider %s is not configured: %s", provider.code, error
-                )
-                await PaymentDAO.mark(
-                    session, payment, PaymentStatus.FAILED, "Provider not configured"
-                )
+                logger.warning("Payment provider %s is not configured: %s", provider.code, error)
+                await PaymentDAO.mark(session, payment, PaymentStatus.FAILED, "Provider not configured")
                 await session.commit()
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -300,9 +288,7 @@ class BillingService:
 
             result = await provider.confirm(checkout.provider_reference)
             if not result.approved:
-                await PaymentDAO.mark(
-                    session, payment, PaymentStatus.FAILED, result.failure_reason
-                )
+                await PaymentDAO.mark(session, payment, PaymentStatus.FAILED, result.failure_reason)
                 await session.commit()
                 return CheckoutSession(
                     payment_id=payment.id,
@@ -311,9 +297,7 @@ class BillingService:
                     provider_reference=checkout.provider_reference,
                 )
 
-            subscription = await cls._activate(
-                session, user_id, plan, provider, payment
-            )
+            subscription = await cls._activate(session, user_id, plan, provider, payment)
             await PaymentDAO.mark(session, payment, PaymentStatus.SUCCEEDED)
             await session.commit()
             await session.refresh(subscription)
@@ -339,11 +323,7 @@ class BillingService:
         """Продлевает текущую подписку или заводит новую."""
         current = await SubscriptionDAO.find_current(session, user_id)
         now = datetime.now()
-        if (
-            current is not None
-            and current.plan_code == plan.code
-            and current.status == SubscriptionStatus.ACTIVE
-        ):
+        if current is not None and current.plan_code == plan.code and current.status == SubscriptionStatus.ACTIVE:
             start = current.current_period_end if current.current_period_end else now
             current.current_period_end = _period_end(plan, start or now)
             current.cancel_at_period_end = False
@@ -420,9 +400,7 @@ class BillingService:
         try:
             attached = await provider.attach_method(user_id=user_id, token=token)
         except NotImplementedError as error:
-            logger.warning(
-                "Payment provider %s cannot attach methods: %s", provider.code, error
-            )
+            logger.warning("Payment provider %s cannot attach methods: %s", provider.code, error)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Payment provider '{provider.code}' does not support saved payment methods",
@@ -454,9 +432,7 @@ class BillingService:
     ) -> None:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            method = await PaymentMethodDAO.find_one_by_user(
-                session, method_id, user_id
-            )
+            method = await PaymentMethodDAO.find_one_by_user(session, method_id, user_id)
             if method is None:
                 raise _not_found("Payment method not found")
             await session.delete(method)
@@ -471,9 +447,7 @@ class BillingService:
     ) -> PaymentMethodResponse:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            method = await PaymentMethodDAO.find_one_by_user(
-                session, method_id, user_id
-            )
+            method = await PaymentMethodDAO.find_one_by_user(session, method_id, user_id)
             if method is None:
                 raise _not_found("Payment method not found")
             await PaymentMethodDAO.clear_defaults(session, user_id)
@@ -496,9 +470,7 @@ class BillingService:
     ) -> List[PaymentResponse]:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            payments = await PaymentDAO.find_all_by_user(
-                session, user_id, offset=offset, limit=limit
-            )
+            payments = await PaymentDAO.find_all_by_user(session, user_id, offset=offset, limit=limit)
         return [PaymentResponse.model_validate(payment) for payment in payments]
 
     @classmethod
@@ -547,17 +519,11 @@ class BillingService:
 
             result = await provider.confirm(reference)
             if not result.approved:
-                await PaymentDAO.mark(
-                    session, payment, PaymentStatus.FAILED, result.failure_reason
-                )
+                await PaymentDAO.mark(session, payment, PaymentStatus.FAILED, result.failure_reason)
                 await session.commit()
                 return PaymentStatus.FAILED
 
-            plan = (
-                await PlanDAO.find_by_code(session, payment.plan_code)
-                if payment.plan_code
-                else None
-            )
+            plan = await PlanDAO.find_by_code(session, payment.plan_code) if payment.plan_code else None
             if plan is not None:
                 await cls._activate(session, payment.user_id, plan, provider, payment)
             await PaymentDAO.mark(session, payment, PaymentStatus.SUCCEEDED)

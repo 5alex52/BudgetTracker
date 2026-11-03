@@ -69,12 +69,8 @@ class SubscriptionChangeRequest(BaseModel):
     """Оформление или смена тарифа."""
 
     plan_code: str = Field(..., min_length=1, max_length=32)
-    provider: Optional[str] = Field(
-        None, description="Провайдер оплаты; по умолчанию из настроек"
-    )
-    return_url: Optional[str] = Field(
-        None, description="Куда вернуть пользователя после оплаты"
-    )
+    provider: Optional[str] = Field(None, description="Провайдер оплаты; по умолчанию из настроек")
+    return_url: Optional[str] = Field(None, description="Куда вернуть пользователя после оплаты")
 
 
 class CheckoutSession(BaseModel):
@@ -113,9 +109,7 @@ class PaymentMethodCreate(BaseModel):
 
     provider: Optional[str] = None
     kind: PaymentMethodKind = PaymentMethodKind.CARD
-    token: Optional[str] = Field(
-        None, max_length=255, description="Токен от провайдера"
-    )
+    token: Optional[str] = Field(None, max_length=255, description="Токен от провайдера")
     make_default: bool = True
 
 

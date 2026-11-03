@@ -254,9 +254,10 @@ POST   /api/billing/webhooks/{provider_code}               → {"status": "succe
 
 ## 3. Форматы ответов
 
-Все суммы — в базовой валюте (курс из справочника `currencies`), округление до 2 знаков,
-как в существующих сервисах. Периоды — ISO-8601, `start_date`/`end_date` валидируются
-через уже существующий `normalize_period`.
+Все суммы — в базовой валюте пользователя, округление до 2 знаков. Курс берётся из
+личных настроек валют (`user_currency_rates`), а при их отсутствии — из справочника
+`currencies`. Периоды — ISO-8601, `start_date`/`end_date` валидируются через уже
+существующий `normalize_period`.
 
 ```jsonc
 // GET /api/analytics/summary?start_date=2025-10-01&end_date=2025-10-31&compare=true
@@ -365,6 +366,13 @@ POST   /api/billing/webhooks/{provider_code}               → {"status": "succe
                     "started_at": "2025-11-02T19:00:00", "current_period_end": "2025-12-02T19:00:00",
                     "cancel_at_period_end": false, "provider": "mock" } }
 
+// Бесплатный тариф: не больше двух незаархивированных счетов и только базовая
+// валюта. Создание третьего счёта, счёта в другой валюте, записи/шаблона в
+// другой валюте и личного курса не-базовой валюты возвращает 402. Ранее
+// созданные счета не удаляются: они отдаются с is_locked=true и lock_reason
+// ("subscription_required_currency" / "subscription_required_account_limit")
+// и доступны только для чтения и архивации до возобновления подписки.
+
 // GET /api/billing/payments
 [ { "id": 12, "plan_code": "monthly", "kind": "subscription", "amount": 4.99, "currency": "USD",
     "status": "succeeded", "provider": "mock", "failure_reason": null, "created_at": "..." } ]
@@ -377,7 +385,7 @@ POST   /api/billing/webhooks/{provider_code}               → {"status": "succe
 | Эндпоинт | Было | Стало |
 |---|---|---|
 | `GET /accounts` | `include_archived` | плюс `include_excluded` (по умолчанию `true`) |
-| `GET /accounts/balance` | сумма всех активных счетов | сумма активных **и не исключённых из статистики** |
+| `GET /accounts/balance` | сумма всех активных счетов | `total` и разбивка `accounts` в базовой валюте; учитываются только активные **и не исключённые из статистики** счета, у счетов есть `is_locked`/`lock_reason` |
 | `GET /transactions` | 5 фильтров, пагинация | плюс мультифильтры, поиск, диапазон суммы, сортировка, `X-Total-Count` |
 | `GET /transactions/{id}` | `TransactionResponse` | `TransactionWithDetails` (диалог редактирования заполняется по этим полям) |
 | `GET /categories` | плоский список | без изменений; дерево — отдельным эндпоинтом |

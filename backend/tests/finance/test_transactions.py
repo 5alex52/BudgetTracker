@@ -30,9 +30,7 @@ async def create_transaction(session_maker, user_id, **overrides):
 
 
 @pytest.mark.asyncio
-async def test_expense_decreases_account_balance(
-    account, expense_category, user, session_maker
-):
+async def test_expense_decreases_account_balance(account, expense_category, user, session_maker):
     transaction = await create_transaction(
         session_maker,
         user.id,
@@ -45,16 +43,12 @@ async def test_expense_decreases_account_balance(
     assert transaction.amount == 150.0
     assert transaction.type == TransactionType.EXPENSE
 
-    refreshed = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    refreshed = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
     assert refreshed.balance == 850.0
 
 
 @pytest.mark.asyncio
-async def test_income_increases_account_balance(
-    account, income_category, user, session_maker
-):
+async def test_income_increases_account_balance(account, income_category, user, session_maker):
     await create_transaction(
         session_maker,
         user.id,
@@ -64,15 +58,13 @@ async def test_income_increases_account_balance(
         type=TransactionType.INCOME,
     )
 
-    refreshed = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    refreshed = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
     assert refreshed.balance == 1200.0
 
 
 @pytest.mark.asyncio
 async def test_transaction_in_foreign_currency_is_converted(
-    account, expense_category, user, session_maker
+    account, expense_category, user, session_maker, premium_entitlements
 ):
     await create_transaction(
         session_maker,
@@ -83,17 +75,13 @@ async def test_transaction_in_foreign_currency_is_converted(
         currency_id="EUR",
     )
 
-    refreshed = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    refreshed = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
     # 100 EUR * 1.1 (rate to base) / 1.0 (account currency rate)
     assert refreshed.balance == 890.0
 
 
 @pytest.mark.asyncio
-async def test_category_type_must_match_transaction_type(
-    account, income_category, user, session_maker
-):
+async def test_category_type_must_match_transaction_type(account, income_category, user, session_maker):
     with pytest.raises(HTTPException) as error:
         await create_transaction(
             session_maker,
@@ -130,9 +118,7 @@ async def test_transaction_of_foreign_account_is_not_found(
 
 
 @pytest.mark.asyncio
-async def test_update_transaction_recalculates_balance(
-    account, expense_category, user, session_maker
-):
+async def test_update_transaction_recalculates_balance(account, expense_category, user, session_maker):
     transaction = await create_transaction(
         session_maker,
         user.id,
@@ -148,9 +134,7 @@ async def test_update_transaction_recalculates_balance(
         session_maker=session_maker,
     )
 
-    refreshed = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    refreshed = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
     assert refreshed.balance == 950.0
 
 
@@ -173,21 +157,15 @@ async def test_update_transaction_moves_money_between_accounts(
         session_maker=session_maker,
     )
 
-    source = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
-    target = await AccountService.get_by_user(
-        second_account.id, user.id, session_maker=session_maker
-    )
+    source = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
+    target = await AccountService.get_by_user(second_account.id, user.id, session_maker=session_maker)
 
     assert source.balance == 1000.0
     assert target.balance == 400.0
 
 
 @pytest.mark.asyncio
-async def test_delete_transaction_restores_balance(
-    account, expense_category, user, session_maker
-):
+async def test_delete_transaction_restores_balance(account, expense_category, user, session_maker):
     transaction = await create_transaction(
         session_maker,
         user.id,
@@ -196,27 +174,19 @@ async def test_delete_transaction_restores_balance(
         amount=150.0,
     )
 
-    await TransactionService.delete_for_user(
-        transaction.id, user.id, session_maker=session_maker
-    )
+    await TransactionService.delete_for_user(transaction.id, user.id, session_maker=session_maker)
 
-    refreshed = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    refreshed = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
     assert refreshed.balance == 1000.0
 
     with pytest.raises(HTTPException) as error:
-        await TransactionService.get_by_user(
-            transaction.id, user.id, session_maker=session_maker
-        )
+        await TransactionService.get_by_user(transaction.id, user.id, session_maker=session_maker)
 
     assert error.value.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_list_transactions_with_filters(
-    account, expense_category, income_category, user, session_maker
-):
+async def test_list_transactions_with_filters(account, expense_category, income_category, user, session_maker):
     await create_transaction(
         session_maker,
         user.id,
@@ -264,9 +234,7 @@ async def test_invalid_period_is_rejected(account, user, session_maker):
 
 
 @pytest.mark.asyncio
-async def test_summary_groups_by_category(
-    account, expense_category, user, session_maker
-):
+async def test_summary_groups_by_category(account, expense_category, user, session_maker):
     second_category = await CategoryService.create_for_user(
         schema=CategoryCreate(name="Restaurants", type=CategoryType.EXPENSE),
         user_id=user.id,

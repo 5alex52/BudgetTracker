@@ -16,12 +16,8 @@ async def _seed(client: AsyncClient, currencies: dict) -> dict:
     assert account.status_code == 201
     account_id = account.json()["id"]
 
-    expense = await client.post(
-        "/api/finance/categories/", json={"name": "Food", "type": "expense"}
-    )
-    income = await client.post(
-        "/api/finance/categories/", json={"name": "Salary", "type": "income"}
-    )
+    expense = await client.post("/api/finance/categories/", json={"name": "Food", "type": "expense"})
+    income = await client.post("/api/finance/categories/", json={"name": "Salary", "type": "income"})
     assert expense.status_code == 201
     assert income.status_code == 201
     expense_id, income_id = expense.json()["id"], income.json()["id"]
@@ -69,9 +65,7 @@ async def _seed(client: AsyncClient, currencies: dict) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_new_endpoints_require_authentication(
-    async_client: AsyncClient, currencies
-):
+async def test_new_endpoints_require_authentication(async_client: AsyncClient, currencies):
     del currencies  # справочник нужен, чтобы публичные курсы отвечали 200, а не 400
     public_paths = (
         "/api/analytics/summary",
@@ -102,9 +96,7 @@ async def test_transactions_list_exposes_total_count(verified_user_client, curre
     assert response.headers["X-Total-Count"] == "3"
 
     # Фильтр сужает и выдачу, и счётчик
-    filtered = await async_client.get(
-        "/api/finance/transactions/", params={"types": "expense"}
-    )
+    filtered = await async_client.get("/api/finance/transactions/", params={"types": "expense"})
     assert filtered.headers["X-Total-Count"] == "2"
     assert all(item["type"] == "expense" for item in filtered.json())
 
@@ -119,19 +111,13 @@ async def test_transactions_list_search_and_sort(verified_user_client, currencie
     search = await async_client.get("/api/finance/transactions/", params={"q": "покуп"})
     assert search.headers["X-Total-Count"] == "3"
 
-    empty = await async_client.get(
-        "/api/finance/transactions/", params={"q": "ресторан"}
-    )
+    empty = await async_client.get("/api/finance/transactions/", params={"q": "ресторан"})
     assert empty.json() == []
 
-    ascending = await async_client.get(
-        "/api/finance/transactions/", params={"sort": "amount_asc"}
-    )
+    ascending = await async_client.get("/api/finance/transactions/", params={"sort": "amount_asc"})
     assert [item["amount"] for item in ascending.json()] == [20.0, 30.0, 100.0]
 
-    bad_sort = await async_client.get(
-        "/api/finance/transactions/", params={"sort": "random"}
-    )
+    bad_sort = await async_client.get("/api/finance/transactions/", params={"sort": "random"})
     assert bad_sort.status_code == 400
 
 
@@ -140,9 +126,7 @@ async def test_transaction_details_include_names(verified_user_client, currencie
     async_client, _, _ = verified_user_client
     seeded = await _seed(async_client, currencies)
 
-    response = await async_client.get(
-        f"/api/finance/transactions/{seeded['transaction_ids'][0]}"
-    )
+    response = await async_client.get(f"/api/finance/transactions/{seeded['transaction_ids'][0]}")
 
     assert response.status_code == 200
     payload = response.json()
@@ -163,9 +147,7 @@ async def test_bulk_delete_endpoint(verified_user_client, currencies):
 
     assert response.status_code == 200
     assert response.json() == {"deleted": 2, "missing": [999_999]}
-    assert (await async_client.get("/api/finance/transactions/")).headers[
-        "X-Total-Count"
-    ] == "1"
+    assert (await async_client.get("/api/finance/transactions/")).headers["X-Total-Count"] == "1"
 
 
 @pytest.mark.asyncio
@@ -173,28 +155,19 @@ async def test_export_csv_and_json(verified_user_client, currencies):
     async_client, _, _ = verified_user_client
     await _seed(async_client, currencies)
 
-    csv_response = await async_client.get(
-        "/api/finance/transactions/export", params={"format": "csv"}
-    )
+    csv_response = await async_client.get("/api/finance/transactions/export", params={"format": "csv"})
     assert csv_response.status_code == 200
     assert "attachment" in csv_response.headers["content-disposition"]
-    assert (
-        csv_response.text.splitlines()[0]
-        == "date,type,account,category,amount,currency,note"
-    )
+    assert csv_response.text.splitlines()[0] == "date,type,account,category,amount,currency,note"
     assert len(csv_response.text.splitlines()) == 4
 
-    json_response = await async_client.get(
-        "/api/finance/transactions/export", params={"format": "json"}
-    )
+    json_response = await async_client.get("/api/finance/transactions/export", params={"format": "json"})
     assert json_response.status_code == 200
     payload = json.loads(json_response.text)
     assert len(payload) == 3
     assert payload[0]["account_name"] == "Cash"
 
-    bad = await async_client.get(
-        "/api/finance/transactions/export", params={"format": "xlsx"}
-    )
+    bad = await async_client.get("/api/finance/transactions/export", params={"format": "xlsx"})
     assert bad.status_code == 422
 
 
@@ -219,9 +192,7 @@ async def test_account_summary_and_exclude_endpoints(verified_user_client, curre
     assert excluded.status_code == 200
     assert excluded.json()["is_excluded"] is True
 
-    listed = await async_client.get(
-        "/api/finance/accounts/", params={"include_excluded": False}
-    )
+    listed = await async_client.get("/api/finance/accounts/", params={"include_excluded": False})
     assert listed.json() == []
 
     balance = await async_client.get("/api/finance/accounts/balance")
@@ -229,9 +200,7 @@ async def test_account_summary_and_exclude_endpoints(verified_user_client, curre
 
 
 @pytest.mark.asyncio
-async def test_archive_account_endpoint_returns_fresh_object(
-    verified_user_client, currencies
-):
+async def test_archive_account_endpoint_returns_fresh_object(verified_user_client, currencies):
     """Архивация через HTTP: ответ сериализуется после коммита, поэтому модель обновляем в сессии."""
     async_client, _, _ = verified_user_client
     seeded = await _seed(async_client, currencies)
@@ -260,14 +229,13 @@ async def test_categories_tree_and_stats_endpoints(verified_user_client, currenc
     )
     assert child.status_code == 201
 
-    tree = await async_client.get(
-        "/api/finance/categories/tree", params={"category_type": "expense"}
-    )
+    tree = await async_client.get("/api/finance/categories/tree", params={"category_type": "expense"})
     assert tree.status_code == 200
     roots = tree.json()
-    assert [node["name"] for node in roots] == ["Food"]
-    assert [node["name"] for node in roots[0]["children"]] == ["Cafe"]
-    assert roots[0]["transactions_count"] == 2
+    # Кроме созданной категории у пользователя есть набор категорий по умолчанию.
+    food = next(node for node in roots if node["name"] == "Food")
+    assert [node["name"] for node in food["children"]] == ["Cafe"]
+    assert food["transactions_count"] == 2
 
     stats = await async_client.get(
         "/api/finance/categories/stats",
@@ -285,18 +253,14 @@ async def test_categories_tree_and_stats_endpoints(verified_user_client, currenc
 async def test_currency_rates_endpoint(verified_user_client, currencies):
     async_client, _, _ = verified_user_client
 
-    response = await async_client.get(
-        "/api/finance/currencies/rates", params={"base": "USD"}
-    )
+    response = await async_client.get("/api/finance/currencies/rates", params={"base": "USD"})
 
     assert response.status_code == 200
     by_code = {item["code"]: item for item in response.json()}
     assert by_code["USD"]["is_base"] is True
     assert by_code["EUR"]["rate"] == pytest.approx(0.909091, rel=1e-4)
 
-    unknown = await async_client.get(
-        "/api/finance/currencies/rates", params={"base": "XXX"}
-    )
+    unknown = await async_client.get("/api/finance/currencies/rates", params={"base": "XXX"})
     assert unknown.status_code == 400
 
 
@@ -330,9 +294,7 @@ async def test_analytics_endpoints(verified_user_client, currencies):
     assert balance.status_code == 200
     assert balance.json()["points"][-1]["value"] == 50.0
 
-    by_category = await async_client.get(
-        "/api/analytics/by-category", params={**period, "transaction_type": "expense"}
-    )
+    by_category = await async_client.get("/api/analytics/by-category", params={**period, "transaction_type": "expense"})
     assert by_category.status_code == 200
     assert by_category.json()["items"][0]["name"] == "Food"
     assert by_category.json()["total"] == 50.0
@@ -353,7 +315,5 @@ async def test_analytics_endpoints(verified_user_client, currencies):
     assert matrix.json()["months"] == ["2025-09", "2025-10"]
     assert matrix.json()["rows"][0]["values"] == [0.0, 50.0]
 
-    bad_metric = await async_client.get(
-        "/api/analytics/timeseries", params={"metric": "unknown"}
-    )
+    bad_metric = await async_client.get("/api/analytics/timeseries", params={"metric": "unknown"})
     assert bad_metric.status_code == 422

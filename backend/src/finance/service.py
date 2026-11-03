@@ -29,6 +29,7 @@ from .schemas import AccountCreate
 from .schemas import AccountSummary
 from .schemas import AccountUpdate
 from .schemas import BalanceOverview
+from .schemas import BalanceOverviewAccount
 from .schemas import CategoryCreate
 from .schemas import CategoryNode
 from .schemas import CategoryStat
@@ -64,9 +65,7 @@ def _not_found(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
-async def _get_owned_account(
-    session: AsyncSession, account_id: int, user_id
-) -> AccountModel:
+async def _get_owned_account(session: AsyncSession, account_id: int, user_id) -> AccountModel:
     """Returns an account owned by the user or raises 404."""
     account = await AccountDAO.find_one_by_user(session, account_id, user_id)
     if account is None:
@@ -74,9 +73,7 @@ async def _get_owned_account(
     return account
 
 
-async def _get_owned_category(
-    session: AsyncSession, category_id: int, user_id
-) -> CategoryModel:
+async def _get_owned_category(session: AsyncSession, category_id: int, user_id) -> CategoryModel:
     """Returns a category owned by the user or raises 404."""
     category = await CategoryDAO.find_one_by_user(session, category_id, user_id)
     if category is None:
@@ -86,11 +83,10 @@ async def _get_owned_category(
 
 async def _get_currency(session: AsyncSession, code: str) -> CurrencyModel:
     """Returns a currency from the global catalog or raises 400."""
+    code = (code or "").upper()
     currency = await CurrencyDAO.find_one_or_none(session, code=code)
     if currency is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown currency: {code}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown currency: {code}")
     return currency
 
 
@@ -128,9 +124,7 @@ async def _resolve_base_code(session: AsyncSession, user_id) -> str:
     return base if currency is not None else "USD"
 
 
-def _validate_category_type(
-    category: CategoryModel, transaction_type: TransactionType
-) -> None:
+def _validate_category_type(category: CategoryModel, transaction_type: TransactionType) -> None:
     """A transaction may only use a category of the matching type."""
     if category.type != CategoryType(transaction_type.value):
         raise HTTPException(
@@ -154,9 +148,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
     dao = CurrencyDAO
 
     @classmethod
-    async def _user_base_currency(
-        cls, session_maker: Optional[async_sessionmaker], user_id
-    ) -> str:
+    async def _user_base_currency(cls, session_maker: Optional[async_sessionmaker], user_id) -> str:
         """Код базовой валюты пользователя; "USD" — если настройка не задана."""
         from ..users.models import UserModel
 
@@ -177,9 +169,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
             return await cls.dao.find_all_ordered(session, offset=offset, limit=limit)
 
     @classmethod
-    async def get(
-        cls, code: str, session_maker: Optional[async_sessionmaker] = None
-    ) -> CurrencyModel:
+    async def get(cls, code: str, session_maker: Optional[async_sessionmaker] = None) -> CurrencyModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             currency = await cls.dao.find_one_or_none(session, code=code)
@@ -219,13 +209,9 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unknown currency: {base}",
             )
-        base_rate = overrides.get(
-            base_currency.code, base_currency.exchange_rate_to_base
-        )
+        base_rate = overrides.get(base_currency.code, base_currency.exchange_rate_to_base)
         if base_rate <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid exchange rate"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid exchange rate")
         rates = []
         for currency in currencies:
             rate_to_base = overrides.get(currency.code, currency.exchange_rate_to_base)
@@ -251,21 +237,16 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
     ) -> CurrencyRate:
         """Личный курс валюты: «сколько базовых единиц стоит одна единица валюты»."""
         if rate <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Rate must be positive"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rate must be positive")
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             currency = await cls.dao.find_one_or_none(session, code=code.upper())
             if currency is None:
                 raise _not_found("Currency not found")
+            await _check_currency_settings_entitlement(session, user_id, currency.code, session_maker=maker)
             existing = await UserCurrencyRateDAO.find_one(session, user_id, code)
             if existing is None:
-                session.add(
-                    UserCurrencyRateModel(
-                        user_id=user_id, code=currency.code, rate=rate
-                    )
-                )
+                session.add(UserCurrencyRateModel(user_id=user_id, code=currency.code, rate=rate))
             else:
                 existing.rate = rate
             await session.commit()
@@ -279,9 +260,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
         )
 
     @classmethod
-    async def reset_user_rate(
-        cls, code: str, user_id, session_maker: Optional[async_sessionmaker] = None
-    ) -> None:
+    async def reset_user_rate(cls, code: str, user_id, session_maker: Optional[async_sessionmaker] = None) -> None:
         """Возврат к курсу справочника."""
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
@@ -309,9 +288,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
         return currency
 
     @classmethod
-    async def delete(
-        cls, code: str, session_maker: Optional[async_sessionmaker] = None
-    ) -> None:
+    async def delete(cls, code: str, session_maker: Optional[async_sessionmaker] = None) -> None:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             try:
@@ -334,6 +311,13 @@ async def _invalidate_analytics() -> None:
     await Cache.delete_scope("analytics")
 
 
+async def _invalidate_categories() -> None:
+    """Сбрасывает кеш категорий: дерево и список меняются при любом изменении."""
+    from ..cache import Cache
+
+    await Cache.delete_scope("categories")
+
+
 async def _check_account_limit(session, user_id, session_maker=None) -> None:
     """Не даёт превысить лимит счетов бесплатного тарифа.
 
@@ -342,11 +326,11 @@ async def _check_account_limit(session, user_id, session_maker=None) -> None:
     """
     from src.billing.service import BillingService
 
-    entitlements = await BillingService.get_entitlements(
-        user_id, session_maker=session_maker
-    )
+    entitlements = await BillingService.get_entitlements(user_id, session_maker=session_maker)
     if entitlements.max_accounts is None:
         return
+    # Лимит тарифа считается по всем незаархивированным счетам: заблокированные
+    # счета в другой валюте всё равно остаются заведёнными, просто без доступа.
     existing = await AccountDAO.count_by_user(session, user_id)
     if existing >= entitlements.max_accounts:
         raise HTTPException(
@@ -358,9 +342,7 @@ async def _check_account_limit(session, user_id, session_maker=None) -> None:
         )
 
 
-async def _check_currency_entitlement(
-    session, user_id, currency_id: str, session_maker=None
-) -> None:
+async def _check_currency_entitlement(session, user_id, currency_id: str, session_maker=None) -> None:
     """На бесплатном тарифе счёт можно вести только в базовой валюте.
 
     Существующие счета в других валютах не удаляются — они просто остаются
@@ -369,9 +351,7 @@ async def _check_currency_entitlement(
     from src.billing.service import BillingService
     from ..users.models import UserModel
 
-    entitlements = await BillingService.get_entitlements(
-        user_id, session_maker=session_maker
-    )
+    entitlements = await BillingService.get_entitlements(user_id, session_maker=session_maker)
     if entitlements.multi_currency:
         return
     base = await _resolve_base_code(session, user_id)
@@ -381,6 +361,136 @@ async def _check_currency_entitlement(
             detail=(
                 f"The {entitlements.plan_name} plan allows accounts only in the base currency "
                 f"({base}). Upgrade to use other currencies."
+            ),
+        )
+
+
+LOCK_REASON_CURRENCY = "subscription_required_currency"
+LOCK_REASON_ACCOUNT_LIMIT = "subscription_required_account_limit"
+
+
+async def _get_entitlements(user_id, session_maker=None):
+    """Права тарифа. Импорт ленивый, чтобы не было цикла billing ↔ finance."""
+    from src.billing.service import BillingService
+
+    return await BillingService.get_entitlements(user_id, session_maker=session_maker)
+
+
+async def _account_lock_map(
+    session: AsyncSession,
+    user_id,
+    session_maker=None,
+    entitlements=None,
+) -> dict:
+    """Какие счета доступны только на чтение и почему.
+
+    На бесплатном тарифе действуют два ограничения: только базовая валюта и
+    не больше ``max_accounts`` счетов. Счета сверх лимита и счета в других
+    валютах не удаляются и не архивируются — они остаются в списке, но
+    помечаются заблокированными до возобновления подписки.
+    """
+    if entitlements is None:
+        entitlements = await _get_entitlements(user_id, session_maker=session_maker)
+    base = await _resolve_base_code(session, user_id)
+    accounts = await AccountDAO.find_all_by_user(
+        session,
+        user_id,
+        include_archived=False,
+        include_excluded=True,
+        limit=500,
+    )
+    locks: dict = {}
+    used = 0
+    for account in sorted(accounts, key=lambda item: item.id):
+        currency = (account.currency_id or "").upper()
+        if not entitlements.multi_currency and currency != base:
+            locks[account.id] = (True, LOCK_REASON_CURRENCY)
+            continue
+        if entitlements.max_accounts is not None and used >= entitlements.max_accounts:
+            locks[account.id] = (True, LOCK_REASON_ACCOUNT_LIMIT)
+        else:
+            locks[account.id] = (False, None)
+            used += 1
+    return locks
+
+
+def _apply_account_locks(accounts: List[AccountModel], locks: dict) -> None:
+    """Проставляет вычисляемые флаги блокировки на ORM-объекты для ответа API."""
+    for account in accounts:
+        locked, reason = locks.get(account.id, (False, None))
+        account.is_locked = locked
+        account.lock_reason = reason
+
+
+async def _effective_currency_rate(session: AsyncSession, user_id, code: str) -> float:
+    """Курс валюты с личным переопределением пользователя."""
+    currency = await _get_currency(session, code)
+    override = await UserCurrencyRateDAO.find_one(session, user_id, currency.code)
+    rate = override.rate if override is not None else currency.exchange_rate_to_base
+    return float(rate) if rate and rate > 0 else 1.0
+
+
+async def _check_transaction_entitlement(
+    session: AsyncSession,
+    user_id,
+    account: AccountModel,
+    currency_id: str,
+    session_maker=None,
+) -> None:
+    """Проверяет, можно ли писать запись на счёт в выбранной валюте.
+
+    На бесплатном тарифе доступны только базовая валюта и незаблокированные
+    счета. Проверка стоит на создании/изменении записи и при применении
+    шаблона, чтобы ограничение нельзя было обойти через другой эндпоинт.
+    """
+    entitlements = await _get_entitlements(user_id, session_maker=session_maker)
+    core_currency = (currency_id or "").upper()
+    if not entitlements.multi_currency:
+        base = await _resolve_base_code(session, user_id)
+        if core_currency != base:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=(
+                    f"The {entitlements.plan_name} plan allows records only in the "
+                    f"base currency ({base}). Upgrade to use other currencies."
+                ),
+            )
+    locks = await _account_lock_map(
+        session,
+        user_id,
+        session_maker=session_maker,
+        entitlements=entitlements,
+    )
+    locked, reason = locks.get(account.id, (False, None))
+    if locked:
+        hint = (
+            "the account currency is available on a paid plan"
+            if reason == LOCK_REASON_CURRENCY
+            else "the free plan account limit is exceeded"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=(f"Account is read-only until the subscription is renewed: {hint}."),
+        )
+
+
+async def _check_currency_settings_entitlement(
+    session: AsyncSession,
+    user_id,
+    code: str,
+    session_maker=None,
+) -> None:
+    """Бесплатный тариф не даёт настраивать курсы других валют."""
+    entitlements = await _get_entitlements(user_id, session_maker=session_maker)
+    if entitlements.multi_currency:
+        return
+    base = await _resolve_base_code(session, user_id)
+    if (code or "").upper() != base:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=(
+                f"The {entitlements.plan_name} plan allows only the base currency "
+                f"({base}). Upgrade to use multiple currencies."
             ),
         )
 
@@ -400,7 +510,7 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
     ) -> List[AccountModel]:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            return await cls.dao.find_all_by_user(
+            accounts = await cls.dao.find_all_by_user(
                 session,
                 user_id,
                 include_archived=include_archived,
@@ -408,6 +518,9 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
                 offset=offset,
                 limit=limit,
             )
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            _apply_account_locks(accounts, locks)
+            return accounts
 
     @classmethod
     async def get_by_user(
@@ -418,7 +531,10 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
     ) -> AccountModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            return await _get_owned_account(session, account_id, user_id)
+            account = await _get_owned_account(session, account_id, user_id)
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            _apply_account_locks([account], locks)
+            return account
 
     @classmethod
     async def create_for_user(
@@ -431,18 +547,16 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
         async with maker() as session:
             await _get_currency(session, schema.currency_id)
             await _check_account_limit(session, user_id, session_maker=maker)
-            await _check_currency_entitlement(
-                session, user_id, schema.currency_id, session_maker=maker
-            )
-            account = await cls.dao.create(
-                session, {**schema.model_dump(), "user_id": user_id}
-            )
+            await _check_currency_entitlement(session, user_id, schema.currency_id, session_maker=maker)
+            account = await cls.dao.create(session, {**schema.model_dump(), "user_id": user_id})
             if account is None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Account creation conflict",
                 )
             await session.commit()
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            _apply_account_locks([account], locks)
         await _invalidate_analytics()
         return account
 
@@ -458,14 +572,23 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
         async with maker() as session:
             account = await _get_owned_account(session, account_id, user_id)
             update_data = schema.model_dump(exclude_unset=True)
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            locked, _ = locks.get(account.id, (False, None))
+            # Заблокированный счёт можно только архивировать/исключать:
+            # остальные поля доступны после возобновления подписки.
+            if locked and any(field not in {"is_archived", "is_excluded"} for field in update_data):
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail=("Account is read-only until the subscription is renewed."),
+                )
             if "currency_id" in update_data:
                 await _get_currency(session, update_data["currency_id"])
-                await _check_currency_entitlement(
-                    session, user_id, update_data["currency_id"], session_maker=maker
-                )
+                await _check_currency_entitlement(session, user_id, update_data["currency_id"], session_maker=maker)
             for field, value in update_data.items():
                 setattr(account, field, value)
             await session.commit()
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            _apply_account_locks([account], locks)
         await _invalidate_analytics()
         return account
 
@@ -483,6 +606,10 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             account.is_archived = is_archived
             await session.commit()
             await session.refresh(account)
+            # Архивация меняет число активных счетов: у следующих по порядку
+            # может появиться или пропасть блокировка по лимиту тарифа.
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            _apply_account_locks([account], locks)
         await _invalidate_analytics()
         return account
 
@@ -503,6 +630,10 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             # refresh нужен до закрытия сессии: updated_at считается на стороне БД,
             # и без него сериализация ответа пытается дочитать объект вне сессии
             await session.refresh(account)
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            _apply_account_locks([account], locks)
+        # Исключённый счёт выпадает из всех итогов и графиков
+        await _invalidate_analytics()
         return account
 
     @classmethod
@@ -542,6 +673,9 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
                 )
                 later = deltas.get(account.id, 0.0)
 
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
+            is_locked, lock_reason = locks.get(account.id, (False, None))
+
         return AccountSummary(
             account_id=account.id,
             name=account.name,
@@ -549,6 +683,8 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             balance=round(float(account.balance) - later, 2),
             is_archived=account.is_archived,
             is_excluded=account.is_excluded,
+            is_locked=is_locked,
+            lock_reason=lock_reason,
             income=income,
             expense=expense,
             net=round(income - expense, 2),
@@ -603,16 +739,42 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
                     account_ids=[account.id for account in accounts],
                 )
 
-            # Общий итог считается в базовой валюте пользователя, а не в USD
+            # Общий итог считается в базовой валюте пользователя, а не в USD.
+            # Личные курсы переопределяют справочник — иначе итог на дашборде
+            # расходится с экраном «Валюты».
             base_rate = await _resolve_base_rate(session, user_id)
+            overrides = {
+                row.code: float(row.rate)
+                for row in await UserCurrencyRateDAO.find_all_by_user(session, user_id)
+                if row.rate and row.rate > 0
+            }
+            locks = await _account_lock_map(session, user_id, session_maker=maker)
 
+            items: List[BalanceOverviewAccount] = []
             total = 0.0
             for account in accounts:
                 balance = round(float(account.balance) - later.get(account.id, 0.0), 2)
-                total += convert_amount(
-                    balance, account.currency.exchange_rate_to_base, base_rate
+                currency_rate = overrides.get(
+                    (account.currency_id or "").upper(),
+                    float(account.currency.exchange_rate_to_base),
                 )
-        return BalanceOverview(total=round(total, 2))
+                balance_base = convert_amount(balance, currency_rate, base_rate)
+                is_locked, lock_reason = locks.get(account.id, (False, None))
+                items.append(
+                    BalanceOverviewAccount(
+                        account_id=account.id,
+                        name=account.name,
+                        currency_id=account.currency_id,
+                        balance=balance,
+                        balance_base=balance_base,
+                        is_archived=account.is_archived,
+                        is_excluded=account.is_excluded,
+                        is_locked=is_locked,
+                        lock_reason=lock_reason,
+                    )
+                )
+                total += balance_base
+        return BalanceOverview(total=round(total, 2), accounts=items)
 
 
 class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]):
@@ -628,9 +790,25 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
         limit: int = 100,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> List[CategoryModel]:
+        from ..cache import Cache
+
+        key = Cache.make_key(
+            "categories:list",
+            user=str(user_id),
+            type=category_type.value if category_type is not None else None,
+            parent=parent_id,
+            offset=offset,
+            limit=limit,
+        )
+        hit = await Cache.get(key)
+        if hit is not None:
+            from .schemas import Category
+
+            return [Category(**item) for item in hit]
+
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            return await cls.dao.find_all_by_user(
+            categories = await cls.dao.find_all_by_user(
                 session,
                 user_id,
                 category_type=category_type,
@@ -638,6 +816,8 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
                 offset=offset,
                 limit=limit,
             )
+        await Cache.set(key, [c.__dict__ for c in categories], ttl=3600)
+        return categories
 
     @classmethod
     async def get_by_user(
@@ -662,15 +842,14 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
             if schema.parent_id is not None:
                 parent = await _get_owned_category(session, schema.parent_id, user_id)
                 _validate_category_type(parent, TransactionType(schema.type.value))
-            category = await cls.dao.create(
-                session, {**schema.model_dump(), "user_id": user_id}
-            )
+            category = await cls.dao.create(session, {**schema.model_dump(), "user_id": user_id})
             if category is None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Category creation conflict",
                 )
             await session.commit()
+        await _invalidate_categories()
         return category
 
     @classmethod
@@ -727,6 +906,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
                         )
                     created.append(child)
             await session.commit()
+        await _invalidate_categories()
         return created
 
     @classmethod
@@ -754,6 +934,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
             for field, value in update_data.items():
                 setattr(category, field, value)
             await session.commit()
+        await _invalidate_categories()
         return category
 
     @classmethod
@@ -772,9 +953,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Category has subcategories",
                 )
-            transactions_count = await TransactionDAO.count_by_category(
-                session, category.id
-            )
+            transactions_count = await TransactionDAO.count_by_category(session, category.id)
             if transactions_count:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -782,6 +961,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
                 )
             await cls.dao.delete(session, CategoryModel.id == category.id)
             await session.commit()
+        await _invalidate_categories()
 
     @classmethod
     async def get_tree(
@@ -798,12 +978,23 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
         поэтому дерево собирается одним ответом: без него интерфейс делает
         N+1 запросов на каждую категорию.
         """
+        from ..cache import Cache
+
         start_date, end_date = normalize_period(start_date, end_date)
+        key = Cache.make_key(
+            "categories:tree",
+            user=str(user_id),
+            type=category_type.value if category_type is not None else None,
+            start=start_date,
+            end=end_date,
+        )
+        hit = await Cache.get(key)
+        if hit is not None:
+            return [CategoryNode(**item) for item in hit]
+
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            categories = await cls.dao.find_all_by_user(
-                session, user_id, category_type=category_type, limit=500
-            )
+            categories = await cls.dao.find_all_by_user(session, user_id, category_type=category_type, limit=500)
             rows = await TransactionDAO.totals_by_category(
                 session,
                 user_id,
@@ -811,9 +1002,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
                 end_date=end_date,
                 only_statistics=True,
             )
-        counts = {
-            row.group_id: (int(row.count), round(float(row.total), 2)) for row in rows
-        }
+        counts = {row.group_id: (int(row.count), round(float(row.total), 2)) for row in rows}
 
         nodes = {
             category.id: CategoryNode(
@@ -835,6 +1024,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
                 parent.children.append(node)
             else:
                 roots.append(node)
+        await Cache.set(key, [n.model_dump() for n in roots], ttl=3600)
         return roots
 
     @classmethod
@@ -872,9 +1062,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
         ]
 
 
-class TransactionService(
-    BaseService[TransactionModel, TransactionCreate, TransactionUpdate]
-):
+class TransactionService(BaseService[TransactionModel, TransactionCreate, TransactionUpdate]):
     dao = TransactionDAO
 
     @classmethod
@@ -885,11 +1073,7 @@ class TransactionService(
         их нужно не применять, а не фильтровать «по пустоте».
         """
         start_date, end_date = normalize_period(start_date, end_date)
-        cleaned = {
-            key: value
-            for key, value in filters.items()
-            if value not in (None, "", [], ())
-        }
+        cleaned = {key: value for key, value in filters.items() if value not in (None, "", [], ())}
         return {"start_date": start_date, "end_date": end_date, **cleaned}
 
     @classmethod
@@ -947,9 +1131,7 @@ class TransactionService(
             )
 
     @classmethod
-    async def bulk_delete(
-        cls, ids: List[int], user_id, session_maker: Optional[async_sessionmaker] = None
-    ) -> tuple:
+    async def bulk_delete(cls, ids: List[int], user_id, session_maker: Optional[async_sessionmaker] = None) -> tuple:
         """Удаляет выбранные записи и откатывает их влияние на балансы.
 
         Возвращает ``(сколько удалено, какие идентификаторы не найдены)``.
@@ -965,14 +1147,15 @@ class TransactionService(
 
             for transaction in transactions:
                 account = transaction.account
-                currency = await _get_currency(session, transaction.currency_id)
+                transaction_rate = await _effective_currency_rate(session, user_id, transaction.currency_id)
+                account_rate = await _effective_currency_rate(session, user_id, account.currency_id)
                 account.balance = round(
                     account.balance
                     - _converted_delta(
                         transaction.type,
                         transaction.amount,
-                        currency.exchange_rate_to_base,
-                        account.currency.exchange_rate_to_base,
+                        transaction_rate,
+                        account_rate,
                     ),
                     2,
                 )
@@ -991,9 +1174,7 @@ class TransactionService(
     ) -> TransactionModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            transaction = await cls.dao.find_one_by_user(
-                session, transaction_id, user_id
-            )
+            transaction = await cls.dao.find_one_by_user(session, transaction_id, user_id)
         if transaction is None:
             raise _not_found("Transaction not found")
         return transaction
@@ -1011,14 +1192,19 @@ class TransactionService(
             category = await _get_owned_category(session, schema.category_id, user_id)
             _validate_category_type(category, schema.type)
             currency = await _get_currency(session, schema.currency_id)
+            await _check_transaction_entitlement(
+                session,
+                user_id,
+                account,
+                currency.code,
+                session_maker=maker,
+            )
 
             tag_ids = schema.tag_ids
             await ensure_tags_owned(session, tag_ids, user_id)
 
             # tag_ids — не колонка таблицы, поэтому в insert уходит всё остальное
-            transaction = await cls.dao.create(
-                session, schema.model_dump(exclude={"tag_ids"})
-            )
+            transaction = await cls.dao.create(session, schema.model_dump(exclude={"tag_ids"}))
             if transaction is None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -1035,8 +1221,8 @@ class TransactionService(
                 + _converted_delta(
                     schema.type,
                     schema.amount,
-                    currency.exchange_rate_to_base,
-                    account.currency.exchange_rate_to_base,
+                    await _effective_currency_rate(session, user_id, currency.code),
+                    await _effective_currency_rate(session, user_id, account.currency_id),
                 ),
                 2,
             )
@@ -1055,9 +1241,7 @@ class TransactionService(
     ) -> TransactionModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            transaction = await cls.dao.find_one_by_user(
-                session, transaction_id, user_id
-            )
+            transaction = await cls.dao.find_one_by_user(session, transaction_id, user_id)
             if transaction is None:
                 raise _not_found("Transaction not found")
 
@@ -1072,34 +1256,37 @@ class TransactionService(
             old_delta = _converted_delta(
                 transaction.type,
                 transaction.amount,
-                old_currency.exchange_rate_to_base,
-                old_account.currency.exchange_rate_to_base,
+                await _effective_currency_rate(session, user_id, old_currency.code),
+                await _effective_currency_rate(session, user_id, old_account.currency_id),
             )
 
             account = old_account
             if "account_id" in update_data:
-                account = await _get_owned_account(
-                    session, update_data["account_id"], user_id
-                )
+                account = await _get_owned_account(session, update_data["account_id"], user_id)
 
             category = transaction.category
             if "category_id" in update_data:
-                category = await _get_owned_category(
-                    session, update_data["category_id"], user_id
-                )
+                category = await _get_owned_category(session, update_data["category_id"], user_id)
 
             new_type = update_data.get("type", transaction.type)
             new_amount = update_data.get("amount", transaction.amount)
-            new_currency = await _get_currency(
-                session, update_data.get("currency_id", transaction.currency_id)
-            )
+            new_currency = await _get_currency(session, update_data.get("currency_id", transaction.currency_id))
             _validate_category_type(category, new_type)
+            # Проверяем итоговый счёт и валюту записи, а не старые значения:
+            # перенести запись со заблокированного счёта на доступный можно.
+            await _check_transaction_entitlement(
+                session,
+                user_id,
+                account,
+                new_currency.code,
+                session_maker=maker,
+            )
 
             new_delta = _converted_delta(
                 new_type,
                 new_amount,
-                new_currency.exchange_rate_to_base,
-                account.currency.exchange_rate_to_base,
+                await _effective_currency_rate(session, user_id, new_currency.code),
+                await _effective_currency_rate(session, user_id, account.currency_id),
             )
 
             old_account.balance = round(old_account.balance - old_delta, 2)
@@ -1122,9 +1309,7 @@ class TransactionService(
     ) -> None:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            transaction = await cls.dao.find_one_by_user(
-                session, transaction_id, user_id
-            )
+            transaction = await cls.dao.find_one_by_user(session, transaction_id, user_id)
             if transaction is None:
                 raise _not_found("Transaction not found")
 
@@ -1135,8 +1320,8 @@ class TransactionService(
                 - _converted_delta(
                     transaction.type,
                     transaction.amount,
-                    currency.exchange_rate_to_base,
-                    account.currency.exchange_rate_to_base,
+                    await _effective_currency_rate(session, user_id, currency.code),
+                    await _effective_currency_rate(session, user_id, account.currency_id),
                 ),
                 2,
             )
@@ -1198,9 +1383,7 @@ class TransactionService(
         )
 
 
-class SubscriptionService(
-    BaseService[SubscriptionModel, SubscriptionCreate, SubscriptionUpdate]
-):
+class SubscriptionService(BaseService[SubscriptionModel, SubscriptionCreate, SubscriptionUpdate]):
     dao = SubscriptionDAO
 
     @classmethod
@@ -1214,9 +1397,7 @@ class SubscriptionService(
     ) -> List[SubscriptionModel]:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            return await cls.dao.find_all_by_user(
-                session, user_id, is_active=is_active, offset=offset, limit=limit
-            )
+            return await cls.dao.find_all_by_user(session, user_id, is_active=is_active, offset=offset, limit=limit)
 
     @classmethod
     async def get_by_user(
@@ -1227,9 +1408,7 @@ class SubscriptionService(
     ) -> SubscriptionModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            subscription = await cls.dao.find_one_by_user(
-                session, subscription_id, user_id
-            )
+            subscription = await cls.dao.find_one_by_user(session, subscription_id, user_id)
         if subscription is None:
             raise _not_found("Subscription not found")
         return subscription
@@ -1243,9 +1422,7 @@ class SubscriptionService(
     ) -> List[SubscriptionModel]:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            return await cls.dao.find_upcoming(
-                session, user_id, before=datetime.now() + timedelta(days=days)
-            )
+            return await cls.dao.find_upcoming(session, user_id, before=datetime.now() + timedelta(days=days))
 
     @classmethod
     async def create_for_user(
@@ -1256,9 +1433,7 @@ class SubscriptionService(
     ) -> SubscriptionModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            transaction = await TransactionDAO.find_one_by_user(
-                session, schema.transaction_id, user_id
-            )
+            transaction = await TransactionDAO.find_one_by_user(session, schema.transaction_id, user_id)
             if transaction is None:
                 raise _not_found("Transaction not found")
             if transaction.type == TransactionType.INCOME:
@@ -1271,9 +1446,7 @@ class SubscriptionService(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="next_payment_date must not be earlier than the transaction date",
                 )
-            existing = await TransactionDAO.find_related_subscription(
-                session, transaction.id
-            )
+            existing = await TransactionDAO.find_related_subscription(session, transaction.id)
             if existing is not None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -1301,9 +1474,7 @@ class SubscriptionService(
     ) -> SubscriptionModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            subscription = await cls.dao.find_one_by_user(
-                session, subscription_id, user_id
-            )
+            subscription = await cls.dao.find_one_by_user(session, subscription_id, user_id)
             if subscription is None:
                 raise _not_found("Subscription not found")
 
@@ -1326,9 +1497,7 @@ class SubscriptionService(
     ) -> SubscriptionModel:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            subscription = await cls.dao.find_one_by_user(
-                session, subscription_id, user_id
-            )
+            subscription = await cls.dao.find_one_by_user(session, subscription_id, user_id)
             if subscription is None:
                 raise _not_found("Subscription not found")
             subscription.next_payment_date = calculate_next_payment_date(
@@ -1347,9 +1516,7 @@ class SubscriptionService(
     ) -> None:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            subscription = await cls.dao.find_one_by_user(
-                session, subscription_id, user_id
-            )
+            subscription = await cls.dao.find_one_by_user(session, subscription_id, user_id)
             if subscription is None:
                 raise _not_found("Subscription not found")
             subscription.transaction.is_subscription = False

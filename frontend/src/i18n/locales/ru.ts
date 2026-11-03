@@ -163,6 +163,18 @@ export const ru = {
   'analytics.income': 'Доход',
   'analytics.totalExpense': 'Общие расходы',
   'analytics.category': 'Категория',
+  'analytics.byCategory': 'по категориям',
+  'analytics.vsPrevious': 'Прошлый период: {value}',
+  'analytics.premiumTitle': 'Расширенная аналитика',
+  'analytics.premiumDescription': 'Получите доступ к детальным отчётам, трендам и прогнозам',
+  'analytics.premiumFeature1': 'Динамика по категориям за последние месяцы',
+  'analytics.premiumFeature2': 'Активность по счетам и сравнение периодов',
+  'analytics.premiumFeature3': 'Экспорт данных и детализация транзакций',
+  'analytics.premiumCta': 'Оформить подписку',
+  'analytics.categoryTrends': 'Тренды категорий',
+  'analytics.last3Months': 'последние 3 месяца',
+  'analytics.accountActivity': 'Активность счетов',
+  'analytics.transactionsByAccount': 'по количеству транзакций',
 
   // ------------------------------ настройки --------------------------------
   'settings.title': 'Настройки',
@@ -268,6 +280,11 @@ export const ru = {
   'accounts.color': 'Цвет',
   'accounts.exclude': 'Исключить из статистики',
   'accounts.locked': 'Только чтение',
+  'accounts.lockedHint': 'Счёт заблокирован до возобновления подписки: изменить данные нельзя, но архивировать или исключить из статистики можно.',
+  'accounts.lockedCurrency': 'Счёт в этой валюте доступен только по подписке и пока заблокирован.',
+  'accounts.lockedLimit': 'Счёт сверх лимита бесплатного тарифа заблокирован до возобновления подписки.',
+  'accounts.limitReached': 'На бесплатном тарифе доступно не больше {max} счетов в базовой валюте.',
+  'accounts.limitCta': 'Посмотреть тарифы',
   'accounts.deleteConfirm': 'Удалить счёт?',
   'accounts.deleteWarning': 'Все записи счёта останутся в истории, но счёт исчезнет из списка и статистики.',
   'accounts.dedupeWarning': 'Сверяем до 500 последних записей счёта: совпадением считаются одинаковая сумма, дата с точностью до минуты и категория.',
@@ -473,6 +490,8 @@ export const ru = {
   'currencies.code': 'Код',
   'currencies.name': 'Название',
   'currencies.rate': 'Курс',
+  'currencies.inUse': 'в счетах',
+  'currencies.available': 'Доступно для открытия новых счетов',
 
   // ------------------------------ биллинг (API) ----------------------------
   'billing.currentPlan': 'Текущий тариф',
@@ -589,6 +608,8 @@ export const ru = {
   'register.haveAccount': 'Уже есть аккаунт?',
   'register.signIn': 'Войти',
   'register.done': 'Аккаунт создан',
+  'register.emailSent': 'Ссылка для подтверждения отправлена на {email}',
+  'register.emailSentHint': 'Проверьте почту и перейдите по ссылке, чтобы войти в аккаунт',
 
   /* ------------------------- подтверждение почты ------------------------ */
   'verify.checking': 'Проверяем ссылку…',

@@ -59,9 +59,7 @@ async def test_update_me_changes_preferences(verified_user_client):
 async def test_update_me_cannot_grant_superuser(verified_user_client):
     async_client, _, _ = verified_user_client
 
-    response = await async_client.patch(
-        "/api/users/me", json={"is_superuser": True, "is_active": False}
-    )
+    response = await async_client.patch("/api/users/me", json={"is_superuser": True, "is_active": False})
 
     assert response.status_code == 200
     assert response.json()["is_superuser"] is False
@@ -128,16 +126,15 @@ async def test_export_contains_financial_data(verified_user_client, currencies):
         "/api/finance/accounts/",
         json={"name": "Cash", "type": "cash", "currency_id": "USD", "balance": 10.0},
     )
-    await async_client.post(
-        "/api/finance/categories/", json={"name": "Food", "type": "expense"}
-    )
+    await async_client.post("/api/finance/categories/", json={"name": "Food", "type": "expense"})
 
     response = await async_client.get("/api/users/me/export")
 
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["accounts"]) == 1
-    assert len(payload["categories"]) == 1
+    # К созданной категории добавляются категории по умолчанию.
+    assert "Food" in [category["name"] for category in payload["categories"]]
     assert payload["accounts"][0]["name"] == "Cash"
     assert payload["user"]["email"]
 
@@ -146,18 +143,14 @@ async def test_export_contains_financial_data(verified_user_client, currencies):
 async def test_delete_me_requires_password(verified_user_client):
     async_client, _, _ = verified_user_client
 
-    response = await async_client.request(
-        "DELETE", "/api/users/me", json={"password": "wrong"}
-    )
+    response = await async_client.request("DELETE", "/api/users/me", json={"password": "wrong"})
 
     assert response.status_code == 400
     assert (await async_client.get("/api/users/me")).status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_delete_me_removes_user_and_data(
-    verified_user_client, user_info, currencies
-):
+async def test_delete_me_removes_user_and_data(verified_user_client, user_info, currencies):
     async_client, _, _ = verified_user_client
 
     await async_client.post(
@@ -165,9 +158,7 @@ async def test_delete_me_removes_user_and_data(
         json={"name": "Cash", "type": "cash", "currency_id": "USD", "balance": 10.0},
     )
 
-    response = await async_client.request(
-        "DELETE", "/api/users/me", json={"password": user_info.password}
-    )
+    response = await async_client.request("DELETE", "/api/users/me", json={"password": user_info.password})
     assert response.status_code == 204
 
     # Сессия больше не валидна: пользователя нет

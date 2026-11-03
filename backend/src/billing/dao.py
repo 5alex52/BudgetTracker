@@ -24,18 +24,12 @@ class PlanDAO:
 
     @classmethod
     async def find_all_active(cls, session: AsyncSession) -> List[PlanModel]:
-        stmt = (
-            select(PlanModel)
-            .where(PlanModel.is_active.is_(True))
-            .order_by(PlanModel.sort_order, PlanModel.price)
-        )
+        stmt = select(PlanModel).where(PlanModel.is_active.is_(True)).order_by(PlanModel.sort_order, PlanModel.price)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     @classmethod
-    async def find_by_code(
-        cls, session: AsyncSession, code: str
-    ) -> Optional[PlanModel]:
+    async def find_by_code(cls, session: AsyncSession, code: str) -> Optional[PlanModel]:
         stmt = select(PlanModel).where(PlanModel.code == code)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
@@ -47,9 +41,7 @@ class SubscriptionDAO:
     model = PlanSubscriptionModel
 
     @classmethod
-    async def find_current(
-        cls, session: AsyncSession, user_id: uuid.UUID
-    ) -> Optional[PlanSubscriptionModel]:
+    async def find_current(cls, session: AsyncSession, user_id: uuid.UUID) -> Optional[PlanSubscriptionModel]:
         """Последняя подписка пользователя — она и считается текущей."""
         stmt = (
             select(PlanSubscriptionModel)
@@ -61,9 +53,7 @@ class SubscriptionDAO:
         return result.scalars().one_or_none()
 
     @classmethod
-    async def find_active(
-        cls, session: AsyncSession, user_id: uuid.UUID
-    ) -> Optional[PlanSubscriptionModel]:
+    async def find_active(cls, session: AsyncSession, user_id: uuid.UUID) -> Optional[PlanSubscriptionModel]:
         stmt = (
             select(PlanSubscriptionModel)
             .where(
@@ -83,9 +73,7 @@ class PaymentMethodDAO:
     model = PaymentMethodModel
 
     @classmethod
-    async def find_all_by_user(
-        cls, session: AsyncSession, user_id: uuid.UUID
-    ) -> List[PaymentMethodModel]:
+    async def find_all_by_user(cls, session: AsyncSession, user_id: uuid.UUID) -> List[PaymentMethodModel]:
         stmt = (
             select(PaymentMethodModel)
             .where(PaymentMethodModel.user_id == user_id)
@@ -143,16 +131,12 @@ class PaymentDAO:
     async def find_one_by_user(
         cls, session: AsyncSession, payment_id: int, user_id: uuid.UUID
     ) -> Optional[PaymentModel]:
-        stmt = select(PaymentModel).where(
-            PaymentModel.id == payment_id, PaymentModel.user_id == user_id
-        )
+        stmt = select(PaymentModel).where(PaymentModel.id == payment_id, PaymentModel.user_id == user_id)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
     @classmethod
-    async def find_by_reference(
-        cls, session: AsyncSession, reference: str
-    ) -> Optional[PaymentModel]:
+    async def find_by_reference(cls, session: AsyncSession, reference: str) -> Optional[PaymentModel]:
         """Платёж по идентификатору у провайдера — так его находит вебхук."""
         stmt = select(PaymentModel).where(PaymentModel.provider_reference == reference)
         result = await session.execute(stmt)

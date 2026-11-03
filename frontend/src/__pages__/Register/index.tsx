@@ -47,12 +47,26 @@ export function RegisterPage() {
     setPending(true)
     setError(null)
     try {
-      await authApi.register({
+      const user = await authApi.register({
         firstname: firstname.trim(),
         lastname: lastname.trim(),
         email: email.trim(),
         password,
       })
+
+      // Если почта требует подтверждения — показываем уведомление и уходим на вход.
+      // Подтверждение по ссылке из письма выполнит вход автоматически.
+      if (!user.is_verified) {
+        toast({
+          title: t('register.emailSent', { email: email.trim() }),
+          description: t('register.emailSentHint'),
+          tone: 'success',
+        })
+        navigate('/login', { replace: true })
+        return
+      }
+
+      // LOCAL-режим без Redis: адрес уже подтверждён сервером, входим сразу.
       await signIn(email.trim(), password)
       toast({ title: t('register.done'), tone: 'success' })
       navigate(wantsPlan ? '/settings/payments' : '/', { replace: true })

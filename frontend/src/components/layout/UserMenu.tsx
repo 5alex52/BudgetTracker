@@ -1,8 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
-import { ChevronDown, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react'
+import { ChevronDown, LogOut, Settings } from 'lucide-react'
 import { useI18n, type Locale } from '@/i18n'
-import { useTheme, type ThemeMode } from '@/hooks/useTheme'
 import { cn } from '@/__shared__/utils/cn'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,12 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/overlays'
-
-const THEME_OPTIONS: Array<{ mode: ThemeMode; labelKey: 'settings.appearance.system' | 'settings.appearance.light' | 'settings.appearance.dark'; icon: typeof Sun }> = [
-  { mode: 'system', labelKey: 'settings.appearance.system', icon: Monitor },
-  { mode: 'light', labelKey: 'settings.appearance.light', icon: Sun },
-  { mode: 'dark', labelKey: 'settings.appearance.dark', icon: Moon },
-]
+import { ThemeSwitcher } from './Switchers'
 
 const LOCALES: Array<{ locale: Locale; label: string }> = [
   { locale: 'ru', label: 'Русский' },
@@ -28,7 +22,6 @@ const LOCALES: Array<{ locale: Locale; label: string }> = [
 /** Меню пользователя: тема, язык, настройки. Плавающий слой — на стекле. */
 export function UserMenu() {
   const { t, locale, setLocale } = useI18n()
-  const { mode, setMode } = useTheme()
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const signOut = useAuthStore((state) => state.signOut)
@@ -56,17 +49,9 @@ export function UserMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>{t('settings.appearance')}</DropdownMenuLabel>
-        {THEME_OPTIONS.map(({ mode: option, labelKey, icon: Icon }) => (
-          <DropdownMenuItem
-            key={option}
-            onSelect={() => setMode(option)}
-            className={cn(mode === option && 'text-accent')}
-          >
-            <Icon className="size-4" aria-hidden="true" />
-            {t(labelKey)}
-            {mode === option && <span className="ml-auto text-caption">●</span>}
-          </DropdownMenuItem>
-        ))}
+        <div className="px-2 py-1.5">
+          <ThemeSwitcher compact stretch />
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t('login.language')}</DropdownMenuLabel>
         {LOCALES.map((item) => (

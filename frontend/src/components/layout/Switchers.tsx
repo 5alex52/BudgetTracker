@@ -1,21 +1,20 @@
+import { Monitor, Sun, Moon } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { useTheme, type ThemeMode } from '@/hooks/useTheme'
 import { SegmentedControl } from '@/components/ui/toggles'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/overlays'
 
-const THEME_ITEMS: Array<{ value: ThemeMode }> = [
-  { value: 'system' },
-  { value: 'light' },
-  { value: 'dark' },
+const THEME_ITEMS: Array<{ value: ThemeMode; icon: typeof Sun; labelKey: 'settings.appearance.system' | 'settings.appearance.light' | 'settings.appearance.dark' }> = [
+  { value: 'system', icon: Monitor, labelKey: 'settings.appearance.system' },
+  { value: 'light', icon: Sun, labelKey: 'settings.appearance.light' },
+  { value: 'dark', icon: Moon, labelKey: 'settings.appearance.dark' },
 ]
 
 /**
  * Тема: три состояния (светлая / тёмная / как в браузере).
  *
- * Макеты — `docs/design/mockups/login-{desktop,mobile}-*.png`: контроль
- * текстовый, без пиктограмм, и на узком экране подписи не должны обрезаться.
- * Поэтому ``stretch`` растягивает полосу на всю ширину, а сегменты делят её
- * поровну: так три подписи помещаются и на 390 px, как в мобильном макете.
+ * Переключатель показывается значками с tooltip: компактнее, чем текст,
+ * и на узком экране не обрезается.
  */
 export function ThemeSwitcher({
   compact = false,
@@ -32,12 +31,8 @@ export function ThemeSwitcher({
 
   const items = THEME_ITEMS.map((item) => ({
     value: item.value,
-    label:
-      item.value === 'system'
-        ? t('settings.appearance.system')
-        : item.value === 'light'
-          ? t('settings.appearance.light')
-          : t('settings.appearance.dark'),
+    icon: item.icon,
+    label: t(item.labelKey),
   }))
 
   return (
@@ -46,6 +41,7 @@ export function ThemeSwitcher({
       items={items}
       value={mode}
       onValueChange={(next: string) => next && setMode(next as ThemeMode)}
+      iconOnly
       // flex-1 вешаем на сегменты: прямой потомок Root — это сам ToggleGroup,
       // поэтому прежний [&>*] растягивал не то.
       className={[compact ? 'text-[11px]' : '', stretch ? 'w-full [&>button]:flex-1' : '', className ?? '']

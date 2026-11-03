@@ -71,9 +71,7 @@ class PaymentProvider(ABC):
         """Запрашивает у провайдера итоговый статус платежа."""
 
     @abstractmethod
-    async def attach_method(
-        self, *, user_id, token: Optional[str] = None
-    ) -> AttachedMethod:
+    async def attach_method(self, *, user_id, token: Optional[str] = None) -> AttachedMethod:
         """Привязывает способ оплаты: карта вводится на стороне провайдера."""
 
     @abstractmethod

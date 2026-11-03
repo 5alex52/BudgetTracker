@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Query
 from fastapi import Request
 from fastapi import Response
 from fastapi import status
@@ -23,6 +24,7 @@ from .schemas import Token
 from .schemas import User
 from .schemas import UserCreate
 from .schemas import UserExport
+from .utils import get_device_info
 from .schemas import UserProfileUpdate
 from .schemas import UserUpdate
 from .viewsets import AuthViewSet
@@ -88,9 +90,7 @@ async def logout(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ):
-    return await AuthViewSet.logout(
-        user=user, request=request, response=response, session_maker=session_maker
-    )
+    return await AuthViewSet.logout(user=user, request=request, response=response, session_maker=session_maker)
 
 
 @auth_router.post("/refresh")
@@ -99,9 +99,7 @@ async def refresh_token(
     response: Response,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Token:
-    return await AuthViewSet.refresh(
-        request=request, response=response, session_maker=session_maker
-    )
+    return await AuthViewSet.refresh(request=request, response=response, session_maker=session_maker)
 
 
 @auth_router.get("/sessions")
@@ -118,9 +116,7 @@ async def abort_all_sessions(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ):
-    return await AuthViewSet.abort(
-        user=user, response=response, session_maker=session_maker
-    )
+    return await AuthViewSet.abort(user=user, response=response, session_maker=session_maker)
 
 
 @auth_router.get("/oauth/{provider}")
@@ -188,11 +184,41 @@ async def verify(
 
 @auth_router.post("/verify-email")
 async def verify_email(
-    token: str,
+    request: Request,
+    response: Response,
+    token: str = Query(...),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> dict:
-    """Email address verification"""
-    return await UserViewSet.verify_email(token=token, session_maker=session_maker)
+    """Email address verification with automatic login"""
+    user_agent = request.headers.get("User-Agent")
+    device_info = None
+    if user_agent:
+        try:
+            device_info = get_device_info(user_agent)
+        except HTTPException:
+            # Невалидный User-Agent: просто не создаём токен для авто-входа
+            pass
+    result = await UserViewSet.verify_email(token=token, session_maker=session_maker, device_info=device_info)
+    if result is not None:
+        # Устанавливаем cookies для автоматического входа
+        response.set_cookie(
+            "access_token",
+            result.access_token,
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            httponly=True,
+            secure=settings.ENVIRONMENT != "LOCAL",
+            samesite="strict",
+        )
+        response.set_cookie(
+            "refresh_token",
+            result.refresh_token,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 30 * 24 * 60,
+            httponly=True,
+            secure=settings.ENVIRONMENT != "LOCAL",
+            samesite="strict",
+        )
+        return {"message": "Email verified and logged in"}
+    return {"message": "Email verified"}
 
 
 @users_router.get("/", status_code=status.HTTP_200_OK)
@@ -219,9 +245,7 @@ async def update_me(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
     """Правка своего профиля: имя, почта, фото, часовой пояс, язык, базовая валюта, тема."""
-    return await UserViewSet.update_profile(
-        obj_data=user_data, user=user, session_maker=session_maker
-    )
+    return await UserViewSet.update_profile(obj_data=user_data, user=user, session_maker=session_maker)
 
 
 @users_router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
@@ -231,9 +255,7 @@ async def change_my_password(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Смена пароля с проверкой текущего."""
-    await UserViewSet.change_password(
-        obj_data=payload, user=user, session_maker=session_maker
-    )
+    await UserViewSet.change_password(obj_data=payload, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -253,9 +275,7 @@ async def delete_my_account(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Удаление аккаунта вместе с финансовыми данными (требуется пароль)."""
-    await UserViewSet.delete_own_account(
-        obj_data=payload, user=user, session_maker=session_maker
-    )
+    await UserViewSet.delete_own_account(obj_data=payload, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -265,9 +285,7 @@ async def get_one(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
-    return await UserViewSet.retrieve(
-        user=user, session_maker=session_maker, obj_id=user_id
-    )
+    return await UserViewSet.retrieve(user=user, session_maker=session_maker, obj_id=user_id)
 
 
 @users_router.patch("/{user_id}", status_code=status.HTTP_200_OK)
@@ -277,9 +295,7 @@ async def update(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
-    return await UserViewSet.update(
-        user=user, session_maker=session_maker, obj_id=user_id, obj_data=user_data
-    )
+    return await UserViewSet.update(user=user, session_maker=session_maker, obj_id=user_id, obj_data=user_data)
 
 
 @users_router.delete("/{user_id}")

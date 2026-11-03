@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Archive, Eye, Sparkles, Trash2 } from 'lucide-react'
+import { Archive, Eye, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import type { Account, AccountKind } from '@/__shared__/types/models'
@@ -60,9 +60,9 @@ export function AccountDialog({
   const { toast } = useToast()
   const navigate = useNavigate()
   const entitlements = useEntitlements().data
-  // На базовом тарифе доступна только базовая валюта: сервер вернёт 402,
-  // поэтому вариант выбора не предлагаем вовсе.
-  const multiCurrency = entitlements?.multi_currency !== false
+  // Пока права тарифа не загружены, считаем тариф бесплатным: иначе на долю
+  // секунды интерфейс предлагал бы платную валюту.
+  const multiCurrency = entitlements?.multi_currency === true
   const baseCurrency = useFinanceStore((state) => state.baseCurrency)
   const currencyCodes = useFinanceStore((state) => state.currencyCodes)
   const createAccount = useFinanceStore((state) => state.createAccount)
@@ -70,6 +70,9 @@ export function AccountDialog({
   const deleteAccount = useFinanceStore((state) => state.deleteAccount)
 
   const editing = Boolean(account?.id)
+  // Заблокированный счёт доступен только для чтения: архивировать и исключать
+  // из статистики всё ещё можно, остальные поля — после возобновления подписки.
+  const locked = Boolean(account?.locked)
   const [draft, setDraft] = useState<Account>(account ?? emptyAccount(baseCurrency))
   const [touched, setTouched] = useState(false)
   const [pending, setPending] = useState(false)
@@ -114,7 +117,15 @@ export function AccountDialog({
         is_excluded: Boolean(draft.excluded),
       }
       if (editing && account) {
-        await updateAccount(account.id, payload, draft.tint)
+        // Заблокированный счёт принимает только архив/исключение: остальные
+        // поля сервер отклонит, поэтому и не отправляем их.
+        await updateAccount(
+          account.id,
+          locked
+            ? { is_archived: payload.is_archived, is_excluded: payload.is_excluded }
+            : payload,
+          draft.tint,
+        )
         toast({ title: t('state.saved'), description: draft.name, tone: 'success' })
       } else {
         await createAccount(payload, draft.tint)
@@ -188,6 +199,16 @@ export function AccountDialog({
         }
       >
         <div className="space-y-4">
+          {locked && (
+            <div className="flex items-start gap-2 rounded-md border-l-2 border-l-[var(--accent)] bg-surface-2/60 px-3 py-2">
+              <Lock className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+              <p className="text-caption text-fg-secondary">
+                {draft.lockReason === 'subscription_required_currency'
+                  ? t('accounts.lockedCurrency')
+                  : t('accounts.lockedLimit')}
+              </p>
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t('account.name')} error={nameInvalid ? t('recordForm.required') : undefined}>
               <Input
@@ -196,7 +217,8 @@ export function AccountDialog({
                 onBlur={() => setTouched(true)}
                 invalid={nameInvalid}
                 placeholder={t('account.name')}
-                autoFocus
+                disabled={locked}
+                autoFocus={!locked}
               />
             </Field>
 
@@ -214,6 +236,7 @@ export function AccountDialog({
                 <FilterSelect
                   ariaLabel={t('accounts.currency')}
                   value={draft.currency}
+                  disabled={locked}
                   onValueChange={(value) => setDraft({ ...draft, currency: value })}
                   options={currencyOptions}
                 />
@@ -245,7 +268,11 @@ export function AccountDialog({
               aria-label={t('account.type')}
               value={draft.kind}
               onValueChange={(value) => setDraft({ ...draft, kind: value as AccountKind })}
-              items={ACCOUNT_KINDS.map((kind) => ({ value: kind, label: t(KIND_LABEL_KEY[kind]) }))}
+              items={ACCOUNT_KINDS.map((kind) => ({
+                value: kind,
+                label: t(KIND_LABEL_KEY[kind]),
+                disabled: locked,
+              }))}
             />
           </div>
 

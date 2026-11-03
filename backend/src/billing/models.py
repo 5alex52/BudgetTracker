@@ -84,13 +84,9 @@ class PlanModel(Base):
     #: Порядок вывода на экране «Тарифы»
     sort_order: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, onupdate=func.now(), nullable=True
-    )
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 
-    subscriptions: Mapped[List["PlanSubscriptionModel"]] = relationship(
-        "PlanSubscriptionModel", back_populates="plan"
-    )
+    subscriptions: Mapped[List["PlanSubscriptionModel"]] = relationship("PlanSubscriptionModel", back_populates="plan")
 
 
 class PlanSubscriptionModel(Base):
@@ -102,42 +98,24 @@ class PlanSubscriptionModel(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    plan_code: Mapped[str] = mapped_column(
-        sa.String(32), sa.ForeignKey("plans.code"), nullable=False
-    )
+    plan_code: Mapped[str] = mapped_column(sa.String(32), sa.ForeignKey("plans.code"), nullable=False)
     status: Mapped[SubscriptionStatus] = mapped_column(
-        sa.Enum(
-            SubscriptionStatus, name="subscription_status", values_callable=_enum_values
-        ),
+        sa.Enum(SubscriptionStatus, name="subscription_status", values_callable=_enum_values),
         default=SubscriptionStatus.ACTIVE,
         nullable=False,
     )
-    started_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, default=func.now(), nullable=False
-    )
-    current_period_end: Mapped[Optional[datetime]] = mapped_column(
-        sa.DateTime, nullable=True
-    )
+    started_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now(), nullable=False)
+    current_period_end: Mapped[Optional[datetime]] = mapped_column(sa.DateTime, nullable=True)
     #: Пользователь отменил продление, но период ещё не закончился
-    cancel_at_period_end: Mapped[bool] = mapped_column(
-        sa.Boolean, default=False, nullable=False
-    )
+    cancel_at_period_end: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     #: Как оплачено: код провайдера (mock, stripe, crypto)
     provider: Mapped[str] = mapped_column(sa.String(32), default="mock", nullable=False)
-    provider_reference: Mapped[Optional[str]] = mapped_column(
-        sa.String(255), nullable=True
-    )
+    provider_reference: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, onupdate=func.now(), nullable=True
-    )
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 
-    user: Mapped["UserModel"] = relationship(
-        "UserModel", back_populates="plan_subscriptions"
-    )
-    plan: Mapped["PlanModel"] = relationship(
-        "PlanModel", back_populates="subscriptions", lazy="joined"
-    )
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="plan_subscriptions")
+    plan: Mapped["PlanModel"] = relationship("PlanModel", back_populates="subscriptions", lazy="joined")
 
 
 class PaymentMethodModel(Base):
@@ -151,9 +129,7 @@ class PaymentMethodModel(Base):
     )
     provider: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     kind: Mapped[PaymentMethodKind] = mapped_column(
-        sa.Enum(
-            PaymentMethodKind, name="payment_method_kind", values_callable=_enum_values
-        ),
+        sa.Enum(PaymentMethodKind, name="payment_method_kind", values_callable=_enum_values),
         default=PaymentMethodKind.CARD,
         nullable=False,
     )
@@ -161,14 +137,10 @@ class PaymentMethodModel(Base):
     last4: Mapped[Optional[str]] = mapped_column(sa.String(4), nullable=True)
     is_default: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     #: Идентификатор способа оплаты на стороне провайдера
-    provider_reference: Mapped[Optional[str]] = mapped_column(
-        sa.String(255), nullable=True
-    )
+    provider_reference: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
 
-    user: Mapped["UserModel"] = relationship(
-        "UserModel", back_populates="payment_methods"
-    )
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="payment_methods")
 
 
 class PaymentModel(Base):
@@ -200,13 +172,9 @@ class PaymentModel(Base):
     )
     provider: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     #: Идентификатор платежа у провайдера — по нему приходит вебхук
-    provider_reference: Mapped[Optional[str]] = mapped_column(
-        sa.String(255), index=True, nullable=True
-    )
+    provider_reference: Mapped[Optional[str]] = mapped_column(sa.String(255), index=True, nullable=True)
     failure_reason: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime, onupdate=func.now(), nullable=True
-    )
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="payments")
