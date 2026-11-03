@@ -118,9 +118,18 @@ export interface FilterSelectProps {
   options: FilterSelectOption[]
   /** Сгруппированный список: заголовок группы — родительская категория */
   groups?: Array<{ label: string; options: FilterSelectOption[] }>
-  onValueChange: (value: string) => void
+  /** Не вызывается, пока селект заблокирован (``disabled``) */
+  onValueChange?: (value: string) => void
   ariaLabel: string
   className?: string
+  /** Заблокированный селект: значение видно, но изменить его нельзя */
+  disabled?: boolean
+  /**
+   * Что показывать в закрытом триггере. По умолчанию Radix подставляет текст
+   * выбранной опции; если подпись опции длиннее кода, стоит задать своё значение
+   * (например, только код валюты), чтобы оно не обрезалось в узком триггере.
+   */
+  renderValue?: ReactNode
 }
 
 export function FilterSelect({
@@ -131,6 +140,8 @@ export function FilterSelect({
   onValueChange,
   ariaLabel,
   className,
+  renderValue,
+  disabled = false,
 }: FilterSelectProps) {
   const renderOption = (option: FilterSelectOption) => (
     <SelectItem key={option.value} value={option.value}>
@@ -144,14 +155,14 @@ export function FilterSelect({
   )
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger
         aria-label={ariaLabel}
-        className={cn('h-[34px] text-label', className)}
+        className={cn('h-[34px] text-label', disabled && 'cursor-not-allowed opacity-60', className)}
       >
         <span className="flex min-w-0 items-center gap-2">
           {icon && <span className="text-fg-tertiary">{icon}</span>}
-          <SelectValue />
+          <SelectValue>{renderValue}</SelectValue>
         </span>
       </SelectTrigger>
       <SelectContent>

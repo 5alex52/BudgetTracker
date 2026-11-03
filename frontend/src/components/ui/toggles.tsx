@@ -1,4 +1,11 @@
-import { forwardRef, useId, type ComponentPropsWithoutRef, type ElementRef, type ReactNode } from 'react'
+import {
+  forwardRef,
+  useId,
+  type ComponentPropsWithoutRef,
+  type ComponentType,
+  type ElementRef,
+  type ReactNode,
+} from 'react'
 import * as SwitchPrimitive from '@radix-ui/react-switch'
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
 import * as SliderPrimitive from '@radix-ui/react-slider'
@@ -156,19 +163,34 @@ export const Slider = forwardRef<ElementRef<typeof SliderPrimitive.Root>, Slider
 
 /* --------------------------- Segmented control --------------------------- */
 
+export interface SegmentedControlItem {
+  value: string
+  /** Текстовая подпись; служит доступным именем и в режиме «только иконка» */
+  label: string
+  /** Необязательная иконка слева от подписи (в iconOnly — вместо неё) */
+  icon?: ComponentType<{ className?: string }>
+  disabled?: boolean
+}
+
 export interface SegmentedControlProps {
-  items: Array<{ value: string; label: string; disabled?: boolean }>
+  items: SegmentedControlItem[]
   value?: string
   onValueChange?: (value: string) => void
   'aria-label'?: string
   className?: string
+  /**
+   * Показывать только иконки. Текстовая подпись остаётся доступной через
+   * aria-label сегмента — так контрол помещается в узкую строку и не
+   * обрезается до безымянных пиктограмм.
+   */
+  iconOnly?: boolean
 }
 
 /**
  * Сегментированный контрол на стекле: индикатор — пилюля, переезжающая
  * CSS-переходом (не layout-анимация, чтобы не дёргать reflow в списках).
  */
-export function SegmentedControl({ items, className, ...rest }: SegmentedControlProps) {
+export function SegmentedControl({ items, className, iconOnly = false, ...rest }: SegmentedControlProps) {
   return (
     <ToggleGroupPrimitive.Root
       type="single"
@@ -179,23 +201,31 @@ export function SegmentedControl({ items, className, ...rest }: SegmentedControl
       )}
       {...rest}
     >
-      {items.map((item) => (
-        <ToggleGroupPrimitive.Item
-          key={item.value}
-          value={item.value}
-          disabled={item.disabled}
-          className={cn(
-            'relative z-10 rounded-pill px-3 py-1 text-label font-medium text-fg-secondary',
-            'transition-colors duration-base ease-out',
-            'hover:text-fg-primary',
-            'data-[state=on]:bg-surface-1 data-[state=on]:text-fg-primary data-[state=on]:shadow-sm',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]',
-            'disabled:cursor-not-allowed disabled:opacity-45',
-          )}
-        >
-          {item.label}
-        </ToggleGroupPrimitive.Item>
-      ))}
+      {items.map((item) => {
+        const Icon = item.icon
+        return (
+          <ToggleGroupPrimitive.Item
+            key={item.value}
+            value={item.value}
+            disabled={item.disabled}
+            // В iconOnly текст скрыт, поэтому доступное имя задаётся явно.
+            aria-label={iconOnly ? item.label : undefined}
+            title={iconOnly ? item.label : undefined}
+            className={cn(
+              'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-pill text-label font-medium text-fg-secondary',
+              iconOnly ? 'size-8 p-0' : 'px-3 py-1',
+              'transition-colors duration-base ease-out',
+              'hover:text-fg-primary',
+              'data-[state=on]:bg-surface-1 data-[state=on]:text-fg-primary data-[state=on]:shadow-sm',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]',
+              'disabled:cursor-not-allowed disabled:opacity-45',
+            )}
+          >
+            {Icon && <Icon className="size-4 shrink-0" />}
+            {!iconOnly && item.label}
+          </ToggleGroupPrimitive.Item>
+        )
+      })}
     </ToggleGroupPrimitive.Root>
   )
 }

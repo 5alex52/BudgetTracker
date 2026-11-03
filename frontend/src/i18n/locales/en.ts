@@ -412,6 +412,9 @@ export const en: Translations = {
   'accounts.updateFailed': 'Could not save account',
   'accounts.deleteFailed': 'Could not delete account',
   'accounts.currencyLocked': 'Account currency cannot be changed after creation',
+  'accounts.currencyBaseOnly': 'On the base plan an account can only use the base currency',
+  'accounts.currencyUpgrade': 'Other currencies are available with a subscription',
+  'accounts.currencyUpgradeCta': 'See plans',
 
   // ------------------------------ records (API) ----------------------------
   'records.loadFailed': 'Could not load records',

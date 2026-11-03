@@ -113,9 +113,9 @@ export interface AccountSummaryDto {
   end_date: string | null
 }
 
+/** Общий баланс приходит единственным числом в базовой валюте пользователя. */
 export interface BalanceOverviewDto {
   total: number
-  accounts: Array<{ account_id: number; name: string; currency_id: string; balance: number }>
 }
 
 /* ------------------------------ категории ------------------------------- */

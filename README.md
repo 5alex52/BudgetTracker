@@ -10,6 +10,10 @@
 - **Frontend**: React 18, TypeScript, Vite 5, TailwindCSS, Recharts
 - **Docker**: `docker-compose.yml` (разработка) и `docker-compose.prod.yml` (прод-подобный)
 
+> **Приложение запускается только через Docker.** Локальные схемы (Poetry, `npm run dev`,
+> `uvicorn` на хосте) больше не поддерживаются: единственный вход — `docker compose`.
+> Любая команда ниже выполняется из корня проекта.
+
 ## Быстрый старт (Docker)
 
 Требуется только Docker с плагином Compose v2 (`docker compose version`).
@@ -47,9 +51,9 @@ docker compose up --build
 25 категорий, 4 метки, 387 записей за полгода, шаблоны и правила:
 
 ```bash
-cd backend
-python -m scripts.seed_demo            # создать (повторный запуск обновит данные)
-python -m scripts.seed_demo --reset    # удалить данные пользователя и засеять заново
+# скрипты запускаются внутри контейнера backend — там уже есть все переменные окружения
+docker compose exec backend python -m scripts.seed_demo          # создать (повторный запуск обновит данные)
+docker compose exec backend python -m scripts.seed_demo --reset  # удалить данные пользователя и засеять заново
 ```
 
 Логин и пароль по умолчанию печатает сам скрипт; их можно переопределить
@@ -69,9 +73,8 @@ python -m scripts.seed_demo --reset    # удалить данные польз�
 | `admin` + `@` + `budgettracker.local` | `admin12345` |
 
 ```bash
-cd backend
-python -m scripts.seed_admin                  # создать или вернуть стандартные доступы
-python -m scripts.seed_admin --keep-password  # не сбрасывать текущий пароль
+docker compose exec backend python -m scripts.seed_admin                  # создать или вернуть стандартные доступы
+docker compose exec backend python -m scripts.seed_admin --keep-password  # не сбрасывать текущий пароль
 ```
 
 Повторный запуск безопасен: скрипт возвращает стандартную почту, включает
@@ -94,9 +97,16 @@ docker compose up --build backend # пересобрать только backend
 
 ### Тесты внутри docker
 
+Тесты запускаются в контейнере backend (в dev-образе уже стоят dev-зависимости: pytest,
+httpx, fakeredis). Тестовая БД создаётся и удаляется самими тестами в том же PostgreSQL,
+никакой локальной установки Python не требуется:
+
 ```bash
 docker compose exec backend python -m pytest tests -q
+docker compose exec backend python -m pytest tests -q -p no:cacheprovider   # без записи кеша в bind-mount
 ```
+
+Тома монтируют `./backend` в контейнер, поэтому правки тестов видны сразу — пересборка не нужна.
 
 ### Фоновые задачи (RabbitMQ + Celery)
 
@@ -120,7 +130,9 @@ docker compose -f docker-compose.prod.yml up --build -d
 - фронтенд собирается (`npm run build`) и раздаётся nginx, `/api` проксируется в backend (см. `frontend/nginx.conf`);
 - backend запускается без autoreload, в 4 воркера uvicorn;
 - исходники не монтируются, порты PostgreSQL и Redis не публикуются наружу;
-- адрес приложения: http://localhost:5173.
+- наружу опубликован только контейнер frontend, внутри это nginx на порту 80,
+  поэтому `FRONTEND_HOST_PORT` пробрасывается как `<порт>:80`;
+- адрес приложения: http://localhost:5173 (порт меняется через `FRONTEND_HOST_PORT`).
 
 Для `ENVIRONMENT=PROD` кука аутентификации выставляется с флагом `secure`, поэтому нужен HTTPS.
 Для локального запуска по HTTP оставляйте `ENVIRONMENT=LOCAL`.
@@ -144,40 +156,52 @@ cp .env.example .env
 | `RUN_MIGRATIONS` | применять миграции при старте backend | `true` |
 | `VITE_API_PROXY_TARGET` | куда Vite проксирует `/api` | `http://backend:8000` |
 
-## Локальная разработка без Docker
+## Разработка
 
-### Backend
+Docker — единственный способ запуска приложения. Ниже — типовые задачи; все команды
+выполняются из корня проекта.
 
-```bash
-cd backend
-poetry install                       # или python -m venv .venv && pip install ...
-cp .env.example .env                 # POSTGRES_HOST=localhost и т.п.
-alembic upgrade head                 # применить миграции
-uvicorn src.main:app --reload
-```
+### Пересборка после правок
 
-Нужны локальные PostgreSQL (`POSTGRES_*` в `.env`) и Redis (`REDIS_*`).
-
-### Frontend
+Исходники `backend/` и `frontend/` примонтированы в контейнеры, поэтому код, тесты и
+миграции подхватываются без пересборки. Пересобирать нужно только изменения, которые
+попадают в образ:
 
 ```bash
-cd frontend
-npm install
-npm run dev            # http://localhost:5173
-npm run build          # сборка в dist/
+docker compose build backend                 # Dockerfile или pyproject.toml/poetry.lock
+docker compose build --no-cache frontend     # package.json / package-lock.json
+docker compose up --build backend frontend   # пересобрать и перезапустить
 ```
 
-Vite проксирует `/api` на `http://localhost:8000`; адрес меняется переменной
-`VITE_API_PROXY_TARGET` (см. `frontend/vite.config.ts`).
+### Миграции
+
+Backend применяет `alembic upgrade head` при старте контейнера (`RUN_MIGRATIONS=true`,
+см. `backend/entrypoint.sh`). Вручную — той же командой внутри контейнера:
+
+```bash
+docker compose exec backend alembic upgrade head                # применить
+docker compose exec backend alembic downgrade -1                # откатить одну
+docker compose exec backend alembic revision --autogenerate -m "add field"
+```
+
+Новая миграция появится в `backend/src/migrations/versions/` на хосте — каталог примонтирован.
 
 ### Тесты
 
 ```bash
-cd backend
-POSTGRES_HOST=127.0.0.1 TEST_POSTGRES_HOST=127.0.0.1 python -m pytest tests -q
+docker compose exec backend python -m pytest tests -q
 ```
 
-Тесты создают и удаляют собственные БД, поэтому нужен доступ к серверу PostgreSQL.
+### Frontend
+
+```bash
+docker compose logs -f frontend    # Vite dev server: http://localhost:5173
+```
+
+Vite проксирует `/api` на `http://backend:8000` внутри docker-сети; адрес меняется
+переменной `VITE_API_PROXY_TARGET` (см. `frontend/vite.config.ts`). Прод-сборка
+(`npm run build`) выполняется в стадии `build` образа, а раздаётся nginx — см.
+`docker compose -f docker-compose.prod.yml`.
 
 ## Как фронтенд работает с API
 
@@ -207,13 +231,14 @@ src/store/*.ts       — zustand: сессия, справочники, спис
   по умолчанию `http://localhost:8000`), поэтому CORS и SameSite-куки
   в разработке не мешают.
 
-Проверить связку без браузера можно тремя способами:
+Проверить связку без браузера можно тремя способами (стек должен быть запущен;
+`tools/` — хостовые вспомогательные скрипты, они обращаются к API по http://localhost:8000):
 
 ```bash
 bash tools/smoke-api.sh                            # читающие эндпоинты всех экранов
 python3 tools/smoke_write.py                       # запись: запись, метка, шаблон,
                                                    # правило, способ оплаты, профиль
-cd frontend && node tools/render-check.mts         # разметка экранных состояний
+node frontend/tools/render-check.mts               # разметка экранных состояний
 ```
 
 `render-check.mts` рендерит на сервере те же компоненты, что уходят в браузер
@@ -231,16 +256,17 @@ cd frontend && node tools/render-check.mts         # разметка экран
   `mock`, который сразу подтверждает платёж. Провайдер без настроек отвечает 503,
   а платёж помечается `failed` — тихого отката на mock нет.
 - **Подтверждение почты** требует Redis и отправителя писем; для локальной
-  работы используйте `scripts/seed_demo.py`.
+  работы используйте `docker compose exec backend python -m scripts.seed_demo`.
 
 ## Миграции
 
 ```bash
-cd backend
-alembic upgrade head                                  # применить
-alembic downgrade -1                                  # откатить одну
-alembic revision --autogenerate -m "add field"        # новая миграция
+docker compose exec backend alembic upgrade head                              # применить
+docker compose exec backend alembic downgrade -1                              # откатить одну
+docker compose exec backend alembic revision --autogenerate -m "add field"    # новая миграция
 ```
+
+Backend применяет миграции автоматически при старте контейнера (`RUN_MIGRATIONS=true`).
 
 История лежит в `backend/src/migrations/versions/`:
 
@@ -264,7 +290,10 @@ alembic revision --autogenerate -m "add field"        # новая миграц�
 | GET | `/api/analytics/{summary,timeseries,by-category,by-account,matrix}` | аналитика (отдельное приложение) |
 | GET/POST/DELETE | `/api/billing/{plans,providers,subscription,payment-methods,payments}` | тарифы и оплата |
 
-Полное описание: http://localhost:8000/docs, подробности по контракту — `backend/docs/API.md`.
+Полное описание — Swagger UI на порту backend из `BACKEND_HOST_PORT`
+(по умолчанию http://localhost:8000/docs);
+прод-стек публикует только frontend, `/api` уходит в backend через nginx.
+Подробности по контракту — `backend/docs/API.md`.
 
 ## Структура проекта
 
@@ -274,9 +303,9 @@ BudgetTracker/
 ├── docker-compose.prod.yml     # прод-подобный стек: nginx + собранный frontend
 ├── .env.example                # шаблон переменных для compose
 ├── backend/
-│   ├── Dockerfile              # python:3.13-slim + poetry install --only main
-│   ├── entrypoint.sh           # alembic upgrade head + запуск команды
-│   ├── alembic.ini
+│   ├── Dockerfile              # python:3.13-slim + poetry install --only main (INSTALL_DEV=true в dev)
+│   ├── entrypoint.sh           # alembic upgrade head (RUN_MIGRATIONS) + запуск команды
+│   ├── alembic.ini             # script_location = src/migrations
 │   ├── poetry.lock / pyproject.toml
 │   ├── src/
 │   │   ├── main.py             # сборка приложения, CORS, /health
@@ -289,7 +318,7 @@ BudgetTracker/
 │   │   ├── billing/            # тарифы, подписка, платежи, провайдеры
 │   │   ├── notifications/      # отправка уведомлений (email/telegram, заглушки)
 │   │   └── migrations/         # alembic env.py и версии миграций
-│   ├── scripts/seed_demo.py    # демо-данные для локальной разработки
+│   ├── scripts/seed_demo.py    # демо-данные (docker compose exec backend python -m scripts.seed_demo)
 │   ├── scripts/seed_admin.py   # администратор со стандартными доступами
 │   ├── docs/API.md             # контракт API и решения по эндпоинтам
 │   └── tests/                  # pytest: users/, finance/, analytics/, billing/

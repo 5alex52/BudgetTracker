@@ -1,0 +1,28 @@
+# Здесь только статические проверки: запуск приложения и тестов идёт через Docker.
+#   docker compose exec backend python -m pytest tests -q
+# (см. корневой README.md). Раньше здесь были pytest с pytest-xdist и pytest-html,
+# которых нет в pyproject.toml, поэтому job падал; теперь проверяется то, что реально
+# объявлено в зависимостях.
+
+image: python:3.13-slim
+
+variables:
+  POETRY_VIRTUALENVS_CREATE: "false"
+
+before_script:
+  - pip install poetry
+  - poetry install --with dev --no-interaction --no-root
+
+lint:
+  stage: test
+  script:
+    - poetry run black --check --diff src tests scripts
+    - poetry run pylint --exit-zero src tests scripts
+
+typecheck:
+  stage: test
+  script:
+    - poetry run python -m compileall -q src tests scripts
+
+stages:
+  - test

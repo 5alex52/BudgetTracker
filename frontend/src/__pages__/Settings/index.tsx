@@ -167,6 +167,9 @@ export function SettingsPage() {
                   ariaLabel={t('profile.baseCurrency')}
                   value={currency}
                   onValueChange={(next) => void changeCurrency(next)}
+                  // В закрытом селекте — только код: полное «код · название» не
+                  // помещается в узкий триггер и обрезается. Список остаётся полным.
+                  renderValue={currency}
                   options={rates.map((rate) => ({
                     value: rate.code,
                     label: `${rate.code} · ${rate.name}`,

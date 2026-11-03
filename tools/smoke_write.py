@@ -4,6 +4,7 @@
 Запуск: python3 tools/smoke_write.py
 Требует поднятый backend на 127.0.0.1:8000 и демо-данные (scripts.seed_demo).
 """
+
 from __future__ import annotations
 
 import json
@@ -92,7 +93,11 @@ def main() -> int:
         },
     )
     transaction_id = record["id"]
-    call("PATCH", f"/finance/transactions/{transaction_id}", {"amount": 33.25, "note": "smoke-updated"})
+    call(
+        "PATCH",
+        f"/finance/transactions/{transaction_id}",
+        {"amount": 33.25, "note": "smoke-updated"},
+    )
     call("GET", f"/finance/transactions/{transaction_id}")
 
     # --- метки
@@ -115,7 +120,9 @@ def main() -> int:
             "tag_ids": [],
         },
     )
-    template_id = template["id"] if isinstance(template, dict) and "id" in template else None
+    template_id = (
+        template["id"] if isinstance(template, dict) and "id" in template else None
+    )
     applied_id = None
     if template_id:
         applied = call("POST", f"/finance/templates/{template_id}/apply")

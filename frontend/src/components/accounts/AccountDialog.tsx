@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Archive, Eye, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Archive, Eye, Sparkles, Trash2 } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import type { Account, AccountKind } from '@/__shared__/types/models'
@@ -12,6 +12,8 @@ import { SegmentedControl, Switch } from '@/components/ui/toggles'
 import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
 import { ApiError } from '@/api'
+import { useEntitlements } from '@/hooks/useEntitlements'
+import { useNavigate } from 'react-router-dom'
 
 /** Типы счетов, которые поддерживает сервис. */
 const ACCOUNT_KINDS: AccountKind[] = ['checking', 'savings', 'cash', 'credit_card', 'investment']
@@ -56,6 +58,11 @@ export function AccountDialog({
 }) {
   const { t } = useI18n()
   const { toast } = useToast()
+  const navigate = useNavigate()
+  const entitlements = useEntitlements().data
+  // На базовом тарифе доступна только базовая валюта: сервер вернёт 402,
+  // поэтому вариант выбора не предлагаем вовсе.
+  const multiCurrency = entitlements?.multi_currency !== false
   const baseCurrency = useFinanceStore((state) => state.baseCurrency)
   const currencyCodes = useFinanceStore((state) => state.currencyCodes)
   const createAccount = useFinanceStore((state) => state.createAccount)
@@ -76,6 +83,22 @@ export function AccountDialog({
 
   const nameInvalid = touched && !draft.name.trim()
   const balanceValue = Number(String(draft.balance).replace(',', '.'))
+
+  /**
+   * Валюта счёта. Без мультивалютности список сужается до базовой: если счёт
+   * уже открыт в другой валюте, оставляем её единственным (заблокированным)
+   * вариантом, чтобы форма не подменила валюту при сохранении.
+   */
+  const currencyOptions = useMemo(() => {
+    const all = currencyCodes().map((code) => ({ value: code, label: code }))
+    if (multiCurrency) return all
+    const locked = draft.currency
+    if (locked && locked !== baseCurrency) return [{ value: locked, label: locked }]
+    return [{ value: baseCurrency, label: baseCurrency }]
+  }, [currencyCodes, multiCurrency, draft.currency, baseCurrency])
+
+  const foreignCurrencyLocked =
+    !multiCurrency && Boolean(draft.currency) && draft.currency !== baseCurrency
 
   const save = async () => {
     setTouched(true)
@@ -179,14 +202,40 @@ export function AccountDialog({
 
             <Field
               label={t('accounts.currency')}
-              hint={editing ? t('accounts.currencyLocked') : undefined}
+              hint={
+                foreignCurrencyLocked
+                  ? t('accounts.currencyBaseOnly')
+                  : editing
+                    ? t('accounts.currencyLocked')
+                    : undefined
+              }
             >
-              <FilterSelect
-                ariaLabel={t('accounts.currency')}
-                value={draft.currency}
-                onValueChange={(value) => setDraft({ ...draft, currency: value })}
-                options={currencyCodes().map((code) => ({ value: code, label: code }))}
-              />
+              {multiCurrency ? (
+                <FilterSelect
+                  ariaLabel={t('accounts.currency')}
+                  value={draft.currency}
+                  onValueChange={(value) => setDraft({ ...draft, currency: value })}
+                  options={currencyOptions}
+                />
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <FilterSelect
+                    ariaLabel={t('accounts.currency')}
+                    value={draft.currency}
+                    disabled
+                    options={currencyOptions}
+                  />
+                  <Button
+                    variant="subtle"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => navigate('/settings/payments')}
+                  >
+                    <Sparkles className="size-3.5" aria-hidden="true" />
+                    {t('accounts.currencyUpgradeCta')}
+                  </Button>
+                </div>
+              )}
             </Field>
           </div>
 

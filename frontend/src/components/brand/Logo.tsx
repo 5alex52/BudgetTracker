@@ -2,18 +2,24 @@ import { useId } from 'react'
 import { cn } from '@/__shared__/utils/cn'
 
 /**
- * Фирменный знак BudgetTracker.
+ * Фирменный знак BudgetTracker (кольцо-диаграмма с точкой-акцентом).
  *
- * Исходники — `docs/design/Logo Dark.svg` и `Logo Light.svg`: скруглённый
- * квадрат с линией роста и точками данных. Обе версии встроены как React-
- * компоненты (без сетевых запросов и мигания при загрузке); переключение по
- * теме — на CSS, поэтому знак меняется и при системной теме, и при ручном
- * выборе, и при `?theme=` в адресе.
+ * Исходники — `frontend/public/brand/logo-dark.svg` и `logo-light.svg`,
+ * те же файлы, что подключены фавиконом в `index.html`. Обе версии встроены
+ * как React-компоненты (без сетевых запросов и мигания при загрузке);
+ * переключение по теме — на CSS, поэтому знак меняется и при системной теме,
+ * и при ручном выборе, и при `?theme=` в адресе.
  */
 export function Logo({ className, size = 32 }: { className?: string; size?: number }) {
+  // Идентификаторы градиентов должны быть уникальны: знак встречается на
+  // странице несколько раз (шапка и подвал), и дубли ломают заливку.
   const id = useId().replace(/:/g, '')
-  const darkGradient = `logoDark-${id}`
-  const lightGradient = `logoLight-${id}`
+  const darkAccent = `logoRingDark-${id}`
+  const lightAccent = `logoRingLight-${id}`
+  const darkBg = `logoBgDark-${id}`
+  const lightBg = `logoBgLight-${id}`
+  const darkRim = `logoRimDark-${id}`
+  const lightRim = `logoRimLight-${id}`
 
   return (
     <span
@@ -22,70 +28,94 @@ export function Logo({ className, size = 32 }: { className?: string; size?: numb
       role="img"
       aria-label="BudgetTracker"
     >
-      {/* Тёмная тема: глубокая плитка с неоновым свечением */}
-      <svg viewBox="0 0 120 120" width={size} height={size} className="hidden dark:block" aria-hidden="true">
+      {/* Тёмная тема — как в `logo-dark.svg` */}
+      <svg viewBox="0 0 64 64" width={size} height={size} className="hidden dark:block" aria-hidden="true">
         <defs>
-          <linearGradient id={darkGradient} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#00f2fe" />
-            <stop offset="100%" stopColor="#3b82f6" />
+          <linearGradient id={darkBg} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#2A453D" />
+            <stop offset="1" stopColor="#0E1815" />
           </linearGradient>
-          <linearGradient id={`${darkGradient}-bg`} x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#1e293b" />
-            <stop offset="100%" stopColor="#0f172a" />
+          <linearGradient id={darkRim} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fff" stopOpacity=".75" />
+            <stop offset=".5" stopColor="#fff" stopOpacity=".05" />
+            <stop offset="1" stopColor="#fff" stopOpacity=".25" />
           </linearGradient>
-          <filter id={`${darkGradient}-glow`} x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
+          <linearGradient id={darkAccent} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#72F2BC" />
+            <stop offset="1" stopColor="#22C27C" />
+          </linearGradient>
         </defs>
-        <rect width="120" height="120" rx="28" fill={`url(#${darkGradient}-bg)`} stroke="#334155" strokeWidth="1.5" />
-        <path
-          d="M 24 75 L 48 50 L 72 62 L 96 32"
+        <rect x="4" y="6" width="56" height="56" rx="16" fill="#000000" fillOpacity=".35" opacity=".5" />
+        <rect x="4" y="4" width="56" height="56" rx="16" fill={`url(#${darkBg})`} stroke="#3B574C" />
+        <rect
+          x="5.5"
+          y="5.5"
+          width="53"
+          height="53"
+          rx="14.5"
           fill="none"
-          stroke={`url(#${darkGradient})`}
+          stroke={`url(#${darkRim})`}
+          strokeWidth="1.2"
+        />
+        <circle cx="32" cy="32" r="16" fill="none" stroke="#E9F6EF" strokeOpacity=".18" strokeWidth="6" />
+        <circle
+          cx="32"
+          cy="32"
+          r="16"
+          fill="none"
+          stroke={`url(#${darkAccent})`}
           strokeWidth="6"
           strokeLinecap="round"
-          strokeLinejoin="round"
-          filter={`url(#${darkGradient}-glow)`}
+          strokeDasharray="72 28.5"
+          transform="rotate(-110 32 32)"
         />
-        <circle cx="24" cy="75" r="4" fill="#00f2fe" />
-        <circle cx="48" cy="50" r="4" fill="#3b82f6" />
-        <circle cx="72" cy="62" r="4" fill="#3b82f6" />
-        <circle cx="96" cy="32" r="5" fill="#00f2fe" />
+        <circle cx="32" cy="32" r="6.5" fill={`url(#${darkAccent})`} />
+        <circle cx="30" cy="30" r="2" fill="#fff" fillOpacity=".55" />
       </svg>
 
-      {/* Светлая тема: белая плитка с мягкой тенью */}
-      <svg viewBox="0 0 120 120" width={size} height={size} className="block dark:hidden" aria-hidden="true">
+      {/* Светлая тема — как в `logo-light.svg` */}
+      <svg viewBox="0 0 64 64" width={size} height={size} className="block dark:hidden" aria-hidden="true">
         <defs>
-          <linearGradient id={lightGradient} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#00c6ff" />
-            <stop offset="100%" stopColor="#0072ff" />
+          <linearGradient id={lightBg} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#FFFFFF" />
+            <stop offset="1" stopColor="#DCEFE4" />
           </linearGradient>
-          <filter id={`${lightGradient}-shadow`} x="-10%" y="-10%" width="130%" height="130%">
-            <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#0f172a" floodOpacity="0.12" />
-          </filter>
+          <linearGradient id={lightRim} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fff" stopOpacity=".75" />
+            <stop offset=".5" stopColor="#fff" stopOpacity=".05" />
+            <stop offset="1" stopColor="#fff" stopOpacity=".25" />
+          </linearGradient>
+          <linearGradient id={lightAccent} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#2BD985" />
+            <stop offset="1" stopColor="#0E9F5B" />
+          </linearGradient>
         </defs>
+        <rect x="4" y="6" width="56" height="56" rx="16" fill="#0B3B26" fillOpacity=".16" opacity=".5" />
+        <rect x="4" y="4" width="56" height="56" rx="16" fill={`url(#${lightBg})`} stroke="#B7D3C4" />
         <rect
-          width="120"
-          height="120"
-          rx="28"
-          fill="#ffffff"
-          stroke="#e2e8f0"
-          strokeWidth="1.5"
-          filter={`url(#${lightGradient}-shadow)`}
-        />
-        <path
-          d="M 24 75 L 48 50 L 72 62 L 96 32"
+          x="5.5"
+          y="5.5"
+          width="53"
+          height="53"
+          rx="14.5"
           fill="none"
-          stroke={`url(#${lightGradient})`}
+          stroke={`url(#${lightRim})`}
+          strokeWidth="1.2"
+        />
+        <circle cx="32" cy="32" r="16" fill="none" stroke="#17352B" strokeOpacity=".18" strokeWidth="6" />
+        <circle
+          cx="32"
+          cy="32"
+          r="16"
+          fill="none"
+          stroke={`url(#${lightAccent})`}
           strokeWidth="6"
           strokeLinecap="round"
-          strokeLinejoin="round"
+          strokeDasharray="72 28.5"
+          transform="rotate(-110 32 32)"
         />
-        <circle cx="24" cy="75" r="4" fill="#00c6ff" />
-        <circle cx="48" cy="50" r="4" fill="#0072ff" />
-        <circle cx="72" cy="62" r="4" fill="#0072ff" />
-        <circle cx="96" cy="32" r="5" fill="#00c6ff" />
+        <circle cx="32" cy="32" r="6.5" fill={`url(#${lightAccent})`} />
+        <circle cx="30" cy="30" r="2" fill="#fff" fillOpacity=".55" />
       </svg>
     </span>
   )

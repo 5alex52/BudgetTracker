@@ -14,7 +14,7 @@ export function App() {
               BudgetTracker
             </h1>
           </div>
-          
+
           <nav className="flex items-center gap-2">
             <Link to="/" className="glass px-4 py-2 rounded-xl font-medium text-sm hover:bg-gray-500/10 transition-colors">Dashboard</Link>
             <Link to="/accounts" className="glass px-4 py-2 rounded-xl font-medium text-sm hover:bg-gray-500/10 transition-colors">Accounts</Link>
@@ -22,7 +22,7 @@ export function App() {
             <Link to="/categories" className="glass px-4 py-2 rounded-xl font-medium text-sm hover:bg-gray-500/10 transition-colors">Categories</Link>
             <Link to="/subscriptions" className="glass px-4 py-2 rounded-xl font-medium text-sm hover:bg-gray-500/10 transition-colors">Subscriptions</Link>
           </nav>
-          
+
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2 glass px-3 py-1.5 rounded-full">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-medium text-xs">

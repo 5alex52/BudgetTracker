@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.pylint.d/
+htmlcov/
+.coverage
+coverage.xml
+report.html
+junit.xml
+
+# локальные конфиги и артефакты IDE
+.env
+.env.*
+!.env.example
+.DS_Store
+.vscode/
+.git/
+.gitlab-ci.yml
+tests/
+pre-commit
+*.md

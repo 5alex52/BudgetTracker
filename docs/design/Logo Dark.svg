@@ -16,10 +16,10 @@
 
   <!-- Фон иконки -->
   <rect width="120" height="120" rx="28" fill="url(#darkBgGrad)" stroke="#334155" stroke-width="1.5" />
-  
+
   <!-- График роста -->
   <path d="M 24 75 L 48 50 L 72 62 L 96 32" fill="none" stroke="url(#darkPrimaryGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#darkGlow)" />
-  
+
   <!-- Точки данных -->
   <circle cx="24" cy="75" r="4" fill="#00f2fe" />
   <circle cx="48" cy="50" r="4" fill="#3b82f6" />

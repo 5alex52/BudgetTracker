@@ -427,6 +427,9 @@ export const ru = {
   'accounts.updateFailed': 'Не удалось сохранить счёт',
   'accounts.deleteFailed': 'Не удалось удалить счёт',
   'accounts.currencyLocked': 'Валюта счёта нельзя менять после создания',
+  'accounts.currencyBaseOnly': 'На базовом тарифе счёт можно открыть только в базовой валюте',
+  'accounts.currencyUpgrade': 'Другие валюты доступны по подписке',
+  'accounts.currencyUpgradeCta': 'Посмотреть тарифы',
 
   // ------------------------------ записи (API) -----------------------------
   'records.loadFailed': 'Не удалось загрузить записи',

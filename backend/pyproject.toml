@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "BudgetTracker"
+version = "0.1.0"
+description = "BudgetTracker backend service"
+authors = ["Aleksei Kurkovskii <[EMAIL]>"]
+readme = "README.md"
+packages = []
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+fastapi = {extras = ["all"], version = "^0.111.0"}
+uvicorn = {extras = ["standard"], version = "^0.34.0"}
+sqlalchemy = "^2.0.18"
+asyncpg = "^0.30.0"
+alembic = "^1.11.1"
+gunicorn = "^20.1.0"
+python-jose = "^3.3.0"
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+bcrypt = ">=4.0.1,<4.1"
+pydantic = "^2.7.3"
+pydantic-settings = "^2.7.1"
+celery = "^5.4.0"
+redis = "^5.0.5"
+psycopg2-binary = "^2.9.10"
+user-agents = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.2"
+reorder-python-imports = "^3.13.0"
+pre-commit = "^4.1.0"
+pylint = "^3.2.3"
+pylint-gitlab = "^2.0.1"
+pylint-json2html = "^0.5.0"
+pytest = "^8.3.4"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+pytest-html = "^4.1.1"
+pytest-xdist = "^3.6.1"
+faker = "^25.8.0"
+fakeredis = "^2.40.0"
+httpx = "^0.28.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+exclude = "migrations"
+
+[tool.pytest.ini_options]
+python_files = ["tests.py", "test_*.py", "*_test.py", "tests/*/*_tests.py"]
+asyncio_mode = "strict"
+testpaths = ["tests"]

@@ -11,10 +11,10 @@
 
   <!-- Фон иконки -->
   <rect width="120" height="120" rx="28" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#lightShadow)" />
-  
+
   <!-- График роста -->
   <path d="M 24 75 L 48 50 L 72 62 L 96 32" fill="none" stroke="url(#lightPrimaryGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-  
+
   <!-- Точки данных -->
   <circle cx="24" cy="75" r="4" fill="#00c6ff" />
   <circle cx="48" cy="50" r="4" fill="#0072ff" />
