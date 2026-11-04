@@ -42,7 +42,7 @@ export function AppShell({ children, sidebar, header, context, onAddRecord }: Ap
 
       <SideRail />
 
-      <div className="relative z-[1] flex min-h-dvh flex-col lg:pl-[calc(var(--rail-w)+12px)]">
+      <div className="relative z-[1] flex min-h-dvh flex-col md:pl-[calc(var(--rail-w)+12px)]">
         <TopBar onAddRecord={addRecord} context={context} />
 
         {header && (

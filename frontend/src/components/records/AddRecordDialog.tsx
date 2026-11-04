@@ -33,7 +33,8 @@ function toIso(date: string, time: string): string {
  * Отправляет запись на сервер: правила авто-категоризации, баланс счёта и метки
  * считает backend. Поля «тип платежа», «плательщик» и «подтверждено» из макета
  * убраны: таких полей в модели данных нет, и сохранять их было бы некуда.
- * Переводы отключены до появления поддержки двух счетов в одной операции.
+ * У перевода категории нет: форма спрашивает счёт-получатель, а сервер
+ * подставляет служебную категорию и пересчитывает валюты по личным курсам.
  */
 export function AddRecordDialog({
   open,
@@ -59,6 +60,7 @@ export function AddRecordDialog({
   const [type, setType] = useState<TransactionTypeValue>('expense')
   const [amount, setAmount] = useState('')
   const [accountId, setAccountId] = useState('')
+  const [toAccountId, setToAccountId] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -70,10 +72,15 @@ export function AddRecordDialog({
   const [touched, setTouched] = useState(false)
   const [pending, setPending] = useState(false)
 
+  const isTransfer = type === 'transfer'
+
   /* Категории под текущий тип записи: расход и доход не смешиваются */
   const availableCategories = useMemo(
-    () => categories.filter((category) => category.type === (type === 'income' ? 'income' : 'expense')),
-    [categories, type],
+    () =>
+      isTransfer
+        ? []
+        : categories.filter((category) => category.type === (type === 'income' ? 'income' : 'expense')),
+    [categories, type, isTransfer],
   )
 
   /**
@@ -109,9 +116,10 @@ export function AddRecordDialog({
   useEffect(() => {
     if (!open) return
     if (record) {
-      setType(record.type === 'income' ? 'income' : 'expense')
+      setType(record.type)
       setAmount(String(Math.abs(record.amount)).replace('.', ','))
       setAccountId(record.accountId)
+      setToAccountId(record.transferAccountId ?? '')
       setCategoryId(String(record.categoryId))
       setNote(record.note ?? '')
       setDate(record.date)
@@ -125,6 +133,7 @@ export function AddRecordDialog({
     setType('expense')
     setAmount('')
     setAccountId(selectableAccounts[0]?.id ?? '')
+    setToAccountId('')
     setCategoryId('')
     setNote('')
     setDate(new Date().toISOString().slice(0, 10))
@@ -137,16 +146,26 @@ export function AddRecordDialog({
 
   /* Категория по умолчанию — первая подходящая: пустой селект выглядит как ошибка */
   useEffect(() => {
-    if (!open || editing) return
+    if (!open || editing || isTransfer) return
     if (categoryId && availableCategories.some((category) => String(category.id) === categoryId)) return
     setCategoryId(availableCategories[0] ? String(availableCategories[0].id) : '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editing, availableCategories])
+  }, [open, editing, isTransfer, availableCategories])
+
+  /* Получатель перевода не может совпадать с источником: держим валидный выбор */
+  useEffect(() => {
+    if (!open || !isTransfer) return
+    if (toAccountId && toAccountId !== accountId) return
+    setToAccountId(formAccounts.find((item) => item.id !== accountId)?.id ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isTransfer, accountId, formAccounts])
 
   const amountValue = parseAmount(amount)
   const amountInvalid = touched && amountValue === null
   const accountInvalid = touched && !accountId
-  const categoryInvalid = touched && !categoryId
+  const toAccount = accounts.find((item) => item.id === toAccountId)
+  const toAccountInvalid = touched && isTransfer && (!toAccountId || toAccountId === accountId)
+  const categoryInvalid = touched && !isTransfer && !categoryId
 
   const accent =
     type === 'expense'
@@ -157,25 +176,37 @@ export function AddRecordDialog({
           strip: 'bg-[var(--negative)]',
           chip: 'accent-negative',
         }
-      : {
-          text: 'text-[var(--positive)]',
-          ring: 'focus-visible:ring-[var(--positive)]/35',
-          border: 'border-[var(--positive)]/45',
-          strip: 'bg-[var(--positive)]',
-          chip: 'accent-positive',
-        }
+      : type === 'transfer'
+        ? {
+            text: 'text-accent',
+            ring: 'focus-visible:ring-[var(--accent-ring)]',
+            border: 'border-accent/45',
+            strip: 'bg-accent-fill',
+            chip: '',
+          }
+        : {
+            text: 'text-[var(--positive)]',
+            ring: 'focus-visible:ring-[var(--positive)]/35',
+            border: 'border-[var(--positive)]/45',
+            strip: 'bg-[var(--positive)]',
+            chip: 'accent-positive',
+          }
 
   const toggleTag = (id: number) =>
     setTagIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
 
   const submit = async () => {
     setTouched(true)
-    if (amountValue === null || !accountId || !categoryId || lockedAccount) return
+    const destinationLocked = isTransfer && Boolean(toAccount?.locked)
+    if (amountValue === null || !accountId || lockedAccount || destinationLocked) return
+    if (isTransfer ? !toAccountId || toAccountId === accountId : !categoryId) return
     setPending(true)
     try {
       const payload = {
         account_id: Number(accountId),
-        category_id: Number(categoryId),
+        ...(isTransfer
+          ? { transfer_account_id: Number(toAccountId) }
+          : { category_id: Number(categoryId) }),
         amount: amountValue,
         currency_id: currency,
         type,
@@ -228,7 +259,10 @@ export function AddRecordDialog({
             <Button variant="subtle" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={() => void submit()} disabled={pending || lockedAccount}>
+            <Button
+              onClick={() => void submit()}
+              disabled={pending || lockedAccount || (isTransfer && Boolean(toAccount?.locked))}
+            >
               {pending ? t('state.saving') : editing ? t('common.save') : t('common.add')}
             </Button>
           </div>
@@ -245,13 +279,10 @@ export function AddRecordDialog({
                 items={[
                   { value: 'expense', label: t('recordForm.expense') },
                   { value: 'income', label: t('recordForm.income') },
-                  { value: 'transfer', label: t('recordForm.transfer'), disabled: true },
+                  { value: 'transfer', label: t('recordForm.transfer') },
                 ]}
               />
             </div>
-            {/* Перевод выключен: сервер пока проводит только одну сторону операции.
-                Подпись показываем всегда — иначе неактивная кнопка молчит. */}
-            <p className="text-caption text-fg-tertiary">{t('records.transferUnavailable')}</p>
 
             <Field
               label={`${t('recordForm.amount')} (${currency})`}
@@ -271,13 +302,13 @@ export function AddRecordDialog({
             </Field>
 
             <Field
-              label={t('recordForm.account')}
+              label={isTransfer ? t('recordForm.fromAccount') : t('recordForm.account')}
               error={accountInvalid ? t('recordForm.required') : undefined}
               hint={lockedAccount ? t('accounts.lockedHint') : undefined}
               required
             >
               <FilterSelect
-                ariaLabel={t('recordForm.account')}
+                ariaLabel={isTransfer ? t('recordForm.fromAccount') : t('recordForm.account')}
                 value={accountId}
                 onValueChange={setAccountId}
                 options={formAccounts.map((item) => ({
@@ -288,18 +319,48 @@ export function AddRecordDialog({
               />
             </Field>
 
-            <Field
-              label={t('recordForm.category')}
-              error={categoryInvalid ? t('recordForm.required') : undefined}
-              required
-            >
-              <FilterSelect
-                ariaLabel={t('recordForm.category')}
-                value={categoryId}
-                onValueChange={setCategoryId}
-                options={categoryOptions}
-              />
-            </Field>
+            {isTransfer && (
+              <Field
+                label={t('recordForm.toAccount')}
+                error={toAccountInvalid ? t('recordForm.required') : undefined}
+                hint={
+                  toAccount
+                    ? toAccount.currency === currency
+                      ? t('recordForm.transferSameCurrency')
+                      : `${t('recordForm.transferDifferentCurrency')} · ${toAccount.currency}`
+                    : undefined
+                }
+                required
+              >
+                <FilterSelect
+                  ariaLabel={t('recordForm.toAccount')}
+                  value={toAccountId}
+                  onValueChange={setToAccountId}
+                  options={formAccounts
+                    .filter((item) => item.id !== accountId)
+                    .map((item) => ({
+                      value: item.id,
+                      label: `${item.name} · ${item.currency}`,
+                      dotColor: item.tint,
+                    }))}
+                />
+              </Field>
+            )}
+
+            {!isTransfer && (
+              <Field
+                label={t('recordForm.category')}
+                error={categoryInvalid ? t('recordForm.required') : undefined}
+                required
+              >
+                <FilterSelect
+                  ariaLabel={t('recordForm.category')}
+                  value={categoryId}
+                  onValueChange={setCategoryId}
+                  options={categoryOptions}
+                />
+              </Field>
+            )}
 
             <Field label={t('recordForm.note')}>
               <Textarea
@@ -373,7 +434,7 @@ export function AddRecordDialog({
               )}
             </div>
 
-            {!editing && (
+            {!editing && !isTransfer && (
               <Switch
                 checked={makeTemplate}
                 onCheckedChange={setMakeTemplate}
@@ -381,7 +442,7 @@ export function AddRecordDialog({
               />
             )}
 
-            {availableCategories.length === 0 && (
+            {!isTransfer && availableCategories.length === 0 && (
               <p className="text-caption text-[var(--negative)]">
                 {t('recordForm.noCategories')}{' '}
                 <CategoryIcon name="circle" className="inline size-3" />

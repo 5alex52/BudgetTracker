@@ -40,6 +40,7 @@ from .schemas import RuleField
 from .schemas import RuleOperator
 from .schemas import RuleResponse
 from .schemas import RuleUpdate
+from .schemas import TransactionType
 from .tags import attach_tags
 from .tags import tag_ids_of
 
@@ -108,7 +109,8 @@ async def apply_rules(
         if not match_rule(rule, transaction.note, transaction.amount):
             continue
         matched.append(rule.id)
-        if rule.set_category_id is not None:
+        # У перевода категория служебная: правило не должно подменить её на расход
+        if rule.set_category_id is not None and transaction.type != TransactionType.TRANSFER:
             transaction.category_id = rule.set_category_id
         if rule.exclude_from_statistics:
             transaction.is_excluded = True

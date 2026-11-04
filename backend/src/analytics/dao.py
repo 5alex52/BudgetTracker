@@ -284,6 +284,7 @@ class AnalyticsDAO:
             .join(CurrencyModel, TransactionModel.currency_id == CurrencyModel.code)
             .where(
                 AccountModel.user_id == user_id,
+                TransactionModel.type != TransactionType.TRANSFER,
                 TransactionModel.date >= start_date,
                 TransactionModel.date <= end_date,
             )
@@ -320,7 +321,11 @@ class AnalyticsDAO:
             .select_from(TransactionModel)
             .join(AccountModel, TransactionModel.account_id == AccountModel.id)
             .join(CurrencyModel, TransactionModel.currency_id == CurrencyModel.code)
-            .where(AccountModel.user_id == user_id, TransactionModel.date > moment)
+            .where(
+                AccountModel.user_id == user_id,
+                TransactionModel.type != TransactionType.TRANSFER,
+                TransactionModel.date > moment,
+            )
         )
         if only_statistics:
             stmt = stmt.where(*cls._statistics_condition())

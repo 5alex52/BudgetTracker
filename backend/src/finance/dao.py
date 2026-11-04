@@ -203,6 +203,66 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         return {row.account_id: round(float(row.total), 2) for row in result.all()}
 
     @classmethod
+    async def incoming_transfers_after_by_account(
+        cls,
+        session: AsyncSession,
+        user_id,
+        moment: datetime,
+        account_ids: Optional[Sequence[int]] = None,
+    ) -> dict:
+        """Сколько переводов пришло на каждый счёт после момента (в валюте счёта).
+
+        Перевод хранится одной записью на счёте-источнике, поэтому кредит
+        получателя не виден в ``signed_totals_after_by_account``. Без этой
+        выборки исторический остаток счёта-получателя был бы завышен.
+        """
+        dest_account = aliased(AccountModel)
+        dest_currency = aliased(CurrencyModel)
+        tx_override = (
+            select(UserCurrencyRateModel.rate)
+            .where(
+                UserCurrencyRateModel.user_id == user_id,
+                UserCurrencyRateModel.code == TransactionModel.currency_id,
+            )
+            .scalar_subquery()
+        )
+        dest_override = (
+            select(UserCurrencyRateModel.rate)
+            .where(
+                UserCurrencyRateModel.user_id == user_id,
+                UserCurrencyRateModel.code == dest_account.currency_id,
+            )
+            .scalar_subquery()
+        )
+        tx_rate = func.coalesce(tx_override, CurrencyModel.exchange_rate_to_base)
+        dest_rate = func.coalesce(dest_override, dest_currency.exchange_rate_to_base)
+        stmt = (
+            select(
+                TransactionModel.transfer_account_id,
+                func.coalesce(
+                    func.sum(TransactionModel.amount * tx_rate / func.nullif(dest_rate, 0.0)),
+                    0.0,
+                ).label("total"),
+            )
+            .select_from(TransactionModel)
+            .join(AccountModel, TransactionModel.account_id == AccountModel.id)
+            .join(CurrencyModel, TransactionModel.currency_id == CurrencyModel.code)
+            .join(dest_account, TransactionModel.transfer_account_id == dest_account.id)
+            .join(dest_currency, dest_account.currency_id == dest_currency.code)
+            .where(
+                AccountModel.user_id == user_id,
+                dest_account.user_id == user_id,
+                TransactionModel.type == TransactionType.TRANSFER,
+                TransactionModel.date > moment,
+            )
+        )
+        if account_ids is not None:
+            stmt = stmt.where(TransactionModel.transfer_account_id.in_(list(account_ids)))
+        stmt = stmt.group_by(TransactionModel.transfer_account_id)
+        result = await session.execute(stmt)
+        return {row.transfer_account_id: round(float(row.total), 2) for row in result.all()}
+
+    @classmethod
     def _filtered_stmt(
         cls,
         user_id,
@@ -234,7 +294,11 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             select(cls.model)
             .join(AccountModel, cls.model.account_id == AccountModel.id)
             .where(AccountModel.user_id == user_id)
-            .options(selectinload(cls.model.account), selectinload(cls.model.tags))
+            .options(
+                selectinload(cls.model.account),
+                selectinload(cls.model.transfer_account),
+                selectinload(cls.model.tags),
+            )
         )
         if only_statistics:
             stmt = stmt.where(AccountModel.is_excluded.is_(False))
@@ -400,7 +464,11 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             select(cls.model)
             .join(AccountModel, cls.model.account_id == AccountModel.id)
             .where(cls.model.id == transaction_id, AccountModel.user_id == user_id)
-            .options(selectinload(cls.model.account), selectinload(cls.model.tags))
+            .options(
+                selectinload(cls.model.account),
+                selectinload(cls.model.transfer_account),
+                selectinload(cls.model.tags),
+            )
             .execution_options(populate_existing=True)
         )
         result = await session.execute(stmt)

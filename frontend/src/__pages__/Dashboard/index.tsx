@@ -345,7 +345,7 @@ export function DashboardPage() {
               </>
             }
           />
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {([
               { key: 'balance' as const, label: t('dashboard.balance'), value: totalBalance, currency: baseCurrency },
               { key: 'cashflow' as const, label: t('dashboard.cashflow'), value: totals?.net ?? 0, currency: baseCurrency },

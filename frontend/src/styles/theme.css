@@ -233,12 +233,26 @@
 
 @media (max-width: 767px) {
   :root {
-    --fs-display: 28px;
-    --lh-display: 34px;
-    --fs-title: 22px;
-    --lh-title: 28px;
-    --fs-body: 16px;
-    --lh-body: 24px;
+    --fs-display: 26px;
+    --lh-display: 32px;
+    --fs-title: 20px;
+    --lh-title: 26px;
+    --fs-headline: 16px;
+    --lh-headline: 22px;
+    --fs-body: 14px;
+    --lh-body: 20px;
+    --fs-label: 12px;
+    --lh-label: 17px;
+    --fs-caption: 11px;
+    --lh-caption: 15px;
+    --fs-metric-xl: 24px;
+    --lh-metric-xl: 28px;
+    --fs-metric: 16px;
+    --lh-metric: 21px;
+    --fs-metric-sm: 12px;
+    --lh-metric-sm: 17px;
+    --fs-overline: 10px;
+    --lh-overline: 13px;
   }
 }
 
@@ -310,6 +324,7 @@
   --z-backdrop: 0;
   --z-sticky: 30;
   --z-nav: 40;
+  --z-overlay: 50;
   --z-tabbar: 40;
   --z-sheet: 60;
   --z-dialog: 70;

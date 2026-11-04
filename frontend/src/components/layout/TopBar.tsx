@@ -32,14 +32,14 @@ export function TopBar({
       glow
       className={cn(
         'sticky top-3 z-[var(--z-nav)] mx-3 mb-3 flex h-[var(--topbar-h)] items-center gap-3 rounded-xl px-3',
-        'lg:ml-[calc(var(--rail-w)+16px)] lg:mr-4',
+        'md:ml-[calc(var(--rail-w)+16px)] md:mr-4',
       )}
     >
-      <Link to="/" aria-label={t('app.name')} className="rounded-sm focus-visible:outline-none lg:hidden">
+      <Link to="/" aria-label={t('app.name')} className="rounded-sm focus-visible:outline-none md:hidden">
         <Wordmark size={24} />
       </Link>
 
-      <div className="hidden min-w-0 items-center gap-2 lg:flex">
+      <div className="hidden min-w-0 items-center gap-2 md:flex">
         <Wordmark size={24} />
         {context && (
           <>

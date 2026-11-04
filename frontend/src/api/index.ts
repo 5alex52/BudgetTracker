@@ -1,5 +1,6 @@
 /** Точка входа слоя API: один импорт на страницу. */
 export * as accountsApi from './accounts'
+export * as adminApi from './admin'
 export * as analyticsApi from './analytics'
 export * as authApi from './auth'
 export * as billingApi from './billing'

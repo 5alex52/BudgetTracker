@@ -273,3 +273,73 @@ async def test_summary_groups_by_category(account, expense_category, user, sessi
     assert summary.by_category[0].name == "Groceries"
     assert summary.by_category[0].total == 150.0
     assert summary.by_category[0].transactions_count == 2
+
+
+@pytest.mark.asyncio
+async def test_transfer_moves_money_to_second_account(account, second_account, user, session_maker):
+    transfer = await create_transaction(
+        session_maker,
+        user.id,
+        account_id=account.id,
+        category_id=None,
+        amount=100.0,
+        type=TransactionType.TRANSFER,
+        transfer_account_id=second_account.id,
+    )
+
+    assert transfer.transfer_account_id == second_account.id
+    # Перевод не требует категории: сервер создаёт служебную
+    assert transfer.category.type == CategoryType.TRANSFER
+
+    source = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
+    target = await AccountService.get_by_user(second_account.id, user.id, session_maker=session_maker)
+    assert source.balance == 900.0
+    assert target.balance == 600.0
+
+    await TransactionService.delete_for_user(transfer.id, user.id, session_maker=session_maker)
+
+    source = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
+    target = await AccountService.get_by_user(second_account.id, user.id, session_maker=session_maker)
+    assert source.balance == 1000.0
+    assert target.balance == 500.0
+
+
+@pytest.mark.asyncio
+async def test_update_transfer_amount_moves_both_balances(account, second_account, user, session_maker):
+    transfer = await create_transaction(
+        session_maker,
+        user.id,
+        account_id=account.id,
+        category_id=None,
+        amount=100.0,
+        type=TransactionType.TRANSFER,
+        transfer_account_id=second_account.id,
+    )
+
+    await TransactionService.update_for_user(
+        transaction_id=transfer.id,
+        schema=TransactionUpdate(amount=40.0),
+        user_id=user.id,
+        session_maker=session_maker,
+    )
+
+    source = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
+    target = await AccountService.get_by_user(second_account.id, user.id, session_maker=session_maker)
+    assert source.balance == 960.0
+    assert target.balance == 540.0
+
+
+@pytest.mark.asyncio
+async def test_transfer_requires_distinct_account(account, user, session_maker):
+    with pytest.raises(HTTPException) as error:
+        await create_transaction(
+            session_maker,
+            user.id,
+            account_id=account.id,
+            category_id=None,
+            amount=10.0,
+            type=TransactionType.TRANSFER,
+            transfer_account_id=account.id,
+        )
+
+    assert error.value.status_code == 400

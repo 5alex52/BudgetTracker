@@ -56,6 +56,16 @@ function SessionGate({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+/** Роут только для суперпользователей: остальным — на главную. */
+export function RequireSuperuser({ children }: { children: ReactNode }) {
+  const user = useAuthStore((state) => state.user)
+
+  if (!user?.is_superuser) {
+    return <Navigate to="/" replace />
+  }
+  return <>{children}</>
+}
+
 /** Роут только для вошедших: иначе — на страницу входа с запоминанием адреса. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const status = useAuthStore((state) => state.status)

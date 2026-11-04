@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, Languages, SlidersHorizontal, Wallet } from 'lucide-react'
+import { CalendarDays, Languages, Wallet } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { ApiError, usersApi } from '@/api'
 import { useAuthStore } from '@/store/auth'
@@ -8,7 +8,6 @@ import { SettingsLayout } from '@/components/settings/SettingsLayout'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
-import { Switch } from '@/components/ui/toggles'
 import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
 
@@ -192,35 +191,10 @@ export function SettingsPage() {
                 />
               </div>
             </SettingRow>
-
-            <SettingRow
-              label={t('settings.numberFormat')}
-              icon={<SlidersHorizontal className="size-4" />}
-            >
-              <HideDecimalsSwitch />
-            </SettingRow>
           </div>
         </Card>
       </div>
     </SettingsLayout>
-  )
-}
-
-/** «Скрывать копейки» — клиентская настройка отображения, живёт в localStorage. */
-function HideDecimalsSwitch() {
-  const { t } = useI18n()
-  const key = 'bt-hide-decimals'
-  const [hide, setHide] = useState(() => localStorage.getItem(key) === '1')
-
-  return (
-    <Switch
-      checked={hide}
-      onCheckedChange={(next) => {
-        setHide(next)
-        localStorage.setItem(key, next ? '1' : '0')
-      }}
-      label={t('settings.hideDecimals')}
-    />
   )
 }
 

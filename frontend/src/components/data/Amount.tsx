@@ -16,8 +16,6 @@ const symbolOf = (currency: Currency) => SUFFIX[currency] ?? currency
 export interface AmountProps {
   value: number
   currency?: Currency
-  /** Скрыть копейки (настройка «Формат числа») */
-  hideDecimals?: boolean
   /** Показывать знак + для положительных */
   signed?: boolean
   tone?: 'auto' | 'neutral' | 'positive' | 'negative'
@@ -39,7 +37,6 @@ const SIZE: Record<NonNullable<AmountProps['size']>, string> = {
 function AmountImpl({
   value,
   currency = 'BYN',
-  hideDecimals = false,
   signed = false,
   tone = 'auto',
   size = 'md',
@@ -48,8 +45,8 @@ function AmountImpl({
   const { number } = useI18n()
   const abs = Math.abs(value)
   const formatted = number(abs, {
-    minimumFractionDigits: hideDecimals ? 0 : 2,
-    maximumFractionDigits: hideDecimals ? 0 : 2,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   })
   const resolvedTone =
     tone === 'auto' ? (value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral') : tone
@@ -81,13 +78,16 @@ function AmountImpl({
 /** Значок изменения: стрелка + проценты. Цвет дублируется направлением стрелки. */
 export function TrendBadge({
   value,
+  invert = false,
   className,
 }: {
   value: number
+  /** Расходы: рост трат — плохо, поэтому цвет инвертируется, стрелка — нет. */
+  invert?: boolean
   className?: string
 }) {
   const { number } = useI18n()
-  const tone = value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral'
+  const tone = (invert ? -value : value) > 0 ? 'positive' : value !== 0 ? 'negative' : 'neutral'
   const arrow = value > 0 ? '↗' : value < 0 ? '↘' : '→'
 
   return (

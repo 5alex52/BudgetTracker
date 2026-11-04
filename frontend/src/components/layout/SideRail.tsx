@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { ArrowLeftRight, LayoutGrid, LineChart, Settings2, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, LayoutGrid, LineChart, Settings2, ShieldCheck, Wallet, type LucideIcon } from 'lucide-react'
 import { cn } from '@/__shared__/utils/cn'
 import { useI18n, type TranslationKey } from '@/i18n'
+import { useAuthStore } from '@/store/auth'
 import { GlassSurface } from '@/components/glass/GlassSurface'
 import { Logo } from '@/components/brand/Logo'
 
@@ -28,6 +29,7 @@ export const RAIL_ITEMS: RailItem[] = [
  */
 export function SideRail() {
   const { t } = useI18n()
+  const user = useAuthStore((state) => state.user)
 
   const itemClass = (isActive: boolean) =>
     cn(
@@ -41,7 +43,7 @@ export function SideRail() {
       level="md"
       glow
       aria-label={t('nav.menu')}
-      className="fixed bottom-3 left-3 top-3 z-[var(--z-nav)] hidden w-[var(--rail-w)] flex-col items-center gap-1 rounded-xl p-1.5 lg:flex"
+      className="fixed bottom-3 left-3 top-3 z-[var(--z-nav)] hidden w-[var(--rail-w)] flex-col items-center gap-1 rounded-xl p-1.5 md:flex"
     >
       <span className="my-1">
         <Logo size={36} />
@@ -71,6 +73,13 @@ export function SideRail() {
       ))}
 
       <span className="my-1 h-px w-6 bg-stroke-subtle" aria-hidden="true" />
+
+      {user?.is_superuser && (
+        <NavLink to="/admin" className={({ isActive }) => itemClass(isActive)}>
+          <ShieldCheck className="size-5" aria-hidden="true" strokeWidth={1.75} />
+          <span className="text-center text-[10px] leading-none">{t('nav.admin')}</span>
+        </NavLink>
+      )}
 
       <NavLink to="/settings" className={({ isActive }) => itemClass(isActive)}>
         <Settings2 className="size-5" aria-hidden="true" strokeWidth={1.75} />

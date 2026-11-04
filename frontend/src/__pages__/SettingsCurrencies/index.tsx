@@ -349,6 +349,11 @@ export function SettingsCurrenciesPage() {
               >
                 <Input value={value} onChange={(event) => setValue(event.target.value)} inputMode="decimal" autoFocus />
               </Field>
+              {Number(value.replace(',', '.')) > 0 && (
+                <p className="text-caption text-fg-tertiary">
+                  1 {draft.code} = {(1 / Number(value.replace(',', '.'))).toFixed(3)} {base?.code ?? ''}
+                </p>
+              )}
               <Field label={t('accounts.currency')}>
                 <Input value={`${draft.code} · ${draft.name}`} readOnly disabled />
               </Field>

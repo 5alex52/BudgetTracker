@@ -144,6 +144,63 @@ def _converted_delta(
     return balance_delta(transaction_type, amount_in_account_currency)
 
 
+async def _transfer_category(session: AsyncSession, user_id) -> CategoryModel:
+    """Служебная категория перевода: у перевода нет пользовательской категории.
+
+    Колонка ``transactions.category_id`` обязательная, поэтому переводу нужна
+    одна нейтральная категория. Берём первую существующую transfer-категорию,
+    иначе создаём её при первом переводе.
+    """
+    existing = await CategoryDAO.find_all_by_user(session, user_id, category_type=CategoryType.TRANSFER, limit=1)
+    if existing:
+        return existing[0]
+    created = await CategoryDAO.create(
+        session,
+        {
+            "name": "Перевод",
+            "type": CategoryType.TRANSFER,
+            "parent_id": None,
+            "icon": "arrow-left-right",
+            "color": "#5b8fd6",
+            "user_id": user_id,
+        },
+    )
+    if created is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Transfer category creation conflict",
+        )
+    await _invalidate_categories()
+    return created
+
+
+async def _resolve_transfer_account(
+    session: AsyncSession,
+    user_id,
+    source_account_id: int,
+    transfer_account_id: Optional[int],
+    currency_id: str,
+    session_maker: Optional[async_sessionmaker] = None,
+) -> AccountModel:
+    """Счёт-получатель перевода: свой, не совпадает с источником и доступен для записи."""
+    if transfer_account_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transfer account is required")
+    if int(transfer_account_id) == int(source_account_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Transfer accounts must differ",
+        )
+    account = await _get_owned_account(session, transfer_account_id, user_id)
+    await _check_transaction_entitlement(
+        session,
+        user_id,
+        account,
+        currency_id,
+        session_maker=session_maker,
+    )
+    return account
+
+
 class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]):
     dao = CurrencyDAO
 
@@ -667,11 +724,16 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             # Остаток «как в банке»: на конец периода, а не текущий.
             # Текущий остаток минус всё, что случилось позже конца периода.
             later = 0.0
+            incoming = 0.0
             if end_date is not None:
                 deltas = await TransactionDAO.signed_totals_after_by_account(
                     session, user_id, end_date, account_ids=[account.id]
                 )
                 later = deltas.get(account.id, 0.0)
+                transfers = await TransactionDAO.incoming_transfers_after_by_account(
+                    session, user_id, end_date, account_ids=[account.id]
+                )
+                incoming = transfers.get(account.id, 0.0)
 
             locks = await _account_lock_map(session, user_id, session_maker=maker)
             is_locked, lock_reason = locks.get(account.id, (False, None))
@@ -680,7 +742,7 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             account_id=account.id,
             name=account.name,
             currency_id=account.currency_id,
-            balance=round(float(account.balance) - later, 2),
+            balance=round(float(account.balance) - later - incoming, 2),
             is_archived=account.is_archived,
             is_excluded=account.is_excluded,
             is_locked=is_locked,
@@ -731,12 +793,20 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
                 limit=500,
             )
             later: dict = {}
+            incoming: dict = {}
             if end_date is not None and accounts:
+                account_ids = [account.id for account in accounts]
                 later = await TransactionDAO.signed_totals_after_by_account(
                     session,
                     user_id,
                     end_date,
-                    account_ids=[account.id for account in accounts],
+                    account_ids=account_ids,
+                )
+                incoming = await TransactionDAO.incoming_transfers_after_by_account(
+                    session,
+                    user_id,
+                    end_date,
+                    account_ids=account_ids,
                 )
 
             # Общий итог считается в базовой валюте пользователя, а не в USD.
@@ -753,7 +823,7 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             items: List[BalanceOverviewAccount] = []
             total = 0.0
             for account in accounts:
-                balance = round(float(account.balance) - later.get(account.id, 0.0), 2)
+                balance = round(float(account.balance) - later.get(account.id, 0.0) - incoming.get(account.id, 0.0), 2)
                 currency_rate = overrides.get(
                     (account.currency_id or "").upper(),
                     float(account.currency.exchange_rate_to_base),
@@ -1159,6 +1229,16 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
                     ),
                     2,
                 )
+                if transaction.type == TransactionType.TRANSFER and transaction.transfer_account is not None:
+                    transaction.transfer_account.balance = round(
+                        transaction.transfer_account.balance
+                        - convert_amount(
+                            transaction.amount,
+                            transaction_rate,
+                            await _effective_currency_rate(session, user_id, transaction.transfer_account.currency_id),
+                        ),
+                        2,
+                    )
                 await cls.dao.delete(session, TransactionModel.id == transaction.id)
                 deleted += 1
             await session.commit()
@@ -1189,8 +1269,25 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             account = await _get_owned_account(session, schema.account_id, user_id)
-            category = await _get_owned_category(session, schema.category_id, user_id)
-            _validate_category_type(category, schema.type)
+            transfer_account = None
+            if schema.type == TransactionType.TRANSFER:
+                transfer_account = await _resolve_transfer_account(
+                    session,
+                    user_id,
+                    schema.account_id,
+                    schema.transfer_account_id,
+                    schema.currency_id,
+                    session_maker=maker,
+                )
+                category = await _transfer_category(session, user_id)
+            else:
+                if schema.category_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Category is required",
+                    )
+                category = await _get_owned_category(session, schema.category_id, user_id)
+                _validate_category_type(category, schema.type)
             currency = await _get_currency(session, schema.currency_id)
             await _check_transaction_entitlement(
                 session,
@@ -1203,8 +1300,13 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
             tag_ids = schema.tag_ids
             await ensure_tags_owned(session, tag_ids, user_id)
 
-            # tag_ids — не колонка таблицы, поэтому в insert уходит всё остальное
-            transaction = await cls.dao.create(session, schema.model_dump(exclude={"tag_ids"}))
+            # tag_ids — не колонка таблицы, поэтому в insert уходит всё остальное.
+            # Категорию перевода задаёт сервер, а не клиент.
+            payload = schema.model_dump(exclude={"tag_ids"})
+            payload["category_id"] = category.id
+            if transfer_account is None:
+                payload["transfer_account_id"] = None
+            transaction = await cls.dao.create(session, payload)
             if transaction is None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -1216,16 +1318,27 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
             # Правила применяются после сохранения: им нужен id записи для связи с метками
             await apply_rules(session, transaction, user_id)
 
+            transaction_rate = await _effective_currency_rate(session, user_id, currency.code)
             account.balance = round(
                 account.balance
                 + _converted_delta(
                     schema.type,
                     schema.amount,
-                    await _effective_currency_rate(session, user_id, currency.code),
+                    transaction_rate,
                     await _effective_currency_rate(session, user_id, account.currency_id),
                 ),
                 2,
             )
+            if transfer_account is not None:
+                transfer_account.balance = round(
+                    transfer_account.balance
+                    + convert_amount(
+                        schema.amount,
+                        transaction_rate,
+                        await _effective_currency_rate(session, user_id, transfer_account.currency_id),
+                    ),
+                    2,
+                )
             await session.commit()
             created = await cls.dao.find_one_by_user(session, transaction.id, user_id)
         await _invalidate_analytics()
@@ -1253,12 +1366,26 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
 
             old_account = transaction.account
             old_currency = await _get_currency(session, transaction.currency_id)
+            old_currency_rate = await _effective_currency_rate(session, user_id, old_currency.code)
             old_delta = _converted_delta(
                 transaction.type,
                 transaction.amount,
-                await _effective_currency_rate(session, user_id, old_currency.code),
+                old_currency_rate,
                 await _effective_currency_rate(session, user_id, old_account.currency_id),
             )
+
+            # Старый перевод уже зачислил деньги на счёт-получатель: при любом
+            # изменении сначала откатываем этот кредит.
+            old_transfer_account = (
+                transaction.transfer_account if transaction.type == TransactionType.TRANSFER else None
+            )
+            old_transfer_credit = 0.0
+            if old_transfer_account is not None:
+                old_transfer_credit = convert_amount(
+                    transaction.amount,
+                    old_currency_rate,
+                    await _effective_currency_rate(session, user_id, old_transfer_account.currency_id),
+                )
 
             account = old_account
             if "account_id" in update_data:
@@ -1271,7 +1398,23 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
             new_type = update_data.get("type", transaction.type)
             new_amount = update_data.get("amount", transaction.amount)
             new_currency = await _get_currency(session, update_data.get("currency_id", transaction.currency_id))
-            _validate_category_type(category, new_type)
+            if new_type == TransactionType.TRANSFER:
+                if category.type != CategoryType.TRANSFER:
+                    category = await _transfer_category(session, user_id)
+                update_data["category_id"] = category.id
+                transfer_account = await _resolve_transfer_account(
+                    session,
+                    user_id,
+                    account.id,
+                    update_data.get("transfer_account_id", transaction.transfer_account_id),
+                    new_currency.code,
+                    session_maker=maker,
+                )
+                update_data["transfer_account_id"] = transfer_account.id
+            else:
+                _validate_category_type(category, new_type)
+                transfer_account = None
+                update_data["transfer_account_id"] = None
             # Проверяем итоговый счёт и валюту записи, а не старые значения:
             # перенести запись со заблокированного счёта на доступный можно.
             await _check_transaction_entitlement(
@@ -1282,15 +1425,28 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
                 session_maker=maker,
             )
 
+            new_currency_rate = await _effective_currency_rate(session, user_id, new_currency.code)
             new_delta = _converted_delta(
                 new_type,
                 new_amount,
-                await _effective_currency_rate(session, user_id, new_currency.code),
+                new_currency_rate,
                 await _effective_currency_rate(session, user_id, account.currency_id),
             )
 
+            if old_transfer_account is not None:
+                old_transfer_account.balance = round(old_transfer_account.balance - old_transfer_credit, 2)
             old_account.balance = round(old_account.balance - old_delta, 2)
             account.balance = round(account.balance + new_delta, 2)
+            if transfer_account is not None:
+                transfer_account.balance = round(
+                    transfer_account.balance
+                    + convert_amount(
+                        new_amount,
+                        new_currency_rate,
+                        await _effective_currency_rate(session, user_id, transfer_account.currency_id),
+                    ),
+                    2,
+                )
 
             for field, value in update_data.items():
                 setattr(transaction, field, value)
@@ -1315,16 +1471,27 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
 
             account = transaction.account
             currency = await _get_currency(session, transaction.currency_id)
+            currency_rate = await _effective_currency_rate(session, user_id, currency.code)
             account.balance = round(
                 account.balance
                 - _converted_delta(
                     transaction.type,
                     transaction.amount,
-                    await _effective_currency_rate(session, user_id, currency.code),
+                    currency_rate,
                     await _effective_currency_rate(session, user_id, account.currency_id),
                 ),
                 2,
             )
+            if transaction.type == TransactionType.TRANSFER and transaction.transfer_account is not None:
+                transaction.transfer_account.balance = round(
+                    transaction.transfer_account.balance
+                    - convert_amount(
+                        transaction.amount,
+                        currency_rate,
+                        await _effective_currency_rate(session, user_id, transaction.transfer_account.currency_id),
+                    ),
+                    2,
+                )
             await cls.dao.delete(session, TransactionModel.id == transaction.id)
             await session.commit()
         await _invalidate_analytics()

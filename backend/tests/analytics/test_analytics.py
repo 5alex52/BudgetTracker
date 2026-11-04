@@ -30,12 +30,14 @@ async def _make_transaction(
     transaction_type: TransactionType,
     when: datetime,
     note: str = "",
+    transfer_account_id=None,
 ):
     """Создаёт запись напрямую через сервис (он же пересчитывает баланс счёта)."""
     return await TransactionService.create_for_user(
         schema=TransactionCreate(
             account_id=account.id,
             category_id=category.id,
+            transfer_account_id=transfer_account_id,
             amount=amount,
             currency_id=account.currency_id,
             type=transaction_type,
@@ -82,7 +84,7 @@ async def test_summary_counts_income_and_expense(user, account, expense_category
 
 
 @pytest.mark.asyncio
-async def test_summary_does_not_count_transfers_as_income_or_expense(user, account, session_maker):
+async def test_summary_does_not_count_transfers_as_income_or_expense(user, account, second_account, session_maker):
     """Перевод двигает остаток, но не является ни доходом, ни расходом."""
     transfer_category = await CategoryService.create_for_user(
         schema=CategoryCreate(name="Transfer", type=CategoryType.TRANSFER),
@@ -97,6 +99,7 @@ async def test_summary_does_not_count_transfers_as_income_or_expense(user, accou
         500.0,
         TransactionType.TRANSFER,
         PERIOD_START,
+        transfer_account_id=second_account.id,
     )
 
     summary = await AnalyticsService.summary(
@@ -337,7 +340,9 @@ async def test_timeseries_cashflow_by_day(user, account, expense_category, incom
 
 
 @pytest.mark.asyncio
-async def test_timeseries_cashflow_excludes_transfers(user, account, expense_category, income_category, session_maker):
+async def test_timeseries_cashflow_excludes_transfers(
+    user, account, second_account, expense_category, income_category, session_maker
+):
     """Перевод не должен попадать в расходы графика cashflow."""
     transfer_category = await CategoryService.create_for_user(
         schema=CategoryCreate(name="Transfer", type=CategoryType.TRANSFER),
@@ -370,6 +375,7 @@ async def test_timeseries_cashflow_excludes_transfers(user, account, expense_cat
         500.0,
         TransactionType.TRANSFER,
         datetime(2025, 10, 2),
+        transfer_account_id=second_account.id,
     )
 
     series = await AnalyticsService.timeseries(

@@ -200,6 +200,14 @@ export function LoginPage() {
                     placeholder={t('login.passwordPlaceholder')}
                     autoComplete="current-password"
                     invalid={Boolean(error)}
+                    onKeyDown={(event) => {
+                      // Явный submit: не все браузеры отправляют форму по Enter
+                      // из поля пароля (особенно после автозаполнения).
+                      if (event.key === 'Enter' && !pending) {
+                        event.preventDefault()
+                        event.currentTarget.form?.requestSubmit()
+                      }
+                    }}
                     required
                   />
                 </Field>

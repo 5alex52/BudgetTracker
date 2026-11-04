@@ -13,7 +13,7 @@ export const DialogTrigger = DialogPrimitive.Trigger
 export const DialogClose = DialogPrimitive.Close
 
 const overlayClass = [
-  'fixed inset-0 z-[var(--z-dialog)] bg-[rgba(6,10,9,.42)]',
+  'fixed inset-0 z-[var(--z-overlay)] bg-[rgba(6,10,9,.42)]',
   'backdrop-blur-[2px]',
   'data-[state=open]:animate-in data-[state=open]:fade-in-0',
   'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
@@ -51,7 +51,8 @@ export const DialogContent = forwardRef<ElementRef<typeof DialogPrimitive.Conten
           className={cn(
             glassClass({ level: 'lg' }),
             'fixed left-1/2 top-1/2 z-[var(--z-dialog)] w-[min(92vw,var(--dialog-w,560px))]',
-            '-translate-x-1/2 -translate-y-1/2 overflow-hidden p-6 text-fg-primary',
+            'max-h-[calc(100dvh-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto',
+            'overscroll-contain p-4 text-fg-primary sm:p-6',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[.97]',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[.97]',
             'motion-reduce:data-[state=open]:zoom-in-100 motion-reduce:data-[state=closed]:zoom-out-100',

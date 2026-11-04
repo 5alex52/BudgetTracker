@@ -369,6 +369,12 @@ function RecordRow({
             aria-hidden="true"
           />
           {item.account}
+          {item.transferAccount && (
+            <>
+              <span aria-hidden="true">→</span>
+              {item.transferAccount}
+            </>
+          )}
           <span aria-hidden="true">·</span>
           {item.time}
           {item.note && (

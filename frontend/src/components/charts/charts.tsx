@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -9,6 +9,7 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Sector,
   Tooltip,
   XAxis,
   YAxis,
@@ -170,6 +171,20 @@ function BarChartImpl({
 
 /* --------------------------------- кольцо --------------------------------- */
 
+/** Активный сегмент чуть выдвигается наружу вместо прямоугольной обводки. */
+function renderActiveSector(props: unknown) {
+  const sector = props as {
+    cx: number
+    cy: number
+    innerRadius: number
+    outerRadius: number
+    startAngle: number
+    endAngle: number
+    fill: string
+  }
+  return <Sector {...sector} outerRadius={sector.outerRadius + 4} />
+}
+
 function DonutChartImpl({
   segments,
   size = 168,
@@ -185,8 +200,14 @@ function DonutChartImpl({
   ariaLabel: string
   center?: ReactNode
 }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+
   return (
-    <figure className={cn('relative m-0', className)} role="img" aria-label={ariaLabel}>
+    <figure
+      className={cn('relative m-0 cursor-pointer outline-none [&_*]:outline-none', className)}
+      role="img"
+      aria-label={ariaLabel}
+    >
       <div style={{ width: size, height: size }} className="relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -200,6 +221,9 @@ function DonutChartImpl({
               paddingAngle={2}
               stroke="none"
               isAnimationActive={false}
+              activeIndex={activeIndex ?? undefined}
+              activeShape={renderActiveSector}
+              onClick={(_, index) => setActiveIndex((current) => (current === index ? null : index))}
             >
               {segments.map((segment, index) => (
                 <Cell key={index} fill={segment.color} />

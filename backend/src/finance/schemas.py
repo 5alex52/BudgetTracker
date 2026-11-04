@@ -158,7 +158,10 @@ class TagInline(BaseModel):
 
 class TransactionBase(BaseModel):
     account_id: int
-    category_id: int
+    #: У перевода категории нет: сервер подставляет служебную «Перевод»
+    category_id: Optional[int] = None
+    #: Счёт-получатель перевода; только для type=transfer
+    transfer_account_id: Optional[int] = None
     amount: float = Field(..., gt=0)
     currency_id: str = Field(..., min_length=3, max_length=3)
     type: TransactionType
@@ -179,6 +182,7 @@ class TransactionCreate(TransactionBase):
 class TransactionUpdate(BaseModel):
     account_id: Optional[int] = None
     category_id: Optional[int] = None
+    transfer_account_id: Optional[int] = None
     amount: Optional[float] = Field(None, gt=0)
     currency_id: Optional[str] = Field(None, min_length=3, max_length=3)
     type: Optional[TransactionType] = None
@@ -205,6 +209,8 @@ class TransactionWithDetails(TransactionResponse):
     category_color: str
     category_icon: str
     currency_symbol: str
+    #: Название счёта-получателя перевода
+    transfer_account_name: Optional[str] = None
 
     @classmethod
     def from_model(cls, transaction: Any) -> "TransactionWithDetails":
@@ -221,6 +227,9 @@ class TransactionWithDetails(TransactionResponse):
             category_color=transaction.category.color,
             category_icon=transaction.category.icon,
             currency_symbol=transaction.currency.symbol,
+            transfer_account_name=(
+                transaction.transfer_account.name if transaction.transfer_account is not None else None
+            ),
         )
 
 

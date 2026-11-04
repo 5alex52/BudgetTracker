@@ -4,7 +4,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from '../hooks/useTheme'
 import { I18nProvider } from '../i18n'
 import { AppRoot } from './AppRoot'
-import { RequireAuth, SessionGate } from './SessionGate'
+import { RequireAuth, RequireSuperuser, SessionGate } from './SessionGate'
+import { AdminPage } from '../__pages__/Admin'
 import { DashboardPage } from '../__pages__/Dashboard'
 import { AccountsPage } from '../__pages__/Accounts'
 import { RecordsPage } from '../__pages__/Records'
@@ -40,6 +41,7 @@ function App() {
 
   /** Рабочие экраны — только после входа: сессия проверяется один раз в SessionGate. */
   const guarded = (page: ReactNode) => <RequireAuth>{page}</RequireAuth>
+  const adminOnly = (page: ReactNode) => guarded(<RequireSuperuser>{page}</RequireSuperuser>)
 
   return (
     <ThemeProvider>
@@ -66,6 +68,7 @@ function App() {
                   <Route path="/settings/rules" element={guarded(<SettingsRulesPage />)} />
                   <Route path="/settings/payments" element={guarded(<SettingsPaymentsPage />)} />
                   <Route path="/settings/privacy" element={guarded(<SettingsPrivacyPage />)} />
+                  <Route path="/admin" element={adminOnly(<AdminPage />)} />
                   {/* Витрина компонентов: не требует данных и остаётся доступной */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

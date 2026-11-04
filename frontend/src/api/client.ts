@@ -83,6 +83,8 @@ export interface RequestOptions {
   signal?: AbortSignal
   /** Не разлогинивать при 401: нужно самому входу и проверке сессии */
   skipAuthRedirect?: boolean
+  /** Не пытаться обновить access-токен: нужно самому /auth/refresh и входу */
+  skipAuthRefresh?: boolean
 }
 
 export interface ApiResponse<T> {
@@ -115,6 +117,37 @@ async function rawRequest(path: string, options: RequestOptions = {}): Promise<R
   return response
 }
 
+/**
+ * Обновление access-токена. Один общий запрос на все параллельные 401:
+ * иначе десять виджетов одновременно обновят сессию и перезапишут cookie.
+ */
+let refreshInFlight: Promise<boolean> | null = null
+
+function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null
+      })
+  }
+  return refreshInFlight
+}
+
+/** 401 → один refresh → один повтор исходного запроса. */
+async function send(path: string, options: RequestOptions): Promise<Response> {
+  let response = await rawRequest(path, options)
+  if (response.status === 401 && !options.skipAuthRefresh) {
+    if (await refreshSession()) response = await rawRequest(path, options)
+  }
+  return response
+}
+
 /** Тело ошибки: сервер присылает `{detail}` в формате FastAPI. */
 async function parseError(response: Response, options: RequestOptions): Promise<ApiError> {
   let parsed: unknown = null
@@ -138,7 +171,7 @@ async function parseError(response: Response, options: RequestOptions): Promise<
 
 /** Запрос с разбором JSON и нормализацией ошибок. */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const response = await rawRequest(path, options)
+  const response = await send(path, options)
   if (!response.ok) throw await parseError(response, options)
 
   if (response.status === 204) return undefined as T
@@ -152,7 +185,7 @@ export async function requestWithHeaders<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<ApiResponse<T>> {
-  const response = await rawRequest(path, options)
+  const response = await send(path, options)
   if (!response.ok) throw await parseError(response, options)
 
   const text = await response.text()

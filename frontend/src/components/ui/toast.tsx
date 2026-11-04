@@ -47,13 +47,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               if (!open) setItems((prev) => prev.filter((entry) => entry.id !== item.id))
             }}
             className={cn(
-              glassClass({ level: 'sm' }),
+              glassClass({ level: 'sm', glow: true }),
               'fixed bottom-4 right-4 z-[var(--z-toast)] flex w-[min(92vw,360px)] items-start gap-3 p-3',
               'data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-2 data-[state=open]:fade-in-0',
               'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
               'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]',
             )}
             style={{ bottom: `calc(1rem + ${items.indexOf(item) * 76}px)` }}
+            onPointerMove={(event) => {
+              // Тот же блик за курсором, что у шапки: позиция передаётся в CSS-переменные
+              const rect = event.currentTarget.getBoundingClientRect()
+              event.currentTarget.style.setProperty('--glass-mx', `${event.clientX - rect.left}px`)
+              event.currentTarget.style.setProperty('--glass-my', `${event.clientY - rect.top}px`)
+            }}
           >
             <span className="mt-0.5">{toneIcon[item.tone]}</span>
             <div className="min-w-0 flex-1">

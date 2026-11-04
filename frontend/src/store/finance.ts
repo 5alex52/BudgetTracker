@@ -44,6 +44,8 @@ interface FinanceState {
   error: string | null
   /** Загружены ли справочники: защита от повторных запросов */
   ready: boolean
+  /** Счётчик изменений данных: виджеты перезапрашивают отчёты после записи */
+  revision: number
 
   loadAll: (options?: { force?: boolean }) => Promise<void>
   /** Сбросить справочники: выход из аккаунта и смена пользователя */
@@ -98,6 +100,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loading: false,
   error: null,
   ready: false,
+  revision: 0,
 
   clearData: () => {
     // Данные принадлежат пользователю: при выходе их нельзя показывать следующему
@@ -155,7 +158,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   reloadAccounts: async () => {
     const list = await accountsApi.listAccounts({ includeArchived: true, includeExcluded: true })
-    set({ accounts: list.map(toAccount) })
+    // Бампаем ревизию: суммы в счетах изменились, значит и отчёты устарели
+    set({ accounts: list.map(toAccount), revision: get().revision + 1 })
   },
 
   reloadCategories: async () => {

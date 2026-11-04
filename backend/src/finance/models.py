@@ -61,7 +61,10 @@ class AccountModel(Base):
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="accounts")
     currency: Mapped["CurrencyModel"] = relationship("CurrencyModel", back_populates="accounts", lazy="joined")
     transactions: Mapped[List["TransactionModel"]] = relationship(
-        "TransactionModel", back_populates="account", cascade="all, delete-orphan"
+        "TransactionModel",
+        back_populates="account",
+        cascade="all, delete-orphan",
+        foreign_keys="TransactionModel.account_id",
     )
 
 
@@ -102,6 +105,10 @@ class TransactionModel(Base):
         nullable=False,
     )
     category_id: Mapped[int] = mapped_column(sa.Integer, sa.ForeignKey("categories.id"), index=True, nullable=False)
+    #: Счёт-получатель перевода (только для type=transfer)
+    transfer_account_id: Mapped[Optional[int]] = mapped_column(
+        sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     amount: Mapped[float] = mapped_column(sa.Float, nullable=False)
     currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), index=True, nullable=False)
     type: Mapped[TransactionType] = mapped_column(
@@ -116,7 +123,12 @@ class TransactionModel(Base):
     receipt_url: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
 
-    account: Mapped["AccountModel"] = relationship("AccountModel", back_populates="transactions")
+    account: Mapped["AccountModel"] = relationship(
+        "AccountModel", back_populates="transactions", foreign_keys=[account_id]
+    )
+    transfer_account: Mapped[Optional["AccountModel"]] = relationship(
+        "AccountModel", foreign_keys=[transfer_account_id]
+    )
     category: Mapped["CategoryModel"] = relationship("CategoryModel", back_populates="transactions", lazy="joined")
     currency: Mapped["CurrencyModel"] = relationship("CurrencyModel", back_populates="transactions", lazy="joined")
     subscription: Mapped[Optional["SubscriptionModel"]] = relationship(

@@ -212,7 +212,7 @@ async def verify_email(
         response.set_cookie(
             "refresh_token",
             result.refresh_token,
-            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 30 * 24 * 60,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
             httponly=True,
             secure=settings.ENVIRONMENT != "LOCAL",
             samesite="strict",

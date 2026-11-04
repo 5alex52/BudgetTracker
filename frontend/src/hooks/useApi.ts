@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/api'
+import { useFinanceStore } from '@/store/finance'
 
 export interface QueryState<T> {
   data: T | null
@@ -21,6 +22,8 @@ export function useApiQuery<T>(factory: () => Promise<T>, deps: unknown[] = []):
   const [error, setError] = useState<ApiError | null>(null)
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
+  // Любая правка записи/счёта меняет ревизию — виджеты перезапрашивают данные
+  const revision = useFinanceStore((state) => state.revision)
   const mounted = useRef(true)
 
   const factoryRef = useRef(factory)
@@ -55,7 +58,7 @@ export function useApiQuery<T>(factory: () => Promise<T>, deps: unknown[] = []):
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, tick])
+  }, [...deps, tick, revision])
 
   const reload = useCallback(() => setTick((value) => value + 1), [])
 

@@ -150,7 +150,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         response.set_cookie(
             "refresh_token",
             token.refresh_token,
-            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 30 * 24 * 60,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
             httponly=True,
             secure=settings.ENVIRONMENT != "LOCAL",
             samesite="strict",
@@ -199,7 +199,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         response.set_cookie(
             "refresh_token",
             new_token.refresh_token,
-            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 30 * 24 * 60,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
             httponly=True,
             secure=settings.ENVIRONMENT != "LOCAL",
             samesite="strict",

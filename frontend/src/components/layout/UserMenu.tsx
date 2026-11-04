@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
-import { ChevronDown, LogOut, Settings } from 'lucide-react'
+import { ChevronDown, LogOut, Settings, ShieldCheck } from 'lucide-react'
 import { useI18n, type Locale } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import { Button } from '@/components/ui/button'
@@ -65,6 +65,12 @@ export function UserMenu() {
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
+        {user?.is_superuser && (
+          <DropdownMenuItem onSelect={() => navigate('/admin')}>
+            <ShieldCheck className="size-4" aria-hidden="true" />
+            {t('nav.admin')}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={() => navigate('/settings')}>
           <Settings className="size-4" aria-hidden="true" />
           {t('nav.settings')}

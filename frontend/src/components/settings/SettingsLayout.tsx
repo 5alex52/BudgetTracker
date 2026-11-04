@@ -5,10 +5,14 @@ import { cn } from '@/__shared__/utils/cn'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { AppShell } from '@/components/layout/AppShell'
 
+/** Бот поддержки: адрес задаётся при сборке, чтобы не пересобирать код. */
+const TELEGRAM_SUPPORT_URL =
+  (import.meta.env.VITE_TELEGRAM_SUPPORT_URL as string | undefined) ?? 'https://t.me/budgettracker_bot'
+
 const GROUPS: Array<{
   id: string
   title: TranslationKey
-  items: Array<{ to: string; labelKey: TranslationKey; icon: typeof Coins }>
+  items: Array<{ to: string; labelKey: TranslationKey; icon: typeof Coins; external?: string }>
 }> = [
   {
     id: 'wallet',
@@ -28,7 +32,12 @@ const GROUPS: Array<{
       { to: '/settings', labelKey: 'settings.general', icon: User },
       { to: '/settings/payments', labelKey: 'settings.payments', icon: CreditCard },
       { to: '/settings/privacy', labelKey: 'settings.privacy', icon: Shield },
-      { to: '/settings/help', labelKey: 'settings.help', icon: CircleHelp },
+      {
+        to: '/settings/help',
+        labelKey: 'settings.help',
+        icon: CircleHelp,
+        external: TELEGRAM_SUPPORT_URL,
+      },
     ],
   },
 ]
@@ -62,21 +71,33 @@ export function SettingsLayout({
               <ul>
                 {group.items.map((item) => (
                   <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      end={item.to === '/settings'}
-                      className={({ isActive }) =>
-                        cn(
-                          'flex items-center gap-2 rounded-sm px-2 py-1.5 text-label transition-colors duration-fast',
-                          isActive
-                            ? 'bg-accent/12 font-medium text-accent'
-                            : 'text-fg-secondary hover:bg-surface-2 hover:text-fg-primary',
-                        )
-                      }
-                    >
-                      <item.icon className="size-4 shrink-0" aria-hidden="true" strokeWidth={1.75} />
-                      <span className="truncate">{t(item.labelKey)}</span>
-                    </NavLink>
+                    {item.external ? (
+                      <a
+                        href={item.external}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-label text-fg-secondary transition-colors duration-fast hover:bg-surface-2 hover:text-fg-primary"
+                      >
+                        <item.icon className="size-4 shrink-0" aria-hidden="true" strokeWidth={1.75} />
+                        <span className="truncate">{t(item.labelKey)}</span>
+                      </a>
+                    ) : (
+                      <NavLink
+                        to={item.to}
+                        end={item.to === '/settings'}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-2 rounded-sm px-2 py-1.5 text-label transition-colors duration-fast',
+                            isActive
+                              ? 'bg-accent/12 font-medium text-accent'
+                              : 'text-fg-secondary hover:bg-surface-2 hover:text-fg-primary',
+                          )
+                        }
+                      >
+                        <item.icon className="size-4 shrink-0" aria-hidden="true" strokeWidth={1.75} />
+                        <span className="truncate">{t(item.labelKey)}</span>
+                      </NavLink>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -94,6 +115,38 @@ export function SettingsLayout({
         </div>
       }
     >
+      {/* На телефоне боковая навигация настроек скрыта — показываем её чипами */}
+      <nav aria-label={t('settings.title')} className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1 md:hidden">
+        {GROUPS.flatMap((group) => group.items).map((item) => {
+          const chipClass =
+            'flex shrink-0 items-center gap-1.5 rounded-pill border border-stroke-subtle px-3 py-1.5 text-caption text-fg-secondary transition-colors duration-fast hover:bg-surface-2 hover:text-fg-primary'
+          const content = (
+            <>
+              <item.icon className="size-3.5" aria-hidden="true" strokeWidth={1.75} />
+              <span className="whitespace-nowrap">{t(item.labelKey)}</span>
+            </>
+          )
+          return item.external ? (
+            <a key={item.to} href={item.external} target="_blank" rel="noreferrer" className={chipClass}>
+              {content}
+            </a>
+          ) : (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/settings'}
+              className={({ isActive }) =>
+                cn(
+                  chipClass,
+                  isActive && 'border-accent/30 bg-accent/12 font-medium text-accent',
+                )
+              }
+            >
+              {content}
+            </NavLink>
+          )
+        })}
+      </nav>
       {children}
     </AppShell>
   )

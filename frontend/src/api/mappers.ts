@@ -195,6 +195,8 @@ export function toRecordItem(dto: TransactionWithDetailsDto, lookup?: RecordLook
     accountId: String(dto.account_id),
     account: dto.account_name,
     accountTint: account?.tint ?? accountTint(dto.account_id),
+    transferAccountId: dto.transfer_account_id ? String(dto.transfer_account_id) : undefined,
+    transferAccount: dto.transfer_account_name ?? undefined,
     amount: signedAmount(dto.type, dto.amount),
     currency: dto.currency_id,
     date,

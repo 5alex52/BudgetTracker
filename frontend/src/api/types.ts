@@ -195,6 +195,8 @@ export interface TransactionDto {
   id: number
   account_id: number
   category_id: number
+  /** Счёт-получатель перевода (только для type=transfer) */
+  transfer_account_id: number | null
   amount: number
   currency_id: string
   type: TransactionTypeValue
@@ -214,11 +216,15 @@ export interface TransactionWithDetailsDto extends TransactionDto {
   category_color: string
   category_icon: string
   currency_symbol: string
+  /** Название счёта-получателя перевода */
+  transfer_account_name: string | null
 }
 
 export interface TransactionCreate {
   account_id: number
-  category_id: number
+  /** У перевода категории нет — сервер подставит служебную */
+  category_id?: number
+  transfer_account_id?: number | null
   amount: number
   currency_id: string
   type: TransactionTypeValue
@@ -346,6 +352,7 @@ export interface AccountShareDto {
 
 export interface MatrixRowDto {
   category_id: number | null
+  parent_id: number | null
   name: string
   color: string | null
   icon: string | null
@@ -501,6 +508,65 @@ export interface PaymentMethodDto {
   last4: string | null
   is_default: boolean
   created_at: string | null
+}
+
+/* ------------------------------- админка -------------------------------- */
+
+export interface AdminUserDto {
+  id: string
+  fullname: string
+  email: string
+  is_active: boolean
+  is_verified: boolean
+  is_superuser: boolean
+  created_at: string
+  last_login_at: string | null
+  plan_code: string
+  plan_name: string
+  subscription_status: SubscriptionStatusValue
+  current_period_end: string | null
+  is_premium: boolean
+}
+
+export interface AdminUserPageDto {
+  items: AdminUserDto[]
+  total: number
+  offset: number
+  limit: number
+}
+
+export interface AdminPlanStatDto {
+  code: string
+  name: string
+  count: number
+}
+
+export interface AdminStatsDto {
+  users_total: number
+  users_new_30d: number
+  premium_total: number
+  free_total: number
+  expiring_soon: number
+  revenue_30d: number
+  plans: AdminPlanStatDto[]
+}
+
+export interface AdminUserUpdate {
+  firstname?: string
+  lastname?: string
+  email?: string
+  is_active?: boolean
+  is_verified?: boolean
+}
+
+export interface AdminSubscriptionPointDto {
+  date: string
+  premium: number
+  free: number
+}
+
+export interface AdminSubscriptionTimelineDto {
+  points: AdminSubscriptionPointDto[]
 }
 
 export interface PaymentDto {

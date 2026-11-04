@@ -5,6 +5,7 @@ import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .admin import admin_router
 from .analytics import analytics_router
 from .billing import billing_router
 from .config import settings
@@ -88,6 +89,7 @@ async def health_check() -> dict:
 
 
 # Include routers
+app.include_router(admin_router)
 app.include_router(accounts_router)
 app.include_router(analytics_router)
 app.include_router(billing_router)

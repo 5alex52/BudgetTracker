@@ -15,7 +15,7 @@ import { glassClass } from '@/components/glass/GlassSurface'
 
 const glassContent = cn(
   glassClass({ level: 'sm' }),
-  'z-[var(--z-popover)] overflow-hidden p-1 text-fg-primary ',
+  'z-[var(--z-popover)] max-w-[calc(100vw-1.5rem)] overflow-hidden p-1 text-fg-primary ',
   'data-[state=open]:animate-in data-[state=closed]:animate-out ',
   'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
 )

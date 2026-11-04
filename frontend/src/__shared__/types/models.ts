@@ -59,6 +59,9 @@ export interface RecordItem {
   accountId: string
   account: string
   accountTint: string
+  /** Счёт-получатель перевода */
+  transferAccountId?: string
+  transferAccount?: string
   /** Сумма со знаком: расход отрицательный, доход положительный */
   amount: number
   currency: Currency
