@@ -24,9 +24,9 @@
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dashboard-preview-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/dashboard-preview-light.svg">
-    <img src="docs/assets/dashboard-preview-light.svg" alt="BudgetTracker Dashboard Preview" width="90%">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dashboard-preview-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/dashboard-preview-light.png">
+    <img src="docs/assets/dashboard-preview-light.png" alt="BudgetTracker Dashboard Preview" width="90%">
   </picture>
 </div>
 
@@ -309,13 +309,6 @@ This software is confidential and may not be copied, modified, or distributed wi
 - [SQLAlchemy](https://www.sqlalchemy.org/) — ORM
 - [Radix UI](https://www.radix-ui.com/) — Accessible components
 
-## 📞 Support
-
-- **Documentation**: [AGENTS.md](./AGENTS.md)
-- **Issues**: GitHub Issues (private repository)
-- **Email**: support@yourorg.com
-
----
 
 <div align="center">
 
