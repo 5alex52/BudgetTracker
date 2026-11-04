@@ -748,7 +748,9 @@ async def get_currencies(
 @currencies_router.get("/rates", status_code=status.HTTP_200_OK, response_model=List[CurrencyRate])
 async def get_currency_rates(
     request: Request,
-    base: str = Query("BYN", min_length=3, max_length=3, description="Base currency"),
+    base: Optional[str] = Query(
+        None, min_length=3, max_length=3, description="Base currency (defaults to user's base currency)"
+    ),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
     user: Optional[User] = Depends(get_current_active_user_optional),
 ) -> List[CurrencyRate]:

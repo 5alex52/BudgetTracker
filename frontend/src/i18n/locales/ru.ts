@@ -92,6 +92,9 @@ export const ru = {
   'dashboard.topCategory': 'Главная категория',
   'dashboard.avgPerDay': 'В среднем в день',
   'dashboard.busiestDay': 'Самый затратный день',
+  'dashboard.totalTransactions': 'Всего операций',
+  'dashboard.avgTx': 'Средний чек',
+  'dashboard.categoryBreakdown': 'Разбивка по категориям',
   'dashboard.premiumActive': 'Подписка активна',
   'dashboard.premiumPlan': 'Тариф',
 

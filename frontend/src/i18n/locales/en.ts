@@ -87,6 +87,9 @@ export const en: Translations = {
   'dashboard.topCategory': 'Top category',
   'dashboard.avgPerDay': 'Average per day',
   'dashboard.busiestDay': 'Busiest day',
+  'dashboard.totalTransactions': 'Total transactions',
+  'dashboard.avgTx': 'Avg transaction',
+  'dashboard.categoryBreakdown': 'Category breakdown',
   'dashboard.premiumActive': 'Subscription active',
   'dashboard.premiumPlan': 'Plan',
 

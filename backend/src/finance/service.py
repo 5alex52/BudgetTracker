@@ -212,7 +212,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             user = await session.get(UserModel, user_id)
-        return (getattr(user, "base_currency", None) or "USD").upper()
+            return (getattr(user, "base_currency", None) or "USD").upper()
 
     @classmethod
     async def get_list(
