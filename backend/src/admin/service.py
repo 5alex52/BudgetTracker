@@ -1,4 +1,4 @@
-"""Сервис админ-панели: список пользователей, статистика и ручное управление подписками."""
+"""Admin panel service: user list, statistics and manual subscription management."""
 
 import uuid
 from datetime import datetime
@@ -42,7 +42,7 @@ def _not_found(detail: str = "User not found") -> HTTPException:
 
 
 def _paid_and_active(subscription: PlanSubscriptionModel, now: datetime) -> bool:
-    """Платная подписка действует прямо сейчас — та же логика, что в entitlements."""
+    """Paid subscription is active right now — same logic as in entitlements."""
     if subscription.plan_code == FREE_PLAN_CODE or subscription.status != SubscriptionStatus.ACTIVE:
         return False
     until = subscription.current_period_end
@@ -56,7 +56,7 @@ class AdminService:
         session: AsyncSession,
         user_ids: Optional[Sequence[uuid.UUID]] = None,
     ) -> Dict[uuid.UUID, PlanSubscriptionModel]:
-        """Последняя подписка каждого пользователя одним запросом."""
+        """Latest subscription for each user in a single query."""
         latest_ids = select(func.max(PlanSubscriptionModel.id)).group_by(PlanSubscriptionModel.user_id)
         if user_ids is not None:
             if not user_ids:
@@ -84,7 +84,7 @@ class AdminService:
                 created_at=user.created_at,
                 last_login_at=user.last_login_at,
                 plan_code=FREE_PLAN_CODE,
-                plan_name="Бесплатный",
+                plan_name="Free",
                 subscription_status=SubscriptionStatus.ACTIVE,
                 current_period_end=None,
                 is_premium=False,
@@ -111,7 +111,7 @@ class AdminService:
         return session_maker or default_session_maker
 
     # ------------------------------------------------------------------ #
-    #  Пользователи
+    #  Users
     # ------------------------------------------------------------------ #
 
     @classmethod
@@ -179,14 +179,14 @@ class AdminService:
             if user is None:
                 raise _not_found()
 
-            # Админ не должен заблокировать себя или другого админа и потерять доступ
+            # Admin must not block themselves or another admin and lose access
             if changes.get("is_active") is False and user.is_superuser:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Cannot block a superuser",
                 )
 
-            # Проверка уникальности email, если он меняется
+            # Check email uniqueness if it's being changed
             if "email" in changes and changes["email"] != user.email:
                 existing = await session.scalar(
                     select(UserModel).where(UserModel.email == changes["email"], UserModel.id != user_id)
@@ -200,7 +200,7 @@ class AdminService:
             for field, value in changes.items():
                 setattr(user, field, value)
             await session.commit()
-            # Обновляем объект после коммита, чтобы fullname пересчитался
+            # Refresh the object after commit so fullname is recalculated
             await session.refresh(user)
             user, subscription = await cls._read_user(session, user_id)
             result = cls._row(user, subscription, datetime.now())
@@ -208,7 +208,7 @@ class AdminService:
         return result
 
     # ------------------------------------------------------------------ #
-    #  Подписки
+    #  Subscriptions
     # ------------------------------------------------------------------ #
 
     @classmethod
@@ -218,7 +218,7 @@ class AdminService:
         request: AdminGrantRequest,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> AdminUser:
-        """Выдаёт платный тариф без платежа: провайдер `admin`, срок — период тарифа."""
+        """Grants a paid plan without payment: provider is `admin`, duration is the plan period."""
         maker = cls._maker(session_maker)
 
         async with maker() as session:
@@ -236,7 +236,7 @@ class AdminService:
                 )
 
             now = datetime.now()
-            # Прежние активные строки закрываем, чтобы «текущей» была ровно одна
+            # Close previous active subscriptions so there is exactly one "current" subscription
             await session.execute(
                 update(PlanSubscriptionModel)
                 .where(
@@ -268,7 +268,7 @@ class AdminService:
         user_id: uuid.UUID,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> AdminUser:
-        """Отзывает подписку сразу: следующая проверка прав вернёт бесплатный тариф."""
+        """Revokes a subscription immediately: the next rights check will return the free plan."""
         maker = cls._maker(session_maker)
 
         async with maker() as session:
@@ -294,7 +294,7 @@ class AdminService:
         return row
 
     # ------------------------------------------------------------------ #
-    #  Статистика
+    #  Statistics
     # ------------------------------------------------------------------ #
 
     @classmethod
@@ -353,14 +353,14 @@ class AdminService:
         )
 
     # ------------------------------------------------------------------ #
-    #  График подписок
+    #  Subscription timeline chart
     # ------------------------------------------------------------------ #
 
     @classmethod
     async def get_subscription_timeline(
         cls, days: int = 30, session_maker: Optional[async_sessionmaker] = None
     ) -> AdminSubscriptionTimeline:
-        """Считает количество платных/бесплатных пользователей на конец каждого дня."""
+        """Counts the number of paid/free users at the end of each day."""
         maker = cls._maker(session_maker)
         now = datetime.now()
         today = now.date()
@@ -368,7 +368,7 @@ class AdminService:
         async with maker() as session:
             users_total = int(await session.scalar(select(func.count()).select_from(UserModel)) or 0)
 
-            # Все подписки, чтобы восстановить историю
+            # All subscriptions to reconstruct history
             stmt = (
                 select(PlanSubscriptionModel)
                 .options(selectinload(PlanSubscriptionModel.plan))
@@ -381,7 +381,7 @@ class AdminService:
             day = today - timedelta(days=day_offset)
             day_end = datetime.combine(day, datetime.max.time())
 
-            # Подсчёт платных активных на конец дня
+            # Count paid active subscriptions at end of day
             premium = 0
             for sub in all_subs:
                 if sub.started_at > day_end:

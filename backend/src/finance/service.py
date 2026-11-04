@@ -115,7 +115,7 @@ async def _resolve_base_rate(session: AsyncSession, user_id) -> float:
 
 
 async def _resolve_base_code(session: AsyncSession, user_id) -> str:
-    """Код базовой валюты пользователя (верхний регистр)."""
+    """User's base currency code (uppercased)."""
     from ..users.models import UserModel
 
     user = await session.get(UserModel, user_id)
@@ -145,11 +145,11 @@ def _converted_delta(
 
 
 async def _transfer_category(session: AsyncSession, user_id) -> CategoryModel:
-    """Служебная категория перевода: у перевода нет пользовательской категории.
+    """Transfer category: transfers have no user-facing category.
 
-    Колонка ``transactions.category_id`` обязательная, поэтому переводу нужна
-    одна нейтральная категория. Берём первую существующую transfer-категорию,
-    иначе создаём её при первом переводе.
+    The ``transactions.category_id`` column is required, so a transfer needs one
+    neutral category. We reuse the first existing transfer category if any,
+    otherwise create it on the first transfer.
     """
     existing = await CategoryDAO.find_all_by_user(session, user_id, category_type=CategoryType.TRANSFER, limit=1)
     if existing:
@@ -182,7 +182,7 @@ async def _resolve_transfer_account(
     currency_id: str,
     session_maker: Optional[async_sessionmaker] = None,
 ) -> AccountModel:
-    """Счёт-получатель перевода: свой, не совпадает с источником и доступен для записи."""
+    """Transfer destination account: owned, different from source, writable."""
     if transfer_account_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transfer account is required")
     if int(transfer_account_id) == int(source_account_id):
@@ -206,7 +206,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
 
     @classmethod
     async def _user_base_currency(cls, session_maker: Optional[async_sessionmaker], user_id) -> str:
-        """Код базовой валюты пользователя; "USD" — если настройка не задана."""
+        """User's base currency code; falls back to "USD" when not configured."""
         from ..users.models import UserModel
 
         maker = _resolve_session_maker(session_maker)
@@ -241,21 +241,21 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
         user_id=None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> List[CurrencyRate]:
-        # Базовая валюта — личная настройка пользователя; "USD" остаётся запасным
-        # вариантом для анонимных запросов справочника.
+        # Base currency is a personal user setting; "USD" is the fallback for
+        # anonymous catalog requests.
         if base is None and user_id is not None:
             base = await CurrencyService._user_base_currency(session_maker, user_id)
         base = (base or "USD").upper()
-        """Курсы всех валют относительно выбранной базовой.
+        """Exchange rates of all currencies relative to the chosen base.
 
-        В справочнике хранится «сколько базовых единиц стоит одна единица валюты»,
-        а экран «Валюты» показывает обратное — «сколько единиц валюты за одну базовую»,
-        поэтому курс переворачивается через базовую валюту.
+        The catalog stores "how many base units one currency unit costs", but the
+        Currencies screen shows the inverse — "how many currency units per one
+        base unit" — so the rate is flipped via the base currency.
         """
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             currencies = await cls.dao.find_all_ordered(session, limit=500)
-            # Личные курсы переопределяют справочник: пользователь может считать по своему банку
+            # Personal rates override the catalog: user may count by their own bank
             overrides = {}
             if user_id is not None:
                 rows = await UserCurrencyRateDAO.find_all_by_user(session, user_id)
@@ -292,7 +292,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
         user_id,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> CurrencyRate:
-        """Личный курс валюты: «сколько базовых единиц стоит одна единица валюты»."""
+        """Personal currency rate: how many base units one unit of the currency costs."""
         if rate <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rate must be positive")
         maker = _resolve_session_maker(session_maker)
@@ -318,7 +318,7 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
 
     @classmethod
     async def reset_user_rate(cls, code: str, user_id, session_maker: Optional[async_sessionmaker] = None) -> None:
-        """Возврат к курсу справочника."""
+        """Revert to the catalog rate."""
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             existing = await UserCurrencyRateDAO.find_one(session, user_id, code)
@@ -362,32 +362,32 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
 
 
 async def _invalidate_analytics() -> None:
-    """Сбрасывает кеш аналитики: цифры на «Обзоре» зависят от записей и счетов."""
+    """Invalidate the analytics cache: Overview numbers depend on records and accounts."""
     from ..cache import Cache
 
     await Cache.delete_scope("analytics")
 
 
 async def _invalidate_categories() -> None:
-    """Сбрасывает кеш категорий: дерево и список меняются при любом изменении."""
+    """Invalidate the categories cache: the tree and list change on any mutation."""
     from ..cache import Cache
 
     await Cache.delete_scope("categories")
 
 
 async def _check_account_limit(session, user_id, session_maker=None) -> None:
-    """Не даёт превысить лимит счетов бесплатного тарифа.
+    """Enforce the free-plan account limit.
 
-    Импорт биллинга ленивый: финансовый модуль не должен зависеть от него на
-    этапе импорта, иначе получается цикл ``billing -> finance``.
+    Billing is imported lazily: the finance module must not depend on it at
+    import time, otherwise we get a ``billing -> finance`` cycle.
     """
     from src.billing.service import BillingService
 
     entitlements = await BillingService.get_entitlements(user_id, session_maker=session_maker)
     if entitlements.max_accounts is None:
         return
-    # Лимит тарифа считается по всем незаархивированным счетам: заблокированные
-    # счета в другой валюте всё равно остаются заведёнными, просто без доступа.
+    # The plan limit counts all non-archived accounts: locked accounts in other
+    # currencies stay created, just without access.
     existing = await AccountDAO.count_by_user(session, user_id)
     if existing >= entitlements.max_accounts:
         raise HTTPException(
@@ -400,10 +400,10 @@ async def _check_account_limit(session, user_id, session_maker=None) -> None:
 
 
 async def _check_currency_entitlement(session, user_id, currency_id: str, session_maker=None) -> None:
-    """На бесплатном тарифе счёт можно вести только в базовой валюте.
+    """On the free plan, accounts can only be held in the base currency.
 
-    Существующие счета в других валютах не удаляются — они просто остаются
-    заблокированными до обновления подписки (``multi_currency``).
+    Existing accounts in other currencies are not deleted — they just stay
+    locked until the subscription is upgraded (``multi_currency``).
     """
     from src.billing.service import BillingService
     from ..users.models import UserModel
@@ -427,7 +427,7 @@ LOCK_REASON_ACCOUNT_LIMIT = "subscription_required_account_limit"
 
 
 async def _get_entitlements(user_id, session_maker=None):
-    """Права тарифа. Импорт ленивый, чтобы не было цикла billing ↔ finance."""
+    """Plan entitlements. Import is lazy to avoid a billing <-> finance cycle."""
     from src.billing.service import BillingService
 
     return await BillingService.get_entitlements(user_id, session_maker=session_maker)
@@ -439,12 +439,12 @@ async def _account_lock_map(
     session_maker=None,
     entitlements=None,
 ) -> dict:
-    """Какие счета доступны только на чтение и почему.
+    """Which accounts are read-only and why.
 
-    На бесплатном тарифе действуют два ограничения: только базовая валюта и
-    не больше ``max_accounts`` счетов. Счета сверх лимита и счета в других
-    валютах не удаляются и не архивируются — они остаются в списке, но
-    помечаются заблокированными до возобновления подписки.
+    The free plan has two limits: base currency only and at most ``max_accounts``
+    accounts. Accounts over the limit and accounts in other currencies are not
+    deleted or archived — they stay in the list but are marked as locked until
+    the subscription is renewed.
     """
     if entitlements is None:
         entitlements = await _get_entitlements(user_id, session_maker=session_maker)
@@ -472,7 +472,7 @@ async def _account_lock_map(
 
 
 def _apply_account_locks(accounts: List[AccountModel], locks: dict) -> None:
-    """Проставляет вычисляемые флаги блокировки на ORM-объекты для ответа API."""
+    """Applies computed lock flags to ORM objects for the API response."""
     for account in accounts:
         locked, reason = locks.get(account.id, (False, None))
         account.is_locked = locked
@@ -480,7 +480,7 @@ def _apply_account_locks(accounts: List[AccountModel], locks: dict) -> None:
 
 
 async def _effective_currency_rate(session: AsyncSession, user_id, code: str) -> float:
-    """Курс валюты с личным переопределением пользователя."""
+    """Currency rate with the user's personal override applied."""
     currency = await _get_currency(session, code)
     override = await UserCurrencyRateDAO.find_one(session, user_id, currency.code)
     rate = override.rate if override is not None else currency.exchange_rate_to_base
@@ -494,11 +494,11 @@ async def _check_transaction_entitlement(
     currency_id: str,
     session_maker=None,
 ) -> None:
-    """Проверяет, можно ли писать запись на счёт в выбранной валюте.
+    """Checks whether a record in the chosen currency can be written to the account.
 
-    На бесплатном тарифе доступны только базовая валюта и незаблокированные
-    счета. Проверка стоит на создании/изменении записи и при применении
-    шаблона, чтобы ограничение нельзя было обойти через другой эндпоинт.
+    The free plan allows only the base currency and unlocked accounts. The
+    check runs on record create/update and when applying a template, so the
+    limit cannot be bypassed via another endpoint.
     """
     entitlements = await _get_entitlements(user_id, session_maker=session_maker)
     core_currency = (currency_id or "").upper()
@@ -537,7 +537,7 @@ async def _check_currency_settings_entitlement(
     code: str,
     session_maker=None,
 ) -> None:
-    """Бесплатный тариф не даёт настраивать курсы других валют."""
+    """The free plan does not allow configuring rates for other currencies."""
     entitlements = await _get_entitlements(user_id, session_maker=session_maker)
     if entitlements.multi_currency:
         return
@@ -631,8 +631,8 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             update_data = schema.model_dump(exclude_unset=True)
             locks = await _account_lock_map(session, user_id, session_maker=maker)
             locked, _ = locks.get(account.id, (False, None))
-            # Заблокированный счёт можно только архивировать/исключать:
-            # остальные поля доступны после возобновления подписки.
+            # A locked account can only be archived/excluded: other fields are
+            # available again once the subscription is renewed.
             if locked and any(field not in {"is_archived", "is_excluded"} for field in update_data):
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
@@ -663,8 +663,8 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             account.is_archived = is_archived
             await session.commit()
             await session.refresh(account)
-            # Архивация меняет число активных счетов: у следующих по порядку
-            # может появиться или пропасть блокировка по лимиту тарифа.
+            # Archiving changes the number of active accounts: subsequent
+            # accounts may gain or lose their plan-limit lock.
             locks = await _account_lock_map(session, user_id, session_maker=maker)
             _apply_account_locks([account], locks)
         await _invalidate_analytics()
@@ -678,18 +678,19 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
         is_excluded: bool,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> AccountModel:
-        """Флаг «исключён из статистики»: счёт остаётся, но не влияет на итоги."""
+        """The 'excluded from statistics' flag: the account stays, but does not affect totals."""
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             account = await _get_owned_account(session, account_id, user_id)
             account.is_excluded = is_excluded
             await session.commit()
-            # refresh нужен до закрытия сессии: updated_at считается на стороне БД,
-            # и без него сериализация ответа пытается дочитать объект вне сессии
+            # refresh is needed before closing the session: updated_at is computed
+            # on the DB side, and without it response serialization would try to
+            # lazy-load the object outside the session
             await session.refresh(account)
             locks = await _account_lock_map(session, user_id, session_maker=maker)
             _apply_account_locks([account], locks)
-        # Исключённый счёт выпадает из всех итогов и графиков
+        # An excluded account drops out of all totals and charts
         await _invalidate_analytics()
         return account
 
@@ -702,13 +703,13 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> AccountSummary:
-        """Карточка счёта: остаток и обороты за период в базовой валюте."""
+        """Account card: balance and turnover for the period in the base currency."""
         start_date, end_date = normalize_period(start_date, end_date)
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             account = await _get_owned_account(session, account_id, user_id)
-            # Обороты считаем по всем счетам и берём нужный: один запрос дешевле,
-            # чем отдельная выборка под каждый счёт.
+            # We compute turnover for all accounts and pick the one we need: one
+            # query is cheaper than a separate selection per account.
             rows = await TransactionDAO.totals_by_account(
                 session,
                 user_id,
@@ -721,8 +722,8 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             expense = round(float(row.expense), 2) if row else 0.0
             count = int(row.count) if row else 0
 
-            # Остаток «как в банке»: на конец периода, а не текущий.
-            # Текущий остаток минус всё, что случилось позже конца периода.
+            # "Bank-style" balance: at end of period, not current.
+            # Current balance minus everything that happened after end_date.
             later = 0.0
             incoming = 0.0
             if end_date is not None:
@@ -776,15 +777,16 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> BalanceOverview:
-        """Остатки по счетам в базовой валюте.
+        """Account balances in the base currency.
 
-        ``end_date`` включает «банковский» режим: остаток берётся на конец
-        периода (текущий остаток минус всё, что произошло позже), поэтому при
-        переключении периода виджет показывает цифру того момента, а не сегодняшнюю.
+        ``end_date`` enables "bank statement" mode: the balance is taken at the
+        end of the period (current balance minus everything that happened
+        later), so when the user switches the period the widget shows that
+        moment's figure instead of today's.
         """
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            # Исключённые из статистики счета не участвуют в общем балансе
+            # Accounts excluded from statistics do not participate in the overall balance
             accounts = await cls.dao.find_all_by_user(
                 session,
                 user_id,
@@ -809,9 +811,9 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
                     account_ids=account_ids,
                 )
 
-            # Общий итог считается в базовой валюте пользователя, а не в USD.
-            # Личные курсы переопределяют справочник — иначе итог на дашборде
-            # расходится с экраном «Валюты».
+            # The grand total is computed in the user's base currency, not USD.
+            # Personal rates override the catalog — otherwise the dashboard
+            # total would diverge from the Currencies screen.
             base_rate = await _resolve_base_rate(session, user_id)
             overrides = {
                 row.code: float(row.rate)
@@ -926,12 +928,12 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
     async def create_defaults_for_user(
         cls, user_id, session_maker: Optional[async_sessionmaker] = None
     ) -> List[CategoryModel]:
-        """Создаёт стандартный набор категорий и подкатегорий.
+        """Creates the standard set of categories and subcategories.
 
-        Вызывается один раз при регистрации: пользователь сразу получает
-        привычную структуру и может её переименовать, перекрасить или удалить —
-        это обычные пользовательские категории. Весь набор пишется в одной
-        транзакции: либо все категории, либо ни одной.
+        Called once at registration: the user immediately gets a familiar
+        structure and can rename, recolor or delete it — these are regular
+        user categories. The whole set is written in one transaction: either
+        all categories or none.
         """
         from .default_categories import default_categories
 
@@ -1042,11 +1044,11 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> List[CategoryNode]:
-        """Дерево категорий с подкатегориями и счётчиками записей.
+        """Category tree with subcategories and transaction counts.
 
-        Настройки и диалог записи показывают категорию вместе с её подкатегориями,
-        поэтому дерево собирается одним ответом: без него интерфейс делает
-        N+1 запросов на каждую категорию.
+        Settings and the transaction dialog show a category together with its
+        subcategories, so the tree is assembled in one response: without it the
+        UI would make N+1 requests per category.
         """
         from ..cache import Cache
 
@@ -1106,7 +1108,7 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> List[CategoryStat]:
-        """Сколько записей и на какую сумму приходится на каждую категорию."""
+        """How many records and what total amount each category has."""
         start_date, end_date = normalize_period(start_date, end_date)
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
@@ -1137,10 +1139,10 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
 
     @classmethod
     def _normalized_filters(cls, start_date, end_date, filters: dict) -> dict:
-        """Приводит границы периода и отбрасывает пустые значения.
+        """Normalizes period boundaries and drops empty values.
 
-        Экран «Записи» присылает пустые строки и пустые списки, когда фильтр снят:
-        их нужно не применять, а не фильтровать «по пустоте».
+        The Transactions screen sends empty strings and empty lists when a filter
+        is unset: they must be ignored, not filtered "by emptiness".
         """
         start_date, end_date = normalize_period(start_date, end_date)
         cleaned = {key: value for key, value in filters.items() if value not in (None, "", [], ())}
@@ -1202,10 +1204,10 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
 
     @classmethod
     async def bulk_delete(cls, ids: List[int], user_id, session_maker: Optional[async_sessionmaker] = None) -> tuple:
-        """Удаляет выбранные записи и откатывает их влияние на балансы.
+        """Deletes the selected records and rolls back their effect on balances.
 
-        Возвращает ``(сколько удалено, какие идентификаторы не найдены)``.
-        Чужие записи не трогаются: они попадают в «не найдены».
+        Returns ``(how many deleted, which ids were not found)``. Other users'
+        records are not touched: they end up in "missing".
         """
         maker = _resolve_session_maker(session_maker)
         deleted = 0
@@ -1300,8 +1302,8 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
             tag_ids = schema.tag_ids
             await ensure_tags_owned(session, tag_ids, user_id)
 
-            # tag_ids — не колонка таблицы, поэтому в insert уходит всё остальное.
-            # Категорию перевода задаёт сервер, а не клиент.
+            # tag_ids is not a table column, so everything else goes into the
+            # insert. The transfer category is set by the server, not the client.
             payload = schema.model_dump(exclude={"tag_ids"})
             payload["category_id"] = category.id
             if transfer_account is None:
@@ -1315,7 +1317,7 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
 
             if tag_ids:
                 await attach_tags(session, transaction.id, tag_ids)
-            # Правила применяются после сохранения: им нужен id записи для связи с метками
+            # Rules are applied after saving: they need the record id to link tags
             await apply_rules(session, transaction, user_id)
 
             transaction_rate = await _effective_currency_rate(session, user_id, currency.code)
@@ -1374,8 +1376,8 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
                 await _effective_currency_rate(session, user_id, old_account.currency_id),
             )
 
-            # Старый перевод уже зачислил деньги на счёт-получатель: при любом
-            # изменении сначала откатываем этот кредит.
+            # The old transfer already credited the destination account: on any
+            # change we first roll back that credit.
             old_transfer_account = (
                 transaction.transfer_account if transaction.type == TransactionType.TRANSFER else None
             )
@@ -1415,8 +1417,9 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
                 _validate_category_type(category, new_type)
                 transfer_account = None
                 update_data["transfer_account_id"] = None
-            # Проверяем итоговый счёт и валюту записи, а не старые значения:
-            # перенести запись со заблокированного счёта на доступный можно.
+            # We check the final account and currency of the record, not the old
+            # values: moving a record from a locked account to an available one
+            # is allowed.
             await _check_transaction_entitlement(
                 session,
                 user_id,

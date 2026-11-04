@@ -1,9 +1,9 @@
-"""Контракт платёжного провайдера.
+"""Payment provider contract.
 
-Биллинг не знает, как именно списываются деньги: он просит провайдера создать
-сессию оплаты, а результат — подтверждение или отказ — приходит либо сразу (мок),
-либо вебхуком (реальный эквайринг). Поэтому новый провайдер (Stripe, крипто,
-эквайринг банка) — это новый класс с этим интерфейсом и регистрация в реестре.
+The billing module does not know how money is actually charged: it asks the provider to create
+a checkout session, and the result — approval or rejection — comes either immediately (mock) or
+via webhook (real acquiring). So a new provider (Stripe, crypto, bank acquiring) is just a new
+class with this interface plus registration in the registry.
 """
 
 from abc import ABC
@@ -18,10 +18,10 @@ from ..models import PaymentMethodKind
 
 @dataclass
 class CheckoutSession:
-    """Результат создания сессии оплаты у провайдера."""
+    """Result of creating a checkout session with the provider."""
 
     provider_reference: str
-    #: Куда отправить пользователя; ``None`` — провайдер подтверждает платёж сразу
+    #: Where to send the user; ``None`` — provider confirms payment immediately
     checkout_url: Optional[str] = None
     requires_redirect: bool = False
     raw: dict = field(default_factory=dict)
@@ -29,7 +29,7 @@ class CheckoutSession:
 
 @dataclass
 class PaymentResult:
-    """Итоговая проверка платежа у провайдера."""
+    """Final payment verification with the provider."""
 
     approved: bool
     provider_reference: str
@@ -39,7 +39,7 @@ class PaymentResult:
 
 @dataclass
 class AttachedMethod:
-    """Способ оплаты, привязанный у провайдера."""
+    """Payment method attached to the provider."""
 
     provider_reference: str
     kind: PaymentMethodKind = PaymentMethodKind.CARD
@@ -49,45 +49,45 @@ class AttachedMethod:
 
 
 class PaymentProvider(ABC):
-    """Интерфейс платёжного провайдера."""
+    """Payment provider interface."""
 
-    #: Код провайдера в API и в базе (mock, stripe, crypto)
+    #: Provider code in the API and database (mock, stripe, crypto)
     code: str = "abstract"
-    #: Название для интерфейса
+    #: Title for the UI
     title: str = "Abstract provider"
-    #: Какие способы оплаты поддерживает
+    #: Supported payment methods
     methods: List[PaymentMethodKind] = [PaymentMethodKind.CARD]
-    #: Мок-провайдер: подтверждает платежи без внешнего вызова
+    #: Mock provider: approves payments without an external call
     is_mock: bool = False
 
     @abstractmethod
     async def create_checkout(
         self, *, user_id, amount: float, currency: str, plan_code: str, return_url: str
     ) -> CheckoutSession:
-        """Создаёт платёжную сессию и возвращает ссылку на оплату."""
+        """Creates a payment session and returns the payment link."""
 
     @abstractmethod
     async def confirm(self, provider_reference: str) -> PaymentResult:
-        """Запрашивает у провайдера итоговый статус платежа."""
+        """Requests the final payment status from the provider."""
 
     @abstractmethod
     async def attach_method(self, *, user_id, token: Optional[str] = None) -> AttachedMethod:
-        """Привязывает способ оплаты: карта вводится на стороне провайдера."""
+        """Attaches a payment method: card is entered on the provider's side."""
 
     @abstractmethod
     async def refund(self, provider_reference: str) -> PaymentResult:
-        """Возврат средств по платежу."""
+        """Refund a payment."""
 
     def verify_webhook(self, payload: bytes, signature: Optional[str]) -> bool:
-        """Проверка подписи вебхука.
+        """Verify webhook signature.
 
-        По умолчанию — «не доверяем»: провайдер обязан переопределить метод,
-        иначе вебхук с подделкой сможет активировать подписку.
+        Default is "don't trust": the provider must override the method,
+        otherwise a forged webhook could activate a subscription.
         """
         return False
 
     def is_configured(self) -> bool:
-        """Настроен ли провайдер (есть ли ключи)."""
+        """Whether the provider is configured (keys are present)."""
         return True
 
     def describe(self) -> dict:

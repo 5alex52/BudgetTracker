@@ -69,7 +69,7 @@ class AccountDAO(BaseDAO[AccountModel, AccountCreate, AccountUpdate]):
 
     @classmethod
     def statistics_stmt(cls, user_id) -> Select:
-        """Счета, которые участвуют в статистике: активные и не исключённые."""
+        """Accounts that participate in statistics: active and not excluded."""
         return select(cls.model).where(
             cls.model.user_id == user_id,
             cls.model.is_archived.is_(False),
@@ -84,7 +84,7 @@ class AccountDAO(BaseDAO[AccountModel, AccountCreate, AccountUpdate]):
 
     @classmethod
     async def count_by_user(cls, session: AsyncSession, user_id, include_archived: bool = False) -> int:
-        """Сколько счетов заведено: база для лимита тарифа."""
+        """How many accounts exist: basis for the plan limit."""
         stmt = select(func.count(cls.model.id)).where(cls.model.user_id == user_id)
         if not include_archived:
             stmt = stmt.where(cls.model.is_archived.is_(False))
@@ -116,11 +116,11 @@ class CategoryDAO(BaseDAO[CategoryModel, CategoryCreate, CategoryUpdate]):
 
     @classmethod
     async def with_descendants(cls, session: AsyncSession, user_id, category_ids: Sequence[int]) -> List[int]:
-        """Выбранные категории вместе со всеми вложенными.
+        """Selected categories together with all nested ones.
 
-        Фильтр «Еда» должен показывать и «Продукты», «Кафе»: пользователь
-        выбирает ветку, а не отдельную строку. Вложенность раскрываем циклом,
-        потому что жёстко ограничивать дерево двумя уровнями нельзя.
+        The "Food" filter must show "Groceries" and "Cafes" too: the user picks
+        a branch, not a single row. Nesting is expanded in a loop because the
+        tree cannot be hardcoded to two levels.
         """
         known = {int(identifier) for identifier in category_ids}
         frontier = set(known)
@@ -155,11 +155,12 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         moment: datetime,
         account_ids: Optional[Sequence[int]] = None,
     ) -> dict:
-        """Подписанный оборот после момента, по каждому счёту и в валюте счёта.
+        """Signed turnover after a moment, per account and in the account currency.
 
-        Из него собирается «банковский» остаток на дату: текущий остаток минус
-        всё, что произошло позже выбранной даты. Сумма приводится к валюте счёта
-        тем же отношением курсов, что и при изменении остатка транзакцией.
+        It is used to build the "bank-style" balance at a date: current balance
+        minus everything that happened after the chosen date. The amount is
+        converted to the account currency using the same rate ratio as when a
+        transaction changes the balance.
         """
         account_currency = aliased(CurrencyModel)
         signed = case(
@@ -210,11 +211,12 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         moment: datetime,
         account_ids: Optional[Sequence[int]] = None,
     ) -> dict:
-        """Сколько переводов пришло на каждый счёт после момента (в валюте счёта).
+        """How many transfers arrived at each account after the moment (in the account currency).
 
-        Перевод хранится одной записью на счёте-источнике, поэтому кредит
-        получателя не виден в ``signed_totals_after_by_account``. Без этой
-        выборки исторический остаток счёта-получателя был бы завышен.
+        A transfer is stored as one record on the source account, so the credit
+        on the destination is not visible in ``signed_totals_after_by_account``.
+        Without this query the historical balance of the destination account
+        would be overstated.
         """
         dest_account = aliased(AccountModel)
         dest_currency = aliased(CurrencyModel)
@@ -281,14 +283,14 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         tag_ids: Optional[Sequence[int]] = None,
         only_statistics: bool = False,
     ) -> Select:
-        """Базовый набор условий для списка записей и всех агрегатов.
+        """Base filter set for the transaction list and all aggregates.
 
-        Единственные фильтры (``account_id``) и множественные (``account_ids``)
-        поддерживаются одновременно: первые оставлены для обратной совместимости
-        с уже опубликованными эндпоинтами.
+        Single (``account_id``) and multiple (``account_ids``) filters are
+        supported at the same time: the single ones are kept for backwards
+        compatibility with already-published endpoints.
 
-        ``only_statistics`` отбрасывает счета с флагом «исключён из статистики»:
-        так агрегаты не смешивают деньги, которые пользователь попросил не учитывать.
+        ``only_statistics`` drops accounts flagged "excluded from statistics":
+        aggregates then do not mix in money the user asked to ignore.
         """
         stmt = (
             select(cls.model)
@@ -325,7 +327,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         if amount_max is not None:
             stmt = stmt.where(cls.model.amount <= amount_max)
         if tag_ids:
-            # «Записи хотя бы с одной из выбранных меток» — так работает фильтр-чипсы
+            # "Records with at least one of the selected tags" — that is how the filter chips work
             stmt = stmt.where(
                 cls.model.id.in_(
                     select(transaction_tags.c.transaction_id).where(transaction_tags.c.tag_id.in_(list(tag_ids)))
@@ -342,7 +344,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             )
         return stmt
 
-    #: Поддерживаемые режимы сортировки списка записей
+    #: Supported sort modes for the transaction list
     SORT_OPTIONS = {
         "date_desc": ("date", True),
         "date_asc": ("date", False),
@@ -352,10 +354,10 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
 
     @classmethod
     async def _expand_categories(cls, session: AsyncSession, user_id, filters: dict) -> dict:
-        """Подменяет выбранные категории списком с вложенными.
+        """Replaces selected categories with the list including nested ones.
 
-        Без этого фильтр «Еда» не находил «Продукты»: в записи лежит id
-        подкатегории, а пользователь выбрал родителя.
+        Without this, the "Food" filter would not find "Groceries": the record
+        holds the subcategory id, but the user picked the parent.
         """
         ids = [int(identifier) for identifier in (filters.get("category_ids") or [])]
         single = filters.get("category_id")
@@ -487,16 +489,17 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         return result.scalars().one_or_none()
 
     # ------------------------------------------------------------------ #
-    #  Агрегаты для карточки счёта и экрана категорий
+    #  Aggregates for the account card and the categories screen.
     #
-    #  Аналитика живёт в отдельном приложении (``src/analytics``) и там свои
-    #  запросы; здесь только то, что нужно самому finance. Дублирование
-    #  осознанное: finance — источник данных и не должен зависеть от analytics.
+    #  Analytics lives in a separate app (``src/analytics``) with its own
+    #  queries; here is only what finance itself needs. The duplication is
+    #  intentional: finance is the source of truth and must not depend on
+    #  analytics.
     # ------------------------------------------------------------------ #
 
     @classmethod
     async def _base_rate(cls, session: AsyncSession, user_id) -> float:
-        """Курс базовой валюты пользователя с учётом личного переопределения."""
+        """User's base currency rate with the personal override applied."""
         user = await session.get(UserModel, user_id)
         base = (getattr(user, "base_currency", None) or "USD").upper()
         currency = await CurrencyDAO.find_one_or_none(session, code=base)
@@ -519,7 +522,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         only_statistics=True,
         base_rate: float = 1.0,
     ):
-        """Срез записей пользователя с суммой в базовой валюте."""
+        """Slice of the user's records with amounts in the base currency."""
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
         override = (
             select(UserCurrencyRateModel.rate)
@@ -575,7 +578,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         end_date: Optional[datetime] = None,
         only_statistics: bool = True,
     ) -> List:
-        """Обороты по счетам за период."""
+        """Turnover by accounts for the period."""
         base_rate = await cls._base_rate(session, user_id)
         scope = cls._statistics_scope(
             user_id,
@@ -627,7 +630,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         category_type: Optional[CategoryType] = None,
         only_statistics: bool = True,
     ) -> List:
-        """Суммы по категориям за период."""
+        """Totals by categories for the period."""
         base_rate = await cls._base_rate(session, user_id)
         scope = cls._statistics_scope(
             user_id,
@@ -664,14 +667,14 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
 
     @classmethod
     async def find_many_by_user(cls, session: AsyncSession, user_id, ids: Sequence[int]) -> List[TransactionModel]:
-        """Записи пользователя по списку идентификаторов (для массовых операций)."""
+        """User records by a list of ids (for bulk operations)."""
         stmt = cls._filtered_stmt(user_id=user_id).where(cls.model.id.in_(list(ids)))
         result = await session.execute(stmt)
         return list(result.scalars().unique().all())
 
 
 class UserCurrencyRateDAO(BaseDAO[UserCurrencyRateModel, dict, dict]):
-    """Личные курсы валют пользователя."""
+    """User's personal currency rates."""
 
     model = UserCurrencyRateModel
 

@@ -1,4 +1,4 @@
-"""Базовый период отчётов в профиле
+"""Default reporting period in user profile
 
 Revision ID: e5f6a7b8c9d0
 Revises: d3e4f5a6b7c8
@@ -17,9 +17,7 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "users",
-        sa.Column(
-            "default_period", sa.String(length=8), nullable=True, server_default="month"
-        ),
+        sa.Column("default_period", sa.String(length=8), nullable=True, server_default="month"),
     )
 
 

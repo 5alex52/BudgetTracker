@@ -1,0 +1,57 @@
+---
+# BudgetTracker Ansible Variables
+
+# Application
+app_name: budgettracker
+app_domain: budgettracker.example.com
+app_user: deploy
+app_group: deploy
+app_dir: /opt/budgettracker
+app_environment: PROD
+
+# Docker
+docker_compose_version: "2.20.0"
+docker_users:
+  - "{{ app_user }}"
+
+# PostgreSQL
+postgres_version: "16"
+postgres_user: budgettracker
+postgres_password: "{{ vault_postgres_password }}"
+postgres_db: budgettracker
+postgres_port: 5432
+
+# Redis
+redis_port: 6379
+redis_maxmemory: "512mb"
+redis_maxmemory_policy: "allkeys-lru"
+
+# Backend
+backend_port: 8000
+backend_workers: 4
+backend_log_level: INFO
+secret_key: "{{ vault_secret_key }}"
+
+# Frontend
+frontend_port: 5173
+telegram_support_url: "https://t.me/your_support_bot"
+
+# SSL
+ssl_enabled: true
+admin_email: admin@example.com
+letsencrypt_email: "{{ admin_email }}"
+
+# Nginx
+nginx_worker_processes: auto
+nginx_worker_connections: 1024
+
+# Backup
+backup_enabled: true
+backup_dir: /var/backups/budgettracker
+backup_retention_days: 30
+backup_hour: 2
+backup_minute: 0
+
+# Monitoring
+monitoring_enabled: true
+health_check_interval: 60

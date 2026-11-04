@@ -1,8 +1,8 @@
-"""Точка подключения криптоплатежей.
+"""Crypto payment integration.
 
-Аналог страйпа для крипты (Coinbase Commerce, NowPayments, Cryptomus): платёж
-создаётся как «инвойс» с адресом и суммой в монете, подтверждение приходит
-вебхуком после нужного числа подтверждений в сети.
+Analog of Stripe for crypto (Coinbase Commerce, NowPayments, Cryptomus): a payment is created
+as an "invoice" with an address and amount in a coin, and confirmation comes via webhook after
+the required number of network confirmations.
 """
 
 from src.config import settings
@@ -16,7 +16,7 @@ from .base import PaymentResult
 
 
 class CryptoPaymentProvider(PaymentProvider):
-    """Оплата криптовалютой через сторонний процессинг."""
+    """Cryptocurrency payment via third-party processing."""
 
     code = "crypto"
     title = "Криптовалюта (USDT, BTC, ETH)"
@@ -29,20 +29,20 @@ class CryptoPaymentProvider(PaymentProvider):
     async def create_checkout(
         self, *, user_id, amount: float, currency: str, plan_code: str, return_url: str
     ) -> CheckoutSession:
-        # При подключении: POST /invoice {price_amount, price_currency, order_id, success_url}
-        # → ответ содержит invoice_url и id инвойса
+        # When integrating: POST /invoice {price_amount, price_currency, order_id, success_url}
+        # → response contains invoice_url and invoice id
         raise NotImplementedError("Крипто-провайдер не подключён: задайте CRYPTO_API_KEY и реализуйте создание инвойса")
 
     async def confirm(self, provider_reference: str) -> PaymentResult:
-        # При подключении: GET /invoice/{id} — статус waiting|confirming|confirmed|failed
+        # When integrating: GET /invoice/{id} — status waiting|confirming|confirmed|failed
         raise NotImplementedError("Крипто-провайдер не подключён: confirm через статус инвойса")
 
     async def attach_method(self, *, user_id, token=None) -> AttachedMethod:
-        # У крипты нет «сохранённых карт»: привязка кошелька не поддерживается
+        # Crypto has no "saved cards": wallet attachment is not supported
         raise NotImplementedError("Крипто-провайдер не поддерживает сохранение способа оплаты")
 
     async def refund(self, provider_reference: str) -> PaymentResult:
-        # Возврат в крипте делается вручную через кабинет процессинга
+        # Crypto refunds are done manually via the processor's dashboard
         raise NotImplementedError("Крипто-провайдер возвращает средства вручную")
 
     def verify_webhook(self, payload: bytes, signature=None) -> bool:
@@ -51,5 +51,5 @@ class CryptoPaymentProvider(PaymentProvider):
         return False
 
 
-# Явная ссылка на базовый класс нужна линтерам: интерфейс импортируется дважды
+# Explicit reference to the base class is needed for linters: interface is imported twice
 _ = _Base

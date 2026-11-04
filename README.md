@@ -1,355 +1,326 @@
+<div align="center">
+
 # BudgetTracker
 
-Сервис учёта личных финансов: счета, категории, транзакции и подписки с мультивалютностью.
+### Personal Finance Management System
 
-## Технологический стек
+[![License](https://img.shields.io/badge/license-proprietary-red?style=flat-square)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-3.13+-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19+-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 
-- **Backend**: Python 3.13, FastAPI, SQLAlchemy 2.0 (async, asyncpg), Alembic, Pydantic v2
-- **Database**: PostgreSQL 16
-- **Cache / очереди**: Redis, RabbitMQ + Celery (опционально, см. профиль `workers`)
-- **Frontend**: React 18, TypeScript, Vite 5, TailwindCSS, Recharts
-- **Docker**: `docker-compose.yml` (разработка) и `docker-compose.prod.yml` (прод-подобный)
+**Track expenses, manage multi-currency accounts, and get insights into your spending habits with advanced analytics.**
 
-> **Приложение запускается только через Docker.** Локальные схемы (Poetry, `npm run dev`,
-> `uvicorn` на хосте) больше не поддерживаются: единственный вход — `docker compose`.
-> Любая команда ниже выполняется из корня проекта.
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Deployment](#deployment) • [License](#license)
 
-## Быстрый старт (Docker)
+</div>
 
-Требуется только Docker с плагином Compose v2 (`docker compose version`).
+---
 
-```bash
-# из корня проекта (рядом лежат backend/ и frontend/)
-docker compose up --build
-```
+## 📊 Preview
 
-Готово:
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dashboard-preview-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/dashboard-preview-light.svg">
+    <img src="docs/assets/dashboard-preview-light.svg" alt="BudgetTracker Dashboard Preview" width="90%">
+  </picture>
+</div>
 
-| Сервис | Адрес |
-| --- | --- |
-| Frontend (Vite dev server) | http://localhost:5173 |
-| Backend API | http://localhost:8000 |
-| Swagger / OpenAPI | http://localhost:8000/docs |
-| Health-check | http://localhost:8000/health |
-| PostgreSQL | localhost:5432 (budget / budget) |
-| Redis | localhost:6379 |
+<br>
 
-Что происходит при первом запуске:
+## ✨ Features
 
-1. собираются образы `backend/` (Python + зависимости из `poetry.lock`) и `frontend/` (Node + `npm ci`);
-2. поднимается PostgreSQL и Redis (с healthcheck-ами);
-3. backend ждёт готовности БД, контейнер применяет `alembic upgrade head` и стартует `uvicorn --reload`;
-4. миграции создают схему и заполняют справочник валют (USD, EUR, RUB и др.), без них нельзя создать счёт;
-5. frontend стартует с Vite и проксирует `/api` на `http://backend:8000` внутри docker-сети.
+### Core Functionality
+- **Multi-currency accounts** with automatic conversion and personal exchange rates
+- **Smart categorization** with auto-rules and category tree
+- **Transfers between accounts** with real-time balance updates
+- **Advanced analytics** with period comparison, trends, and category breakdowns
+- **Subscription billing** with free/premium tiers and admin grants
+- **Admin panel** for user management and subscription control
 
-Исходники примонтированы томами, поэтому правки в `backend/` и `frontend/` подхватываются без пересборки.
+### Premium Features
+- Unlimited accounts (free tier: 2 accounts)
+- Multi-currency support
+- Extended analytics (category × month matrix, account insights)
+- Data export (CSV, JSON)
+- Recurring transaction templates
+- Budget limits per category
 
-### Демо-данные
+### Security & Privacy
+- JWT authentication in httpOnly cookies (no localStorage)
+- Bcrypt password hashing (work factor 12)
+- Row-level isolation: all queries filtered by `user_id`
+- CORS restricted to configured origins
+- Rate limiting ready (TODO)
 
-Пустая база выглядит как сломанный интерфейс: нет счетов, категорий и записей.
-Один скрипт создаёт готовый набор — проверенного пользователя, 6 счетов,
-25 категорий, 4 метки, 387 записей за полгода, шаблоны и правила:
+## 🚀 Quick Start
 
-```bash
-# скрипты запускаются внутри контейнера backend — там уже есть все переменные окружения
-docker compose exec backend python -m scripts.seed_demo          # создать (повторный запуск обновит данные)
-docker compose exec backend python -m scripts.seed_demo --reset  # удалить данные пользователя и засеять заново
-```
+### Prerequisites
+- Docker & Docker Compose
+- Git
 
-Логин и пароль по умолчанию печатает сам скрипт; их можно переопределить
-переменными `DEMO_USER_EMAIL` и `DEMO_USER_PASSWORD`. В dev-сборке фронтенд
-показывает эти данные прямо под формой входа (см. `frontend/src/__shared__/constants/demo.ts`).
-
-Пользователь сразу `is_verified`, иначе вход запрещён: обычная регистрация требует
-подтверждения почты, а для неё нужны Redis и настроенный отправитель писем.
-
-### Администратор
-
-Отдельная учётная запись с правами суперпользователя и стандартными доступами —
-одинаковыми на любой машине:
-
-| Логин | Пароль |
-| --- | --- |
-| `admin` + `@` + `budgettracker.local` | `admin12345` |
+### 1. Clone the repository
 
 ```bash
-docker compose exec backend python -m scripts.seed_admin                  # создать или вернуть стандартные доступы
-docker compose exec backend python -m scripts.seed_admin --keep-password  # не сбрасывать текущий пароль
+git clone https://github.com/yourorg/budgettracker.git
+cd budgettracker
 ```
 
-Повторный запуск безопасен: скрипт возвращает стандартную почту, включает
-`is_superuser`, `is_verified`, `is_active` и сбрасывает пароль, поэтому забытую
-или изменённую учётку можно восстановить одной командой. Своих данных у админа
-нет — это управленческая роль (например, правка справочника валют, недоступная
-обычному пользователю). Почту и пароль можно задать через `ADMIN_USER_EMAIL`
-и `ADMIN_USER_PASSWORD`; стандартные значения — только для локальной разработки.
-
-### Полезные команды
-
-```bash
-docker compose ps                 # состояние сервисов
-docker compose logs -f backend    # логи backend
-docker compose logs -f frontend   # логи frontend
-docker compose down               # остановить
-docker compose down -v            # остановить и удалить данные БД
-docker compose up --build backend # пересобрать только backend
-```
-
-### Тесты внутри docker
-
-Тесты запускаются в контейнере backend (в dev-образе уже стоят dev-зависимости: pytest,
-httpx, fakeredis). Тестовая БД создаётся и удаляется самими тестами в том же PostgreSQL,
-никакой локальной установки Python не требуется:
-
-```bash
-docker compose exec backend python -m pytest tests -q
-docker compose exec backend python -m pytest tests -q -p no:cacheprovider   # без записи кеша в bind-mount
-```
-
-Тома монтируют `./backend` в контейнер, поэтому правки тестов видны сразу — пересборка не нужна.
-
-### Фоновые задачи (RabbitMQ + Celery)
-
-В проекте пока нет задач, поэтому брокер и воркер вынесены в профиль `workers`:
-
-```bash
-docker compose --profile workers up --build
-```
-
-RabbitMQ Management: http://localhost:15672 (guest / guest).
-
-### Прод-подобный запуск
-
-```bash
-cp .env.example .env      # задайте SECRET_KEY и POSTGRES_PASSWORD
-docker compose -f docker-compose.prod.yml up --build -d
-```
-
-Отличия от dev-файла:
-
-- фронтенд собирается (`npm run build`) и раздаётся nginx, `/api` проксируется в backend (см. `frontend/nginx.conf`);
-- backend запускается без autoreload, в 4 воркера uvicorn;
-- исходники не монтируются, порты PostgreSQL и Redis не публикуются наружу;
-- наружу опубликован только контейнер frontend, внутри это nginx на порту 80,
-  поэтому `FRONTEND_HOST_PORT` пробрасывается как `<порт>:80`;
-- адрес приложения: http://localhost:5173 (порт меняется через `FRONTEND_HOST_PORT`).
-
-Для `ENVIRONMENT=PROD` кука аутентификации выставляется с флагом `secure`, поэтому нужен HTTPS.
-Для локального запуска по HTTP оставляйте `ENVIRONMENT=LOCAL`.
-
-### Переменные окружения
-
-Все параметры заданы в `docker-compose.yml` через значения по умолчанию, поэтому файл `.env`
-не обязателен. Чтобы переопределить их, скопируйте шаблон:
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
+# Edit .env and set:
+# - SECRET_KEY (minimum 32 characters)
+# - POSTGRES_PASSWORD (strong password)
+# - ENVIRONMENT=LOCAL (for development)
 ```
 
-| Переменная | Назначение | По умолчанию |
-| --- | --- | --- |
-| `SECRET_KEY` | подпись JWT | `local-insecure-secret-key` |
-| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | доступ к БД | `budgettracker` / `budget` / `budget` |
-| `POSTGRES_HOST_PORT`, `BACKEND_HOST_PORT`, `FRONTEND_HOST_PORT` | публикуемые порты | 5432, 8000, 5173 |
-| `ENVIRONMENT` | `LOCAL` \| `DEV` \| `TEST` \| `PROD` | `LOCAL` |
-| `CORS_ORIGINS` | список origin-ов фронтенда (JSON) | `["http://localhost:5173","http://127.0.0.1:5173"]` |
-| `RUN_MIGRATIONS` | применять миграции при старте backend | `true` |
-| `VITE_API_PROXY_TARGET` | куда Vite проксирует `/api` | `http://backend:8000` |
-
-## Разработка
-
-Docker — единственный способ запуска приложения. Ниже — типовые задачи; все команды
-выполняются из корня проекта.
-
-### Пересборка после правок
-
-Исходники `backend/` и `frontend/` примонтированы в контейнеры, поэтому код, тесты и
-миграции подхватываются без пересборки. Пересобирать нужно только изменения, которые
-попадают в образ:
+### 3. Start the stack
 
 ```bash
-docker compose build backend                 # Dockerfile или pyproject.toml/poetry.lock
-docker compose build --no-cache frontend     # package.json / package-lock.json
-docker compose up --build backend frontend   # пересобрать и перезапустить
+docker compose up --build
 ```
 
-### Миграции
+### 4. Access the application
 
-Backend применяет `alembic upgrade head` при старте контейнера (`RUN_MIGRATIONS=true`,
-см. `backend/entrypoint.sh`). Вручную — той же командой внутри контейнера:
+| Service | URL | Description |
+|---------|-----|-------------|
+| Frontend | http://localhost:5173 | React SPA |
+| Backend API | http://localhost:8000 | FastAPI |
+| Swagger Docs | http://localhost:8000/docs | API documentation |
+| Admin Panel | http://localhost:5173/admin | Superuser only |
+
+### 5. Create demo data (optional)
 
 ```bash
-docker compose exec backend alembic upgrade head                # применить
-docker compose exec backend alembic downgrade -1                # откатить одну
-docker compose exec backend alembic revision --autogenerate -m "add field"
+# Seed demo user with 6 accounts, 25 categories, 387 transactions
+docker compose exec backend python -m scripts.seed_demo
+
+# Create admin superuser
+docker compose exec backend python -m scripts.seed_admin
 ```
 
-Новая миграция появится в `backend/src/migrations/versions/` на хосте — каталог примонтирован.
+**Demo credentials:**
+- User: `demo@budgettracker.local` / `demo12345`
+- Admin: `admin@budgettracker.local` / `admin12345`
 
-### Тесты
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [AGENTS.md](./AGENTS.md) | Architecture guide for AI agents and developers |
+| [API Reference](http://localhost:8000/docs) | Interactive Swagger UI (after starting the stack) |
+| [Deployment Guide](./docs/DEPLOYMENT.md) | Production deployment with Ansible |
+| [CI/CD Pipeline](./.github/workflows/README.md) | Automated testing and deployment |
+| [Contributing](./CONTRIBUTING.md) | Development workflow and code style |
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Frontend (React + TypeScript + Vite)                   │
+│  ├── Zustand state management                           │
+│  ├── Glassmorphism UI with dark/light themes            │
+│  └── i18n (Russian/English)                             │
+└────────────────────┬────────────────────────────────────┘
+                     │ REST API (JSON)
+┌────────────────────▼────────────────────────────────────┐
+│  Backend (FastAPI + SQLAlchemy + Pydantic)              │
+│  ├── Layered architecture: Router → ViewSet → Service   │
+│  ├── Domain modules: users, finance, analytics, billing │
+│  ├── JWT auth in httpOnly cookies                       │
+│  └── Redis caching with scope invalidation              │
+└────────────────────┬────────────────────────────────────┘
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+   PostgreSQL    Redis        RabbitMQ
+   (data)        (cache)      (async tasks)
+```
+
+See [AGENTS.md](./AGENTS.md) for detailed architecture documentation.
+
+## 🛠️ Development
+
+### Running tests
 
 ```bash
+# All tests
 docker compose exec backend python -m pytest tests -q
+
+# Specific module
+docker compose exec backend python -m pytest tests/finance -q
+
+# With coverage
+docker compose exec backend python -m pytest --cov=src tests
 ```
 
-### Frontend
+### Database migrations
 
 ```bash
-docker compose logs -f frontend    # Vite dev server: http://localhost:5173
+# Apply migrations
+docker compose exec backend alembic upgrade head
+
+# Create new migration
+docker compose exec backend alembic revision --autogenerate -m "description"
+
+# Rollback one migration
+docker compose exec backend alembic downgrade -1
 ```
 
-Vite проксирует `/api` на `http://backend:8000` внутри docker-сети; адрес меняется
-переменной `VITE_API_PROXY_TARGET` (см. `frontend/vite.config.ts`). Прод-сборка
-(`npm run build`) выполняется в стадии `build` образа, а раздаётся nginx — см.
-`docker compose -f docker-compose.prod.yml`.
-
-## Как фронтенд работает с API
-
-Всё, что видно на экранах, приходит с backend — мок-данные остались только на
-витрине компонентов `/design`. Слой доступа разложен по трём уровням:
-
-```
-src/api/types.ts     — DTO как в OpenAPI (snake_case, ничего не выдумываем)
-src/api/*.ts         — по модулю на домен: auth, users, accounts, categories,
-                       transactions, currencies, analytics, tags, templates,
-                       rules, billing
-src/api/mappers.ts   — DTO → модель интерфейса (camelCase, знак суммы, подписи осей)
-src/store/*.ts       — zustand: сессия, справочники, список записей
-```
-
-- **Сессия.** JWT лежит в httpOnly-куке `access_token`, поэтому «вошёл или нет»
-  определяется запросом `GET /api/users/me` при старте (`src/app/SessionGate.tsx`).
-  Любой 401 сбрасывает состояние и уводит на `/login` с запоминанием адреса.
-- **Запросы.** `fetch` с `credentials: 'include'`; на 401 клиент зовёт обработчик,
-  на ошибки FastAPI разбирает `{detail}` (в том числе массив ошибок валидации).
-- **Фильтры записей** уходят на сервер целиком: `q`, `account_ids`, `category_ids`,
-  `tag_ids`, `currency_ids`, `types`, `amount_min`, `amount_max`, `sort`.
-  Количество найденного берётся из заголовка `X-Total-Count`.
-- **Справочники** (счета, дерево категорий, метки, шаблоны, правила, курсы)
-  загружаются один раз после входа в `src/store/finance.ts`.
-- **Прокси.** Vite отправляет `/api` на backend (`VITE_API_PROXY_TARGET`,
-  по умолчанию `http://localhost:8000`), поэтому CORS и SameSite-куки
-  в разработке не мешают.
-
-Проверить связку без браузера можно тремя способами (стек должен быть запущен;
-`tools/` — хостовые вспомогательные скрипты, они обращаются к API по http://localhost:8000):
+### Code style
 
 ```bash
-bash tools/smoke-api.sh                            # читающие эндпоинты всех экранов
-python3 tools/smoke_write.py                       # запись: запись, метка, шаблон,
-                                                   # правило, способ оплаты, профиль
-node frontend/tools/render-check.mts               # разметка экранных состояний
+# Backend: Black formatter
+docker compose exec backend black --line-length 120 src/
+
+# Frontend: TypeScript + ESLint
+cd frontend && npx tsc --noEmit
+cd frontend && npx eslint src/
 ```
 
-`render-check.mts` рендерит на сервере те же компоненты, что уходят в браузер
-(плашку ошибки запроса, форму входа, защиту закрытого маршрута), поэтому ловит
-поломки разметки и переводов без Playwright.
+## 🚢 Deployment
 
-## Ограничения текущей версии
-
-- **Переводы между счетами** пока не парные: `type=transfer` списывает сумму с
-  одного счёта и не создаёт приход на втором, поэтому в форме записи режим
-  перевода отключён.
-- **Синхронизация с банком** не подключена: поля `is_locked` у счёта и импорта
-  выписок нет, счета ведутся вручную.
-- **Оплата** идёт через провайдера из `BILLING_PROVIDER`; в локальной среде это
-  `mock`, который сразу подтверждает платёж. Провайдер без настроек отвечает 503,
-  а платёж помечается `failed` — тихого отката на mock нет.
-- **Подтверждение почты** требует Redis и отправителя писем; для локальной
-  работы используйте `docker compose exec backend python -m scripts.seed_demo`.
-
-## Миграции
+### Production deployment
 
 ```bash
-docker compose exec backend alembic upgrade head                              # применить
-docker compose exec backend alembic downgrade -1                              # откатить одну
-docker compose exec backend alembic revision --autogenerate -m "add field"    # новая миграция
+# Build production images
+docker compose -f docker-compose.prod.yml up --build -d
+
+# Apply migrations
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
 
-Backend применяет миграции автоматически при старте контейнера (`RUN_MIGRATIONS=true`).
+### Ansible deployment
 
-История лежит в `backend/src/migrations/versions/`:
+For automated deployment to remote servers, see [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
-- `..._initial_schema.py` — схема (users, currencies, accounts, categories, transactions, subscriptions);
-- `7c1f0a9b2d34_seed_base_currencies.py` — базовый справочник валют.
-
-## API
-
-Все финансовые эндпоинты требуют аутентификации (кука с JWT) и изолированы по владельцу:
-
-| Метод | Путь | Назначение |
-| --- | --- | --- |
-| POST | `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/refresh` | аутентификация |
-| GET/PATCH | `/api/users/me` | профиль, `GET .../export`, `DELETE .../me` |
-| CRUD | `/api/finance/accounts` | счета, `GET .../balance`, `GET .../{id}/summary` |
-| CRUD | `/api/finance/categories` | категории, `GET .../tree`, `GET .../stats` |
-| CRUD | `/api/finance/transactions` | записи, `.../summary`, `.../export`, `.../bulk-delete` |
-| CRUD | `/api/finance/tags`, `.../templates`, `.../rules` | метки, шаблоны, правила авто-категоризации |
-| PUT/DELETE | `/api/finance/currencies/{code}/rate` | личный курс валюты пользователя |
-| GET | `/api/finance/currencies` | справочник валют (публично); изменение — только суперпользователь |
-| GET | `/api/analytics/{summary,timeseries,by-category,by-account,matrix}` | аналитика (отдельное приложение) |
-| GET/POST/DELETE | `/api/billing/{plans,providers,subscription,payment-methods,payments}` | тарифы и оплата |
-
-Полное описание — Swagger UI на порту backend из `BACKEND_HOST_PORT`
-(по умолчанию http://localhost:8000/docs);
-прод-стек публикует только frontend, `/api` уходит в backend через nginx.
-Подробности по контракту — `backend/docs/API.md`.
-
-## Структура проекта
-
-```
-BudgetTracker/
-├── docker-compose.yml          # dev-стек: postgres, redis, backend, frontend (+ workers)
-├── docker-compose.prod.yml     # прод-подобный стек: nginx + собранный frontend
-├── .env.example                # шаблон переменных для compose
-├── backend/
-│   ├── Dockerfile              # python:3.13-slim + poetry install --only main (INSTALL_DEV=true в dev)
-│   ├── entrypoint.sh           # alembic upgrade head (RUN_MIGRATIONS) + запуск команды
-│   ├── alembic.ini             # script_location = src/migrations
-│   ├── poetry.lock / pyproject.toml
-│   ├── src/
-│   │   ├── main.py             # сборка приложения, CORS, /health
-│   │   ├── config.py           # настройки из окружения
-│   │   ├── database.py         # движок и сессии
-│   │   ├── dao.py / service.py / viewset.py / permissions.py   # общий каркас слоёв
-│   │   ├── users/              # домен пользователей (эталон архитектуры)
-│   │   ├── finance/            # счета, категории, записи, метки, шаблоны, правила
-│   │   ├── analytics/          # отдельное приложение аналитики (§8)
-│   │   ├── billing/            # тарифы, подписка, платежи, провайдеры
-│   │   ├── notifications/      # отправка уведомлений (email/telegram, заглушки)
-│   │   └── migrations/         # alembic env.py и версии миграций
-│   ├── scripts/seed_demo.py    # демо-данные (docker compose exec backend python -m scripts.seed_demo)
-│   ├── scripts/seed_admin.py   # администратор со стандартными доступами
-│   ├── docs/API.md             # контракт API и решения по эндпоинтам
-│   └── tests/                  # pytest: users/, finance/, analytics/, billing/
-└── frontend/
-    ├── Dockerfile              # стадии: deps -> development / build -> production (nginx)
-    ├── nginx.conf              # SPA + проксирование /api
-    ├── vite.config.ts          # алиасы, dev-прокси, порт
-    └── src/
-        ├── app/                # точка входа, роутинг, проверка сессии
-        ├── api/                # DTO, модули эндпоинтов, мапперы
-        ├── store/              # zustand: сессия, справочники, записи
-        ├── __pages__/          # страницы
-        ├── components/         # переиспользуемые UI-компоненты
-        └── __shared__/         # общие типы, утилиты, демо-константы
+```bash
+cd ansible
+ansible-playbook -i inventory.yml deploy.yml
 ```
 
-## Возможности
+## 🔧 Configuration
 
-- несколько счетов разных типов (наличные, карта, накопительный, кредитный, инвестиции);
-- иерархия категорий с контролем типа родителя;
-- транзакции с автоматическим пересчётом баланса счёта и конвертацией по курсу;
-- подписки и регулярные платежи с расчётом следующей даты;
-- сводная аналитика по категориям и балансу в базовой валюте;
-- мультивалютность на основе справочника курсов.
+### Environment variables
 
-## Решение проблем
+See [.env.example](./.env.example) for all available options.
 
-| Симптом | Решение |
-| --- | --- |
-| `port is already allocated` | занят 5432/8000/5173 — задайте `POSTGRES_HOST_PORT`, `BACKEND_HOST_PORT`, `FRONTEND_HOST_PORT` в `.env` |
-| backend перезапускается | `docker compose logs backend`: обычно БД ещё не готова или неверный пароль PostgreSQL |
-| схема БД устарела | `docker compose exec backend alembic upgrade head` или `docker compose down -v` для чистой БД |
-| фронтенд не видит API | проверьте `VITE_API_PROXY_TARGET` и что backend healthy: `docker compose ps` |
-| изменили `frontend/package.json` | `docker compose build --no-cache frontend` (зависимости ставятся в образ) |
+**Critical for production:**
+- `SECRET_KEY` — JWT signing (minimum 32 characters)
+- `POSTGRES_PASSWORD` — Database password
+- `ENVIRONMENT` — Set to `PROD` for secure cookies
+- `CORS_ORIGINS` — Allowed frontend origins
+
+### Subscription tiers
+
+| Feature | Free | Premium |
+|---------|------|---------|
+| Accounts | 2 | Unlimited |
+| Currencies | Base only | All |
+| Analytics | Basic | Extended |
+| Export | ❌ | ✅ |
+| Templates | ❌ | ✅ |
+| Budgets | ❌ | ✅ |
+
+**Pricing:** $1.99/month or $19.99/year
+
+Admins can grant/revoke subscriptions via the admin panel without payment.
+
+## 📖 API Examples
+
+### Authentication
+
+```bash
+# Register
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"secret123","firstname":"John","lastname":"Doe"}'
+
+# Login
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@example.com&password=secret123"
+```
+
+### Finance
+
+```bash
+# Create account
+curl -X POST http://localhost:8000/api/finance/accounts \
+  -H "Cookie: access_token=..." \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Checking","type":"checking","currency":"USD","initial_balance":1000}'
+
+# Get transactions
+curl http://localhost:8000/api/finance/transactions \
+  -H "Cookie: access_token=..."
+```
+
+### Analytics
+
+```bash
+# Get summary
+curl "http://localhost:8000/api/analytics/summary?start_date=2026-01-01&end_date=2026-01-31" \
+  -H "Cookie: access_token=..."
+
+# Get category breakdown
+curl "http://localhost:8000/api/analytics/by-category?start_date=2026-01-01&end_date=2026-01-31" \
+  -H "Cookie: access_token=..."
+```
+
+## 🤖 AI Agent Support
+
+This repository includes comprehensive documentation for AI coding agents:
+
+- **AGENTS.md** — Architecture, conventions, and development workflow
+- **.cursorrules** — Cursor IDE configuration
+- **.github/copilot-instructions.md** — GitHub Copilot instructions
+
+AI agents can understand the codebase structure, run tests, create migrations, and implement new features following the established patterns.
+
+## 🔒 Security
+
+- **No localStorage**: JWT tokens stored in httpOnly cookies
+- **Password hashing**: Bcrypt with work factor 12
+- **Row-level security**: All queries filtered by `user_id`
+- **CORS**: Restricted to configured origins
+- **Rate limiting**: Ready for implementation (TODO)
+
+**Reporting vulnerabilities:** Contact security@yourorg.com
+
+## 📄 License
+
+**Proprietary License** — See [LICENSE](./LICENSE) for details.
+
+This software is confidential and may not be copied, modified, or distributed without explicit permission from the copyright holder.
+
+## 🙏 Acknowledgments
+
+- [FastAPI](https://fastapi.tiangolo.com/) — Modern web framework
+- [React](https://reactjs.org/) — UI library
+- [PostgreSQL](https://www.postgresql.org/) — Database
+- [Redis](https://redis.io/) — Cache and session storage
+- [SQLAlchemy](https://www.sqlalchemy.org/) — ORM
+- [Radix UI](https://www.radix-ui.com/) — Accessible components
+
+## 📞 Support
+
+- **Documentation**: [AGENTS.md](./AGENTS.md)
+- **Issues**: GitHub Issues (private repository)
+- **Email**: support@yourorg.com
+
+---
+
+<div align="center">
+
+**Built with ❤️ for personal finance management**
+
+[Back to top](#budgettracker)
+
+</div>

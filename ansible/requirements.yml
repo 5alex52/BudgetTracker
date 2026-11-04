@@ -1,0 +1,4 @@
+# Ansible requirements
+# Install with: ansible-galaxy install -r requirements.yml
+
+# No external roles required - all roles are custom

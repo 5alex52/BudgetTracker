@@ -4,11 +4,11 @@ Revision ID: c8d2e3f4a5b6
 Revises: f1a2b3c4d5e6
 Create Date: 2026-11-03 12:00:00.000000
 
-Пользователи, которые входят только по email или через OAuth, не имеют
-Telegram-аккаунта. Поле ``telegram_id`` перестало быть обязательным, но
-остаётся уникальным: два одинаковых Telegram-аккаунта по-прежнему запрещены.
-В PostgreSQL уникальный индекс допускает несколько NULL, поэтому ограничение
-на уникальность сохраняется без дополнительных условий.
+Users who sign in only by email or OAuth do not have a Telegram account.
+The ``telegram_id`` field is no longer required but remains unique:
+two identical Telegram accounts are still forbidden.
+In PostgreSQL a unique index allows multiple NULLs, so the uniqueness
+constraint is preserved without additional conditions.
 """
 
 import sqlalchemy as sa

@@ -1,0 +1,29 @@
+---
+# SSL certificates role (Let's Encrypt)
+
+- name: Install Certbot
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: Obtain SSL certificate
+  ansible.builtin.command:
+    cmd: >
+      certbot --nginx
+      --non-interactive
+      --agree-tos
+      --email {{ letsencrypt_email }}
+      --domains {{ app_domain }}
+      --redirect
+    creates: /etc/letsencrypt/live/{{ app_domain }}/fullchain.pem
+
+- name: Setup auto-renewal cron job
+  ansible.builtin.cron:
+    name: "Certbot auto-renewal"
+    job: "certbot renew --quiet"
+    minute: "0"
+    hour: "3"
+    weekday: "1"
+    user: root

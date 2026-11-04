@@ -1,4 +1,4 @@
-"""ViewSet биллинга: тарифы, подписка, способы оплаты, платежи."""
+"""Billing ViewSet: plans, subscription, payment methods, payments."""
 
 from typing import List
 

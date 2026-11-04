@@ -1,0 +1,15 @@
+---
+# Application restart handler
+
+- name: Restart application
+  ansible.builtin.command:
+    cmd: docker-compose restart
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+
+- name: Wait for application to be ready
+  ansible.builtin.wait_for:
+    port: "{{ backend_port }}"
+    host: localhost
+    delay: 5
+    timeout: 60

@@ -1,0 +1,6 @@
+---
+# Vault variables - DO NOT COMMIT THIS FILE WITH REAL VALUES
+# Copy to vault.yml and fill in actual values
+
+vault_postgres_password: "CHANGE_ME_TO_STRONG_PASSWORD"
+vault_secret_key: "CHANGE_ME_TO_64_RANDOM_CHARACTERS"

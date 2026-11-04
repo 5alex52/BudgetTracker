@@ -60,33 +60,32 @@ class Settings(BaseSettings):
     CORS_HEADERS: List[str]
     CORS_METHODS: List[str]
 
-    #: Платёжный провайдер по умолчанию: mock | stripe | crypto
-    #: Реальный эквайринг подключается сменой переменной, код биллинга при этом не меняется
+    #: Default payment provider: mock | stripe | crypto
+    #: To switch to a real acquirer, change the environment variable; billing code remains unchanged
     BILLING_PROVIDER: str = "mock"
     BILLING_CURRENCY: str = "USD"
-    #: Ключи провайдеров: пустые значения означают «провайдер не настроен»
+    #: Provider keys: empty values mean 'provider not configured'
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     CRYPTO_API_KEY: str = ""
     CRYPTO_WEBHOOK_SECRET: str = ""
-    #: Адрес фронтенда, куда провайдер вернёт пользователя после оплаты
+    #: Frontend URL where the provider will redirect the user after payment
     BILLING_RETURN_URL: str = "http://localhost:5173/settings/payments"
 
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
 
-    #: Вход через внешние сервисы. Пустые значения — провайдер считается
-    #: ненастроенным: кнопка в интерфейсе есть, а сервер отвечает понятной ошибкой,
-    #: пока ключи не выданы.
+    #: Sign-in via external services. Empty values mean the provider is not configured:
+    #: the UI button is shown, but the server returns a clear error until the keys are issued.
     OAUTH_GOOGLE_CLIENT_ID: str = ""
     OAUTH_GOOGLE_CLIENT_SECRET: str = ""
     OAUTH_YANDEX_CLIENT_ID: str = ""
     OAUTH_YANDEX_CLIENT_SECRET: str = ""
     OAUTH_GITHUB_CLIENT_ID: str = ""
     OAUTH_GITHUB_CLIENT_SECRET: str = ""
-    #: Куда провайдер вернёт пользователя; фронтенд забирает токен оттуда
+    #: Where the provider redirects the user; the frontend retrieves the token from there
     OAUTH_RETURN_URL: str = "http://localhost:5173/"
-    #: Адрес интерфейса: из писем пользователь попадает сразу на страницы приложения
+    #: Frontend URL: users land directly on app pages from emails
     FRONTEND_URL: str = "http://localhost:5173"
 
     RABBIT_HOST: str = "rabbitmq"

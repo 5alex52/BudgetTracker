@@ -1,4 +1,4 @@
-"""HTTP-слой аналитики: только GET-эндпоинты."""
+"""Analytics HTTP layer: GET-only endpoints."""
 
 from datetime import datetime
 from typing import Optional
@@ -28,12 +28,12 @@ analytics_router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 async def get_analytics_summary(
     request: Request,
     user: CurrentUser,
-    start_date: Optional[datetime] = Query(None, description="Начало периода"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода"),
-    compare: bool = Query(True, description="Сравнить с предыдущим периодом той же длины"),
+    start_date: Optional[datetime] = Query(None, description="Period start"),
+    end_date: Optional[datetime] = Query(None, description="Period end"),
+    compare: bool = Query(True, description="Compare with the previous period of the same length"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AnalyticsSummary:
-    """Доходы, расходы и нетто за период в базовой валюте."""
+    """Income, expense and net for the period in the base currency."""
     return await AnalyticsViewSet.summary(
         request=request,
         user=user,
@@ -48,13 +48,13 @@ async def get_analytics_summary(
 async def get_analytics_timeseries(
     request: Request,
     user: CurrentUser,
-    metric: str = Query("cashflow", pattern="^(cashflow|balance)$", description="cashflow или balance"),
-    group_by: str = Query("day", pattern="^(day|week|month)$", description="Шаг группировки"),
-    start_date: Optional[datetime] = Query(None, description="Начало периода"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода"),
+    metric: str = Query("cashflow", pattern="^(cashflow|balance)$", description="cashflow or balance"),
+    group_by: str = Query("day", pattern="^(day|week|month)$", description="Grouping step"),
+    start_date: Optional[datetime] = Query(None, description="Period start"),
+    end_date: Optional[datetime] = Query(None, description="Period end"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TimeseriesResponse:
-    """Ряды для графиков «Обзора»: денежный поток или остаток по интервалам."""
+    """Series for Overview charts: cash flow or balance by interval."""
     return await AnalyticsViewSet.timeseries(
         request=request,
         user=user,
@@ -70,15 +70,15 @@ async def get_analytics_timeseries(
 async def get_analytics_by_category(
     request: Request,
     user: CurrentUser,
-    transaction_type: Optional[TransactionType] = Query(None, description="Тип записей"),
-    parent_id: Optional[int] = Query(None, description="Провалиться в подкатегории этой категории"),
-    include_children: bool = Query(True, description="Учитывать подкатегории"),
-    rollup: bool = Query(False, description="Свернуть подкатегории в родительские категории"),
+    transaction_type: Optional[TransactionType] = Query(None, description="Record type"),
+    parent_id: Optional[int] = Query(None, description="Drill into subcategories of this category"),
+    include_children: bool = Query(True, description="Include subcategories"),
+    rollup: bool = Query(False, description="Roll up subcategories into parent categories"),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CategoryShareResponse:
-    """Доли категорий в расходах или доходах за период."""
+    """Category shares in expenses or income for the period."""
     return await AnalyticsViewSet.by_category(
         request=request,
         user=user,
@@ -100,7 +100,7 @@ async def get_analytics_by_account(
     end_date: Optional[datetime] = Query(None),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountShareResponse:
-    """Обороты по счетам за период."""
+    """Account turnover for the period."""
     return await AnalyticsViewSet.by_account(
         request=request,
         user=user,
@@ -114,13 +114,13 @@ async def get_analytics_by_account(
 async def get_analytics_matrix(
     request: Request,
     user: CurrentUser,
-    months: int = Query(6, ge=1, le=36, description="Сколько месяцев показать"),
-    transaction_type: Optional[TransactionType] = Query(None, description="Тип записей"),
-    rollup: bool = Query(True, description="Свернуть подкатегории в родительские категории"),
-    end_date: Optional[datetime] = Query(None, description="Последний день отчёта"),
+    months: int = Query(6, ge=1, le=36, description="How many months to show"),
+    transaction_type: Optional[TransactionType] = Query(None, description="Record type"),
+    rollup: bool = Query(True, description="Roll up subcategories into parent categories"),
+    end_date: Optional[datetime] = Query(None, description="Last day of the report"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> MatrixResponse:
-    """Отчёт «категории × месяцы» для страницы аналитики."""
+    """Categories × months report for the analytics page."""
     return await AnalyticsViewSet.matrix(
         request=request,
         user=user,

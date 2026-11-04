@@ -8,15 +8,15 @@ from src.permissions import BasePermission
 
 
 class BillingPermission(BasePermission):
-    """Права доступа к биллингу.
+    """Billing permissions.
 
-    Список тарифов и провайдеров — публичный: он нужен до оформления подписки.
-    Всё, что касается конкретного пользователя, требует аутентификации.
+    The list of plans and providers is public: it is needed before purchasing a subscription.
+    Everything related to a specific user requires authentication.
     """
 
     PUBLIC_ACTIONS: Set[str] = {"list_plans", "list_providers"}
 
-    #: Изменение каталога тарифов — только суперпользователь
+    #: Changing the plan catalog — superuser only
     SUPERUSER_ACTIONS: Set[str] = set()
 
     async def __call__(self, current_user: Optional[Any] = None, **kwargs) -> None:

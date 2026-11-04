@@ -1,4 +1,4 @@
-"""Схемы биллинга: тарифы, подписка, способы оплаты, платежи."""
+"""Billing schemas: plans, subscription, payment methods, payments."""
 
 from datetime import datetime
 from typing import List
@@ -16,7 +16,7 @@ from .models import SubscriptionStatus
 
 
 class PlanResponse(BaseModel):
-    """Тариф для экрана «Тарифы и платежи»."""
+    """Plan for the Plans & Payments screen."""
 
     code: str
     name: str
@@ -31,7 +31,7 @@ class PlanResponse(BaseModel):
 
 
 class SubscriptionResponse(BaseModel):
-    """Текущая подписка пользователя."""
+    """User's current subscription."""
 
     id: Optional[int] = None
     plan_code: str
@@ -46,18 +46,18 @@ class SubscriptionResponse(BaseModel):
 
 
 class Entitlements(BaseModel):
-    """Что доступно пользователю по его тарифу.
+    """What is available to the user based on their plan.
 
-    Единая точка правды для лимитов: и сервер (создание счетов, валют), и
-    клиент (премиум-виджеты) читают один и тот же ответ, поэтому «подписка
-    есть, а виджеты не появились» больше не повторится.
+    The single source of truth for limits: both the server (creating accounts, currencies) and
+    the client (premium widgets) read the same response, so "subscription is active but widgets
+    didn't appear" will not happen again.
     """
 
     plan_code: str
     plan_name: str
     is_paid: bool = False
     is_active: bool = False
-    #: ``None`` — без ограничения
+    #: ``None`` — no limit
     max_accounts: Optional[int] = None
     multi_currency: bool = False
     advanced_analytics: bool = False
@@ -66,28 +66,28 @@ class Entitlements(BaseModel):
 
 
 class SubscriptionChangeRequest(BaseModel):
-    """Оформление или смена тарифа."""
+    """Subscribe or change plan."""
 
     plan_code: str = Field(..., min_length=1, max_length=32)
-    provider: Optional[str] = Field(None, description="Провайдер оплаты; по умолчанию из настроек")
-    return_url: Optional[str] = Field(None, description="Куда вернуть пользователя после оплаты")
+    provider: Optional[str] = Field(None, description="Payment provider; defaults to settings")
+    return_url: Optional[str] = Field(None, description="Where to redirect the user after payment")
 
 
 class CheckoutSession(BaseModel):
-    """Сессия оплаты: ссылка на страницу провайдера и данные платежа."""
+    """Checkout session: link to the provider's page and payment data."""
 
     payment_id: int
     status: PaymentStatus
     provider: str
     provider_reference: Optional[str] = None
     checkout_url: Optional[str] = None
-    #: Мок-провайдер подтверждает платёж сразу — фронтенду не нужно никуда редиректить
+    #: Mock provider confirms payment immediately — no redirect needed on the frontend
     requires_redirect: bool = False
     subscription: Optional[SubscriptionResponse] = None
 
 
 class PaymentMethodResponse(BaseModel):
-    """Сохранённый способ оплаты."""
+    """Saved payment method."""
 
     id: int
     provider: str
@@ -101,20 +101,20 @@ class PaymentMethodResponse(BaseModel):
 
 
 class PaymentMethodCreate(BaseModel):
-    """Привязка способа оплаты.
+    """Attach a payment method.
 
-    Данные карты сюда не попадают: номер и CVC вводятся на стороне провайдера,
-    бэкенд получает только токен.
+    Card data does not come here: number and CVC are entered on the provider's side,
+    the backend only receives a token.
     """
 
     provider: Optional[str] = None
     kind: PaymentMethodKind = PaymentMethodKind.CARD
-    token: Optional[str] = Field(None, max_length=255, description="Токен от провайдера")
+    token: Optional[str] = Field(None, max_length=255, description="Token from the provider")
     make_default: bool = True
 
 
 class PaymentResponse(BaseModel):
-    """Платёж в истории."""
+    """Payment in history."""
 
     id: int
     plan_code: Optional[str] = None
@@ -130,7 +130,7 @@ class PaymentResponse(BaseModel):
 
 
 class ProviderInfo(BaseModel):
-    """Что умеет провайдер — фронтенд по этому списку рисует способы оплаты."""
+    """What the provider supports — the frontend renders payment methods based on this list."""
 
     code: str
     title: str

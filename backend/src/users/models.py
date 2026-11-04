@@ -26,8 +26,8 @@ class UserModel(Base):
     lastname: Mapped[str] = mapped_column(sa.String(255))
     email: Mapped[str] = mapped_column(sa.String(255), index=True, unique=True)
     password: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    #: Telegram не обязателен: вход возможен по email, поэтому поле nullable.
-    #: unique остаётся — двух одинаковых Telegram-аккаунтов быть не должно.
+    #: Telegram is optional: sign-in is possible via email, so the field is nullable.
+    #: unique is kept — two identical Telegram accounts must not exist.
     telegram_id: Mapped[Optional[int]] = mapped_column(sa.Integer, index=True, unique=True, nullable=True)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(sa.Boolean, default=False)
@@ -36,14 +36,14 @@ class UserModel(Base):
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
     last_login_at: Mapped[datetime] = mapped_column(sa.DateTime, nullable=True)
     timezone: Mapped[str] = mapped_column(sa.String, default="Europe/Minsk")
-    #: Код валюты, в которой показываются итоги (ссылка на справочник currencies, без FK:
-    #: справочник живёт в finance, а пользователь не должен зависеть от порядка его сидов)
+    #: Currency code used for totals display (references the currencies catalog, no FK:
+    #: the catalog lives in finance, and the user should not depend on its seed order)
     base_currency: Mapped[str] = mapped_column(sa.String(3), default="BYN", nullable=True)
-    #: Язык интерфейса по умолчанию для новых устройств
+    #: Default interface language for new devices
     locale: Mapped[str] = mapped_column(sa.String(8), default="ru", nullable=True)
-    #: Тема оформления: system | light | dark
+    #: UI theme: system | light | dark
     theme: Mapped[str] = mapped_column(sa.String(16), default="system", nullable=True)
-    #: Базовый период отчётов: day | week | month — с него открываются «Обзор» и «Аналитика»
+    #: Base reporting period: day | week | month — this is what "Overview" and "Analytics" open with
     default_period: Mapped[str] = mapped_column(sa.String(8), default="month", nullable=True)
     photo: Mapped[str] = mapped_column(sa.String, nullable=True)
     git_username: Mapped[str] = mapped_column(sa.String, nullable=True)

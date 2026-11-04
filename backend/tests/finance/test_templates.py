@@ -1,4 +1,4 @@
-"""Тесты шаблонов быстрого ввода."""
+"""Quick-entry template tests."""
 
 from datetime import datetime
 
@@ -44,11 +44,7 @@ async def test_template_crud_through_api(verified_user_client, currencies):
             },
         )
     ).json()
-    category = (
-        await client.post(
-            "/api/finance/categories/", json={"name": "Кафе", "type": "expense"}
-        )
-    ).json()
+    category = (await client.post("/api/finance/categories/", json={"name": "Кафе", "type": "expense"})).json()
 
     created = await client.post(
         "/api/finance/templates/",
@@ -68,9 +64,7 @@ async def test_template_crud_through_api(verified_user_client, currencies):
     listed = await client.get("/api/finance/templates/")
     assert [item["name"] for item in listed.json()] == ["Кофе"]
 
-    updated = await client.patch(
-        f"/api/finance/templates/{template_id}", json={"amount": 4.0}
-    )
+    updated = await client.patch(f"/api/finance/templates/{template_id}", json={"amount": 4.0})
     assert updated.json()["amount"] == 4.0
 
     deleted = await client.delete(f"/api/finance/templates/{template_id}")
@@ -79,58 +73,42 @@ async def test_template_crud_through_api(verified_user_client, currencies):
 
 
 @pytest.mark.asyncio
-async def test_apply_template_creates_transaction_and_counts_usage(
-    user, account, expense_category, session_maker
-):
+async def test_apply_template_creates_transaction_and_counts_usage(user, account, expense_category, session_maker):
     template = await TemplateService.create_for_user(
         schema=_schema(account, expense_category),
         user_id=user.id,
         session_maker=session_maker,
     )
 
-    transaction = await TemplateService.apply(
-        template.id, user.id, date=PERIOD_START, session_maker=session_maker
-    )
+    transaction = await TemplateService.apply(template.id, user.id, date=PERIOD_START, session_maker=session_maker)
 
     assert transaction.amount == 3.5
     assert transaction.category_id == expense_category.id
     assert transaction.note == "Кофе по утрам"
 
-    refreshed = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    refreshed = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
     assert refreshed.balance == 996.5
 
-    stored = await TemplateService.get_by_user(
-        template.id, user.id, session_maker=session_maker
-    )
+    stored = await TemplateService.get_by_user(template.id, user.id, session_maker=session_maker)
     assert stored.usage_count == 1
 
 
 @pytest.mark.asyncio
-async def test_apply_template_copies_tags(
-    user, account, expense_category, session_maker
-):
-    tag = await TagService.create_for_user(
-        schema=TagCreate(name="Утро"), user_id=user.id, session_maker=session_maker
-    )
+async def test_apply_template_copies_tags(user, account, expense_category, session_maker):
+    tag = await TagService.create_for_user(schema=TagCreate(name="Утро"), user_id=user.id, session_maker=session_maker)
     template = await TemplateService.create_for_user(
         schema=_schema(account, expense_category, tag_ids=[tag.id]),
         user_id=user.id,
         session_maker=session_maker,
     )
 
-    transaction = await TemplateService.apply(
-        template.id, user.id, date=PERIOD_START, session_maker=session_maker
-    )
+    transaction = await TemplateService.apply(template.id, user.id, date=PERIOD_START, session_maker=session_maker)
 
     assert [item.id for item in transaction.tags] == [tag.id]
 
 
 @pytest.mark.asyncio
-async def test_template_rejects_foreign_account(
-    user, other_user, account, session_maker
-):
+async def test_template_rejects_foreign_account(user, other_user, account, session_maker):
     category = await _category(user, session_maker)
 
     with pytest.raises(HTTPException) as error:
@@ -144,9 +122,7 @@ async def test_template_rejects_foreign_account(
 
 
 @pytest.mark.asyncio
-async def test_template_rejects_category_type_mismatch(
-    user, account, income_category, session_maker
-):
+async def test_template_rejects_category_type_mismatch(user, account, income_category, session_maker):
     with pytest.raises(HTTPException) as error:
         await TemplateService.create_for_user(
             schema=_schema(account, income_category),
@@ -158,33 +134,22 @@ async def test_template_rejects_category_type_mismatch(
 
 
 @pytest.mark.asyncio
-async def test_template_is_isolated(
-    user, other_user, account, expense_category, session_maker
-):
+async def test_template_is_isolated(user, other_user, account, expense_category, session_maker):
     template = await TemplateService.create_for_user(
         schema=_schema(account, expense_category),
         user_id=user.id,
         session_maker=session_maker,
     )
 
-    assert (
-        await TemplateService.get_list_by_user(
-            other_user.id, session_maker=session_maker
-        )
-        == []
-    )
+    assert await TemplateService.get_list_by_user(other_user.id, session_maker=session_maker) == []
     with pytest.raises(HTTPException) as error:
-        await TemplateService.apply(
-            template.id, other_user.id, session_maker=session_maker
-        )
+        await TemplateService.apply(template.id, other_user.id, session_maker=session_maker)
     assert error.value.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_update_template_tags(user, account, expense_category, session_maker):
-    first = await TagService.create_for_user(
-        schema=TagCreate(name="Раз"), user_id=user.id, session_maker=session_maker
-    )
+    first = await TagService.create_for_user(schema=TagCreate(name="Раз"), user_id=user.id, session_maker=session_maker)
     second = await TagService.create_for_user(
         schema=TagCreate(name="Два"), user_id=user.id, session_maker=session_maker
     )

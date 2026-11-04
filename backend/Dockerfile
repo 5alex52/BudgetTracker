@@ -1,7 +1,7 @@
 FROM python:3.13-slim
 
-# - контейнер не должен кэшировать .pyc и буферизовать stdout
-# - poetry ставится только для установки зависимостей, в рантайме не нужен
+# - container must not cache .pyc or buffer stdout
+# - poetry is only needed to install dependencies, not required at runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -11,16 +11,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# curl нужен для HEALTHCHECK, больше системных пакетов не требуется:
-# все зависимости с C-расширениями (asyncpg, psycopg2-binary, pydantic-core, uvloop, httptools, watchfiles)
-# поставляются готовыми колёсами для cp313
+# curl is needed for HEALTHCHECK, no other system packages required:
+# all dependencies with C extensions (asyncpg, psycopg2-binary, pydantic-core, uvloop, httptools, watchfiles)
+# ship as prebuilt wheels for cp313
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Зависимости ставятся отдельным слоем, чтобы не переустанавливаться при изменении кода.
-# INSTALL_DEV=true добавляет dev-группу (pytest, black, ...) — нужно для прогона тестов
-# внутри контейнера, в production-сборке группа не устанавливается.
+# Dependencies installed in a separate layer to avoid reinstalling on code changes.
+# INSTALL_DEV=true adds the dev group (pytest, black, ...) — needed to run tests
+# inside the container; the group is not installed in production builds.
 ARG INSTALL_DEV=false
 
 COPY pyproject.toml poetry.lock ./

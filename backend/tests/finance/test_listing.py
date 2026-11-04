@@ -1,4 +1,4 @@
-"""Тесты «Записей», «Категорий», «Счетов» и «Валют»: выборки и агрегаты."""
+"""Tests for Transactions, Categories, Accounts, and Currencies: queries and aggregates."""
 
 from datetime import datetime
 
@@ -19,9 +19,7 @@ PERIOD_START = datetime(2025, 10, 1)
 PERIOD_END = datetime(2025, 10, 31, 23, 59, 59)
 
 
-async def _tx(
-    account, category, user, session_maker, amount, transaction_type, when, note=""
-):
+async def _tx(account, category, user, session_maker, amount, transaction_type, when, note=""):
     return await TransactionService.create_for_user(
         schema=TransactionCreate(
             account_id=account.id,
@@ -38,14 +36,12 @@ async def _tx(
 
 
 # --------------------------------------------------------------------------- #
-#  Счета
+#  Accounts
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
-async def test_account_summary_reports_turnover(
-    user, account, expense_category, income_category, session_maker
-):
+async def test_account_summary_reports_turnover(user, account, expense_category, income_category, session_maker):
     await _tx(
         account,
         income_category,
@@ -81,9 +77,7 @@ async def test_account_summary_reports_turnover(
 
 
 @pytest.mark.asyncio
-async def test_account_summary_is_isolated_between_users(
-    user, other_user, account, expense_category, session_maker
-):
+async def test_account_summary_is_isolated_between_users(user, other_user, account, expense_category, session_maker):
     await _tx(
         account,
         expense_category,
@@ -95,9 +89,7 @@ async def test_account_summary_is_isolated_between_users(
     )
 
     with pytest.raises(HTTPException) as error:
-        await AccountService.get_summary(
-            account_id=account.id, user_id=other_user.id, session_maker=session_maker
-        )
+        await AccountService.get_summary(account_id=account.id, user_id=other_user.id, session_maker=session_maker)
 
     assert error.value.status_code == 404
 
@@ -122,9 +114,7 @@ async def test_set_excluded_toggles_flag(user, account, session_maker):
 
 
 @pytest.mark.asyncio
-async def test_list_accounts_can_skip_excluded(
-    user, account, second_account, session_maker
-):
+async def test_list_accounts_can_skip_excluded(user, account, second_account, session_maker):
     await AccountService.set_excluded(
         account_id=second_account.id,
         user_id=user.id,
@@ -132,9 +122,7 @@ async def test_list_accounts_can_skip_excluded(
         session_maker=session_maker,
     )
 
-    with_excluded = await AccountService.get_list_by_user(
-        user.id, session_maker=session_maker
-    )
+    with_excluded = await AccountService.get_list_by_user(user.id, session_maker=session_maker)
     without_excluded = await AccountService.get_list_by_user(
         user.id, include_excluded=False, session_maker=session_maker
     )
@@ -144,24 +132,18 @@ async def test_list_accounts_can_skip_excluded(
 
 
 # --------------------------------------------------------------------------- #
-#  Категории
+#  Categories
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
-async def test_category_tree_has_children_and_counts(
-    user, account, expense_category, session_maker
-):
+async def test_category_tree_has_children_and_counts(user, account, expense_category, session_maker):
     child = await CategoryService.create_for_user(
-        schema=CategoryCreate(
-            name="Groceries", type=CategoryType.EXPENSE, parent_id=expense_category.id
-        ),
+        schema=CategoryCreate(name="Groceries", type=CategoryType.EXPENSE, parent_id=expense_category.id),
         user_id=user.id,
         session_maker=session_maker,
     )
-    await _tx(
-        account, child, user, session_maker, 20.0, TransactionType.EXPENSE, PERIOD_START
-    )
+    await _tx(account, child, user, session_maker, 20.0, TransactionType.EXPENSE, PERIOD_START)
     await _tx(
         account,
         expense_category,
@@ -181,9 +163,7 @@ async def test_category_tree_has_children_and_counts(
 
 
 @pytest.mark.asyncio
-async def test_category_stats_totals_per_category(
-    user, account, expense_category, session_maker
-):
+async def test_category_stats_totals_per_category(user, account, expense_category, session_maker):
     await _tx(
         account,
         expense_category,
@@ -219,14 +199,12 @@ async def test_category_stats_totals_per_category(
 
 
 # --------------------------------------------------------------------------- #
-#  Записи: фильтры, сортировка, счетчик, массовое удаление
+#  Records: filters, sorting, counter, bulk delete
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
-async def test_list_filters_by_multiple_accounts(
-    user, account, second_account, expense_category, session_maker
-):
+async def test_list_filters_by_multiple_accounts(user, account, second_account, expense_category, session_maker):
     await _tx(
         account,
         expense_category,
@@ -261,9 +239,7 @@ async def test_list_filters_by_multiple_accounts(
 
 
 @pytest.mark.asyncio
-async def test_list_filters_by_types_and_currency(
-    user, account, expense_category, income_category, session_maker
-):
+async def test_list_filters_by_types_and_currency(user, account, expense_category, income_category, session_maker):
     await _tx(
         account,
         income_category,
@@ -286,9 +262,7 @@ async def test_list_filters_by_types_and_currency(
     incomes = await TransactionService.get_list_by_user(
         user.id, session_maker=session_maker, transaction_types=[TransactionType.INCOME]
     )
-    by_currency = await TransactionService.get_list_by_user(
-        user.id, session_maker=session_maker, currency_ids=["USD"]
-    )
+    by_currency = await TransactionService.get_list_by_user(user.id, session_maker=session_maker, currency_ids=["USD"])
     by_other_currency = await TransactionService.get_list_by_user(
         user.id, session_maker=session_maker, currency_ids=["EUR"]
     )
@@ -322,18 +296,14 @@ async def test_list_searches_by_note(user, account, expense_category, session_ma
         "taxi",
     )
 
-    found = await TransactionService.get_list_by_user(
-        user.id, session_maker=session_maker, query="PYATERO"
-    )
+    found = await TransactionService.get_list_by_user(user.id, session_maker=session_maker, query="PYATERO")
 
     assert len(found) == 1
     assert found[0].note == "pyaterochka"
 
 
 @pytest.mark.asyncio
-async def test_list_filters_by_amount_range(
-    user, account, expense_category, session_maker
-):
+async def test_list_filters_by_amount_range(user, account, expense_category, session_maker):
     await _tx(
         account,
         expense_category,
@@ -353,12 +323,8 @@ async def test_list_filters_by_amount_range(
         PERIOD_START,
     )
 
-    big = await TransactionService.get_list_by_user(
-        user.id, session_maker=session_maker, amount_min=100.0
-    )
-    small = await TransactionService.get_list_by_user(
-        user.id, session_maker=session_maker, amount_max=100.0
-    )
+    big = await TransactionService.get_list_by_user(user.id, session_maker=session_maker, amount_min=100.0)
+    small = await TransactionService.get_list_by_user(user.id, session_maker=session_maker, amount_max=100.0)
 
     assert [item.amount for item in big] == [500.0]
     assert [item.amount for item in small] == [10.0]
@@ -385,21 +351,15 @@ async def test_list_sorts_by_amount(user, account, expense_category, session_mak
         PERIOD_START,
     )
 
-    descending = await TransactionService.get_list_by_user(
-        user.id, session_maker=session_maker, sort="amount_desc"
-    )
-    ascending = await TransactionService.get_list_by_user(
-        user.id, session_maker=session_maker, sort="amount_asc"
-    )
+    descending = await TransactionService.get_list_by_user(user.id, session_maker=session_maker, sort="amount_desc")
+    ascending = await TransactionService.get_list_by_user(user.id, session_maker=session_maker, sort="amount_asc")
 
     assert [item.amount for item in descending] == [500.0, 10.0]
     assert [item.amount for item in ascending] == [10.0, 500.0]
 
 
 @pytest.mark.asyncio
-async def test_count_respects_filters(
-    user, account, expense_category, income_category, session_maker
-):
+async def test_count_respects_filters(user, account, expense_category, income_category, session_maker):
     await _tx(
         account,
         income_category,
@@ -431,9 +391,7 @@ async def test_count_respects_filters(
 
 
 @pytest.mark.asyncio
-async def test_bulk_delete_rolls_back_balances(
-    user, account, expense_category, session_maker
-):
+async def test_bulk_delete_rolls_back_balances(user, account, expense_category, session_maker):
     first = await _tx(
         account,
         expense_category,
@@ -456,18 +414,14 @@ async def test_bulk_delete_rolls_back_balances(
         ids=[first.id, second.id, 999_999], user_id=user.id, session_maker=session_maker
     )
 
-    refreshed = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    refreshed = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
     assert deleted == 2
     assert missing == [999_999]
     assert refreshed.balance == 1000.0
 
 
 @pytest.mark.asyncio
-async def test_bulk_delete_does_not_touch_foreign_records(
-    user, other_user, account, expense_category, session_maker
-):
+async def test_bulk_delete_does_not_touch_foreign_records(user, other_user, account, expense_category, session_maker):
     transaction = await _tx(
         account,
         expense_category,
@@ -484,20 +438,17 @@ async def test_bulk_delete_does_not_touch_foreign_records(
 
     assert deleted == 0
     assert missing == [transaction.id]
-    assert (
-        await TransactionService.count_by_user(user.id, session_maker=session_maker)
-        == 1
-    )
+    assert await TransactionService.count_by_user(user.id, session_maker=session_maker) == 1
 
 
 # --------------------------------------------------------------------------- #
-#  Валюты
+#  Currencies
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
 async def test_currency_rates_are_relative_to_base(currencies, session_maker):
-    # В фикстуре: USD — 1.0 к базовой, EUR — 1.1
+    # In the fixture: USD is 1.0 to base, EUR is 1.1
     rates = await CurrencyService.get_rates(base="USD", session_maker=session_maker)
     by_code = {rate.code: rate for rate in rates}
 
@@ -522,9 +473,7 @@ async def test_currency_rates_reject_unknown_base(currencies, session_maker):
 
 
 @pytest.mark.asyncio
-async def test_account_created_with_excluded_flag_defaults_to_false(
-    user, currencies, session_maker
-):
+async def test_account_created_with_excluded_flag_defaults_to_false(user, currencies, session_maker):
     created = await AccountService.create_for_user(
         schema=AccountCreate(name="Spare", type=AccountType.SAVINGS, currency_id="USD"),
         user_id=user.id,

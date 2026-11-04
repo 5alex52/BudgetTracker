@@ -1,4 +1,4 @@
-"""Тесты админ-панели: доступ, список пользователей, выдача и отзыв подписки."""
+"""Admin panel tests: access, user list, granting and revoking subscriptions."""
 
 import pytest
 import pytest_asyncio
@@ -35,7 +35,7 @@ async def _seed_plans(session_maker) -> None:
 
 @pytest_asyncio.fixture
 async def superuser_client(verified_user_client, session_maker):
-    """Поднимает обычного пользователя до суперпользователя."""
+    """Promotes a regular user to superuser."""
     client, user_id, _ = verified_user_client
     async with session_maker() as session:
         user = await session.get(UserModel, user_id)

@@ -31,14 +31,14 @@ class CategoryType(str, Enum):
 
 
 class RuleField(str, Enum):
-    """К чему применяется условие правила."""
+    """What the rule condition applies to."""
 
     NOTE = "note"
     AMOUNT = "amount"
 
 
 class RuleOperator(str, Enum):
-    """Как сравнивать значение условия."""
+    """How to compare the condition value."""
 
     CONTAINS = "contains"
     EQUALS = "equals"
@@ -60,7 +60,7 @@ class AccountBase(BaseModel):
     # Negative balances are valid (credit cards, overdrafts)
     balance: float = Field(default=0.0)
     is_archived: bool = False
-    #: Счёт исключён из статистики (итоги, графики, аналитика)
+    #: Account excluded from statistics (totals, charts, analytics)
     is_excluded: bool = False
 
     model_config = ConfigDict(from_attributes=True)
@@ -86,7 +86,7 @@ class AccountResponse(AccountBase):
     user_id: uuid.UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
-    #: Счёт доступен только для чтения: лимит или валюта требуют подписки
+    #: Account is read-only: limit or currency requires a subscription
     is_locked: bool = False
     lock_reason: Optional[str] = None
 
@@ -147,7 +147,7 @@ class CategoryInline(BaseModel):
 
 
 class TagInline(BaseModel):
-    """Метка в ответе о записи."""
+    """Tag in a transaction response."""
 
     id: int
     name: str
@@ -158,9 +158,9 @@ class TagInline(BaseModel):
 
 class TransactionBase(BaseModel):
     account_id: int
-    #: У перевода категории нет: сервер подставляет служебную «Перевод»
+    #: Transfers have no category: the server substitutes the service "Transfer" category
     category_id: Optional[int] = None
-    #: Счёт-получатель перевода; только для type=transfer
+    #: Transfer destination account; only for type=transfer
     transfer_account_id: Optional[int] = None
     amount: float = Field(..., gt=0)
     currency_id: str = Field(..., min_length=3, max_length=3)
@@ -169,7 +169,7 @@ class TransactionBase(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
     is_subscription: bool = False
     receipt_url: Optional[str] = Field(None, max_length=255)
-    #: Метки, которые нужно повесить на запись
+    #: Tags to attach to the record
     tag_ids: List[int] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
@@ -198,7 +198,7 @@ class TransactionUpdate(BaseModel):
 class TransactionResponse(TransactionBase):
     id: int
     created_at: datetime
-    #: Скрыта из статистики правилом
+    #: Hidden from statistics by a rule
     is_excluded: bool = False
     tags: List["TagInline"] = Field(default_factory=list)
 
@@ -209,7 +209,7 @@ class TransactionWithDetails(TransactionResponse):
     category_color: str
     category_icon: str
     currency_symbol: str
-    #: Название счёта-получателя перевода
+    #: Name of the transfer destination account
     transfer_account_name: Optional[str] = None
 
     @classmethod
@@ -251,7 +251,7 @@ class TransactionSummary(BaseModel):
 
 
 class BalanceOverviewAccount(BaseModel):
-    """Остаток счёта на конец периода: в своей валюте и в базовой."""
+    """Account balance at end of period: in its own currency and in the base."""
 
     account_id: int
     name: str
@@ -265,11 +265,11 @@ class BalanceOverviewAccount(BaseModel):
 
 
 class BalanceOverview(BaseModel):
-    """Общий баланс пользователя.
+    """User's overall balance.
 
-    ``total`` и ``balance_base`` уже пересчитаны в базовой валюте пользователя
-    по действующим (включая личные) курсам: складывать остатки разных валют на
-    клиенте нельзя.
+    ``total`` and ``balance_base`` are already converted to the user's base
+    currency using current (including personal) rates: balances of different
+    currencies must not be added on the client.
     """
 
     total: float
@@ -329,12 +329,12 @@ class CurrencyResponse(CurrencyBase):
 
 
 # --------------------------------------------------------------------------- #
-#  Дополнительные представления под экраны фронтенда
+#  Additional views for frontend screens
 # --------------------------------------------------------------------------- #
 
 
 class AccountSummary(BaseModel):
-    """Карточка счёта: остаток и обороты за период."""
+    """Account card: balance and turnover for the period."""
 
     account_id: int
     name: str
@@ -353,7 +353,7 @@ class AccountSummary(BaseModel):
 
 
 class CategoryNode(BaseModel):
-    """Категория с подкатегориями — дерево для настроек и диалога записи."""
+    """Category with subcategories — a tree for settings and the transaction dialog."""
 
     id: int
     name: str
@@ -369,7 +369,7 @@ CategoryNode.model_rebuild()
 
 
 class CategoryStat(BaseModel):
-    """Строка «Категории»: сколько записей и на какую сумму."""
+    """Category row: how many records and what total."""
 
     category_id: int
     name: str
@@ -382,7 +382,7 @@ class CategoryStat(BaseModel):
 
 
 class BulkDeleteResult(BaseModel):
-    """Результат массового удаления: что удалили и что не нашли."""
+    """Bulk delete result: what was deleted and what was not found."""
 
     deleted: int
     missing: List[int] = Field(default_factory=list)
@@ -393,19 +393,19 @@ class BulkDeleteRequest(BaseModel):
 
 
 class CurrencyRate(BaseModel):
-    """Курс валюты относительно выбранной базовой: сколько единиц за 1 базовую."""
+    """Currency rate relative to the chosen base: how many units per 1 base unit."""
 
     code: str
     name: str
     symbol: str
     rate: float
     is_base: bool = False
-    #: Курс переопределён пользователем (личный), а не взят из справочника
+    #: Rate overridden by the user (personal), not taken from the catalog
     is_custom: bool = False
 
 
 # --------------------------------------------------------------------------- #
-#  Метки, шаблоны, правила, личные курсы
+#  Tags, templates, rules, personal rates
 # --------------------------------------------------------------------------- #
 
 
@@ -427,7 +427,7 @@ class TagUpdate(BaseModel):
 
 class TagResponse(TagBase):
     id: int
-    #: Сколько записей помечено — фронтенд показывает это рядом с меткой
+    #: How many records are tagged — the frontend shows this next to the tag
     transactions_count: int = 0
 
 
@@ -503,7 +503,7 @@ class RuleResponse(RuleBase):
 
 
 class RuleApplyResult(BaseModel):
-    """Что сделал движок правил: применённые правила и изменённые записи."""
+    """What the rules engine did: matched rules and modified records."""
 
     matched_rules: List[int] = Field(default_factory=list)
     updated_transactions: int = 0
@@ -515,7 +515,7 @@ class UserCurrencyRateUpdate(BaseModel):
 
 
 class TransactionDetails(TransactionWithDetails):
-    """Запись с деталями и метками — ответ для диалога редактирования."""
+    """Record with details and tags — response for the edit dialog."""
 
     tags: List[TagInline] = Field(default_factory=list)
 

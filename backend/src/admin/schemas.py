@@ -1,4 +1,4 @@
-"""Схемы админ-панели: пользователи и статистика подписок."""
+"""Admin panel schemas: users and subscription statistics."""
 
 import uuid
 from datetime import datetime
@@ -12,7 +12,7 @@ from ..billing.models import SubscriptionStatus
 
 
 class AdminUser(BaseModel):
-    """Пользователь в списке админки вместе с его текущей подпиской."""
+    """User in the admin list with their current subscription."""
 
     id: uuid.UUID
     fullname: str
@@ -37,7 +37,7 @@ class AdminUserPage(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
-    """Что админ может изменить в чужом аккаунте."""
+    """What an admin can change in another user's account."""
 
     firstname: Optional[str] = Field(None, max_length=255)
     lastname: Optional[str] = Field(None, max_length=255)
@@ -63,7 +63,7 @@ class AdminStats(BaseModel):
 
 
 class AdminSubscriptionPoint(BaseModel):
-    """Подписки на конкретную дату."""
+    """Subscription counts for a specific date."""
 
     date: str
     premium: int
@@ -71,12 +71,12 @@ class AdminSubscriptionPoint(BaseModel):
 
 
 class AdminSubscriptionTimeline(BaseModel):
-    """История изменения количества подписок за последние 30 дней."""
+    """Historical subscription counts over the last 30 days."""
 
     points: List[AdminSubscriptionPoint] = Field(default_factory=list)
 
 
 class AdminGrantRequest(BaseModel):
-    """Выдача подписки без оплаты."""
+    """Grant a subscription without payment."""
 
     plan_code: str = Field(..., min_length=1, max_length=32)

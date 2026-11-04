@@ -1,4 +1,4 @@
-"""Free plan: два счёта вместо одного, у платных — мультивалютность
+"""Free plan: two accounts instead of one, paid plans have multi-currency
 
 Revision ID: d3e4f5a6b7c8
 Revises: c8d2e3f4a5b6
@@ -39,11 +39,7 @@ def upgrade() -> None:
             features=FREE_FEATURES,
         )
     )
-    op.execute(
-        plans.update()
-        .where(plans.c.code == "monthly")
-        .values(features=MONTHLY_FEATURES)
-    )
+    op.execute(plans.update().where(plans.c.code == "monthly").values(features=MONTHLY_FEATURES))
 
 
 def downgrade() -> None:
@@ -64,7 +60,5 @@ def downgrade() -> None:
     op.execute(
         plans.update()
         .where(plans.c.code == "monthly")
-        .values(
-            features=["неограниченно счетов", "аналитика", "метки и правила", "экспорт"]
-        )
+        .values(features=["неограниченно счетов", "аналитика", "метки и правила", "экспорт"])
     )

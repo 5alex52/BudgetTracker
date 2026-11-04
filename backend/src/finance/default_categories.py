@@ -1,20 +1,20 @@
-"""Стандартный набор категорий и подкатегорий для каждого нового пользователя.
+"""Default set of categories and subcategories for each new user.
 
-Данные вынесены из демо-скрипта в отдельный модуль: теперь это не «наполнение
-витрины», а базовая комплектация аккаунта. Пользователь получает привычную
-структуру сразу после регистрации и может её переименовать, перекрасить или
-удалить — категории создаются как обычные пользовательские записи.
+Data extracted from the demo script into a separate module: now this is not
+"showcase content" but a baseline account setup. The user gets a familiar
+structure immediately after registration and can rename, recolor or delete
+it — categories are created as regular user records.
 
-Формат строки: (имя, иконка, цвет, [(имя, иконка, цвет), ...]).
-Имена иконок — строки, которые понимает фронтенд (`CategoryIcon`).
+Line format: (name, icon, color, [(name, icon, color), ...]).
+Icon names are strings understood by the frontend (`CategoryIcon`).
 """
 
 from typing import List
 from typing import Tuple
 
-#: Подкатегория описывается тремя полями: имя, иконка, цвет.
+#: Subcategory is described by three fields: name, icon, color.
 Subcategory = Tuple[str, str, str]
-#: Категория: имя, иконка, цвет и список подкатегорий.
+#: Category: name, icon, color and list of subcategories.
 CategorySpec = Tuple[str, str, str, List[Subcategory]]
 
 EXPENSE_CATEGORIES: List[CategorySpec] = [
@@ -98,7 +98,7 @@ INCOME_CATEGORIES: List[CategorySpec] = [
 
 
 def default_categories() -> List[Tuple[CategorySpec, str]]:
-    """Категории по умолчанию вместе с их типом: расход или доход."""
+    """Default categories along with their type: expense or income."""
     return [
         *((spec, "expense") for spec in EXPENSE_CATEGORIES),
         *((spec, "income") for spec in INCOME_CATEGORIES),

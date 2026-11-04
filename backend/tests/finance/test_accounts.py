@@ -127,7 +127,7 @@ async def test_balance_overview_uses_base_currency(user, currencies, session_mak
 
 @pytest.mark.asyncio
 async def test_balance_overview_uses_personal_currency_rate(user, currencies, session_maker, premium_entitlements):
-    """Личный курс 1 EUR = 2 USD даёт 200 USD по счёту с остатком 100 EUR."""
+    """Personal rate 1 EUR = 2 USD gives 200 USD for an account with 100 EUR balance."""
     await CurrencyService.set_user_rate(code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker)
     await AccountService.create_for_user(
         schema=AccountCreate(
@@ -149,7 +149,7 @@ async def test_balance_overview_uses_personal_currency_rate(user, currencies, se
 
 @pytest.mark.asyncio
 async def test_free_plan_blocks_third_account(user, account, second_account, currencies, session_maker):
-    """Бесплатный тариф: два счёта — всё, что можно создать."""
+    """Free plan: two accounts is the maximum you can create."""
     with pytest.raises(HTTPException) as error:
         await AccountService.create_for_user(
             schema=AccountCreate(name="Third", type=AccountType.CASH, currency_id="USD", balance=0.0),
@@ -163,7 +163,7 @@ async def test_free_plan_blocks_third_account(user, account, second_account, cur
 
 @pytest.mark.asyncio
 async def test_free_plan_limit_counts_locked_legacy_accounts(user, account, currencies, session_maker):
-    """Заблокированный счёт другой валюты всё равно занимает место в лимите."""
+    """A locked account of a different currency still counts against the limit."""
     async with session_maker() as session:
         await AccountDAO.create(
             session,
@@ -203,7 +203,7 @@ async def test_free_plan_blocks_foreign_currency_account(user, currencies, sessi
 
 @pytest.mark.asyncio
 async def test_existing_accounts_are_marked_read_only(user, account, second_account, currencies, session_maker):
-    """Счета сверх лимита и в чужой валюте остаются, но блокируются."""
+    """Accounts over the limit and in a foreign currency remain but are locked."""
     async with session_maker() as session:
         third = await AccountDAO.create(
             session,

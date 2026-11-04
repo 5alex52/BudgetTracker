@@ -1,9 +1,9 @@
-"""Тесты профиля: чтение, правка, пароль, выгрузка и удаление аккаунта."""
+"""Profile tests: reading, editing, password, export, and account deletion."""
 
 import pytest
 from httpx import AsyncClient
 
-#: Логин требует разбираемый User-Agent — тот же, что шлёт браузер в conftest
+#: Login requires a parseable User-Agent — the same one the browser sends in conftest
 BROWSER_HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded",
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -133,7 +133,7 @@ async def test_export_contains_financial_data(verified_user_client, currencies):
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["accounts"]) == 1
-    # К созданной категории добавляются категории по умолчанию.
+    # Default categories are added alongside the created one.
     assert "Food" in [category["name"] for category in payload["categories"]]
     assert payload["accounts"][0]["name"] == "Cash"
     assert payload["user"]["email"]
@@ -161,7 +161,7 @@ async def test_delete_me_removes_user_and_data(verified_user_client, user_info, 
     response = await async_client.request("DELETE", "/api/users/me", json={"password": user_info.password})
     assert response.status_code == 204
 
-    # Сессия больше не валидна: пользователя нет
+    # The session is no longer valid: the user is gone
     assert (await async_client.get("/api/users/me")).status_code in {401, 404}
 
     login = await async_client.post(

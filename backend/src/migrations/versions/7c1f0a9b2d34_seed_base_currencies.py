@@ -22,7 +22,7 @@ branch_labels = None
 depends_on = None
 
 
-# (код, наименование, символ, курс к базовой валюте)
+# (code, name, symbol, rate to base currency)
 BASE_CURRENCIES = [
     ("USD", "US Dollar", "$", 1.0),
     ("EUR", "Euro", "€", 1.08),
@@ -52,9 +52,7 @@ currencies = sa.table(
 
 def upgrade() -> None:
     connection = op.get_bind()
-    existing = {
-        code for (code,) in connection.execute(sa.text("SELECT code FROM currencies"))
-    }
+    existing = {code for (code,) in connection.execute(sa.text("SELECT code FROM currencies"))}
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     rows = [

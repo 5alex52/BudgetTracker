@@ -1,8 +1,8 @@
-"""Шаблоны быстрого ввода: заготовки записей.
+"""Quick entry templates: preset transaction entries.
 
-Вертикальный срез приложения finance: DAO → сервис → viewset → роутер в одном
-модуле, общие файлы слоёв (``models.py``, ``schemas.py``) остаются едиными для
-приложения.
+Vertical slice of the finance app: DAO → service → viewset → router in one
+module, shared layer files (``models.py``, ``schemas.py``) remain unified for
+the application.
 """
 
 import logging
@@ -53,7 +53,7 @@ def _not_found(detail: str = "Template not found") -> HTTPException:
 
 
 class TemplateDAO:
-    """Доступ к шаблонам пользователя."""
+    """Data access for user templates."""
 
     model = TemplateModel
 
@@ -79,7 +79,7 @@ class TemplateDAO:
     async def tag_ids_of(cls, session: AsyncSession, template_id: int) -> List[int]:
         from .models import (
             template_tags as table,
-        )  # локальный импорт: таблица объявлена в models
+        )  # local import: table is declared in models
 
         stmt = select(table.c.tag_id).where(table.c.template_id == template_id)
         result = await session.execute(stmt)
@@ -98,7 +98,7 @@ class TemplateDAO:
 
 
 class TemplateService:
-    """Шаблоны: CRUD в разрезе пользователя плюс применение шаблона."""
+    """Templates: CRUD scoped to user plus template application."""
 
     dao = TemplateDAO
 
@@ -187,8 +187,8 @@ class TemplateService:
 
             data = schema.model_dump(exclude_unset=True)
             tag_ids = data.pop("tag_ids", None)
-            # Проверяем итоговое состояние шаблона: частичное обновление не
-            # должно обходить проверки счёта, категории и валюты.
+            # Validate the resulting template state: partial update must not
+            # bypass account, category and currency checks.
             await cls._validate_links(
                 session,
                 TemplateCreate(
@@ -236,7 +236,7 @@ class TemplateService:
         date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> TransactionModel:
-        """Создаёт запись по шаблону и увеличивает счётчик его использования."""
+        """Creates a transaction from template and increments its usage counter."""
         maker = session_maker or async_session_maker
         async with maker() as session:
             template = await cls.dao.find_one_by_user(session, template_id, user_id)
@@ -256,7 +256,7 @@ class TemplateService:
             template.usage_count += 1
             await session.commit()
 
-        # Запись создаётся тем же сервисом, что и обычная: правила и балансы — в одном месте
+        # Transaction is created by the same service as a regular one: rules and balances in one place
         return await TransactionService.create_for_user(schema=transaction_schema, user_id=user_id, session_maker=maker)
 
     @classmethod
@@ -376,7 +376,7 @@ async def list_templates(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[TemplateResponse]:
-    """Шаблоны быстрого ввода, популярные сверху."""
+    """Quick entry templates, most used first."""
     return await TemplateViewSet.list(request=request, user=user, session_maker=session_maker)
 
 
@@ -387,7 +387,7 @@ async def create_template(
     payload: TemplateCreate,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TemplateResponse:
-    """Новый шаблон; счёт, категория и метки должны принадлежать пользователю."""
+    """New template; account, category and tags must belong to the user."""
     return await TemplateViewSet.create(request=request, user=user, obj_data=payload, session_maker=session_maker)
 
 
@@ -398,7 +398,7 @@ async def get_template(
     template_id: int,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TemplateResponse:
-    """Шаблон по идентификатору."""
+    """Template by ID."""
     return await TemplateViewSet.retrieve(request=request, user=user, obj_id=template_id, session_maker=session_maker)
 
 
@@ -410,7 +410,7 @@ async def update_template(
     payload: TemplateUpdate,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TemplateResponse:
-    """Изменение шаблона."""
+    """Update a template."""
     return await TemplateViewSet.update(
         request=request,
         user=user,
@@ -427,7 +427,7 @@ async def delete_template(
     template_id: int,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
-    """Удаление шаблона; созданные по нему записи остаются."""
+    """Delete a template; transactions created from it remain."""
     await TemplateViewSet.delete(request=request, user=user, obj_id=template_id, session_maker=session_maker)
 
 
@@ -443,7 +443,7 @@ async def apply_template(
     date: Optional[datetime] = None,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TransactionModel:
-    """Создаёт запись по шаблону: дата — момент применения, если не передана."""
+    """Creates a transaction from template: date is application time if not provided."""
     return await TemplateViewSet.apply(
         request=request,
         user=user,

@@ -1,4 +1,4 @@
-"""HTTP-слой админ-панели. Доступ — только суперпользователям."""
+"""Admin panel HTTP layer. Access restricted to superusers."""
 
 import uuid
 from typing import Optional
@@ -30,7 +30,7 @@ admin_router = APIRouter(
 async def get_stats(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AdminStats:
-    """Сводка по пользователям и подпискам."""
+    """Summary of users and subscriptions."""
     return await AdminService.get_stats(session_maker=session_maker)
 
 
@@ -43,7 +43,7 @@ async def get_subscription_timeline(
     days: int = Query(30, ge=7, le=365),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AdminSubscriptionTimeline:
-    """График изменения количества подписок за последние N дней."""
+    """Subscription count timeline over the last N days."""
     return await AdminService.get_subscription_timeline(days=days, session_maker=session_maker)
 
 
@@ -54,7 +54,7 @@ async def list_users(
     limit: int = Query(20, ge=1, le=100),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AdminUserPage:
-    """Список пользователей с поиском по имени и почте."""
+    """List users with search by name and email."""
     return await AdminService.list_users(
         search=search,
         offset=offset,
@@ -69,7 +69,7 @@ async def update_user(
     payload: AdminUserUpdate,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AdminUser:
-    """Блокировка и подтверждение почты."""
+    """Block/unblock user and verify email."""
     return await AdminService.update_user(
         user_id=user_id,
         payload=payload,
@@ -87,7 +87,7 @@ async def grant_subscription(
     payload: AdminGrantRequest,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AdminUser:
-    """Выдать подписку бесплатно на срок тарифа."""
+    """Grant a free subscription for the plan's duration."""
     return await AdminService.grant_subscription(
         user_id=user_id,
         request=payload,
@@ -104,7 +104,7 @@ async def revoke_subscription(
     user_id: uuid.UUID,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AdminUser:
-    """Отозвать подписку сразу."""
+    """Revoke subscription immediately."""
     return await AdminService.revoke_subscription(
         user_id=user_id,
         session_maker=session_maker,

@@ -25,11 +25,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Подключает Redis на старте и отдаёт его сервисам.
+    """Connects Redis at startup and provides it to services.
 
-    Redis нужен для токенов подтверждения почты и кеша. В локальной среде его
-    может не быть: тогда приложение поднимается без кэша и пишет предупреждение,
-    а не падает на старте.
+    Redis is used for email confirmation tokens and caching. In a local environment it may be
+    unavailable: the application starts without cache and logs a warning instead of crashing.
     """
     from .cache import Cache
     from .config import settings
@@ -48,7 +47,7 @@ async def lifespan(application: FastAPI):
         await UserService.initialize_redis(client)
         Cache.configure(client)
         logger.info("Redis connected: %s:%s", settings.REDIS_HOST, settings.REDIS_PORT)
-    except Exception as caught:  # noqa: BLE001 — старт не должен падать без кэша
+    except Exception as caught:  # noqa: BLE001 — startup should not fail without cache
         if settings.ENVIRONMENT != "LOCAL":
             raise
         logger.warning("Redis is unavailable (%s): running without cache", caught)
@@ -82,9 +81,9 @@ app.add_middleware(
 )
 
 
-@app.get("/health", tags=["service"], summary="Проверка живости сервиса")
+@app.get("/health", tags=["service"], summary="Service liveness check")
 async def health_check() -> dict:
-    """Используется docker HEALTHCHECK и балансировщиками нагрузки."""
+    """Used by docker HEALTHCHECK and load balancers."""
     return {"status": "ok", "environment": settings.ENVIRONMENT}
 
 

@@ -1,12 +1,11 @@
-"""Кеш поверх Redis.
+"""Cache layer over Redis.
 
-Заготовка уже была: клиент создаётся в lifespan приложения и в ``src/celery.py``.
-Здесь — тонкая обёртка, которой пользуются сервисы, чтобы не тянуть один и тот
-же агрегат из базы на каждый рендер страницы.
+The scaffolding was already in place: the client is created in the application lifespan and in ``src/celery.py``.
+This is a thin wrapper used by services to avoid fetching the same aggregate from the database on every page render.
 
-Главное правило: **кеш не должен ломать приложение**. Если Redis не подключён
-(локальная разработка, упавший инстанс), все методы становятся no-op и сервис
-считает данные как обычно.
+The main rule: **the cache must not break the application**. If Redis is not connected
+(local development, a crashed instance), all methods become no-ops and the service
+computes data as usual.
 """
 
 import hashlib
@@ -17,17 +16,17 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-#: Префикс всех ключей приложения: в одном Redis могут жить и другие проекты
+#: Prefix for all application keys: other projects may share the same Redis instance
 PREFIX = "bt"
 
 
 class Cache:
-    """Асинхронный кеш с безопасной деградацией."""
+    """Asynchronous cache with graceful degradation."""
 
     _client: Any = None
 
     # ------------------------------------------------------------------ #
-    #  Подключение
+    #  Connection
     # ------------------------------------------------------------------ #
 
     @classmethod
@@ -43,22 +42,22 @@ class Cache:
         return cls._client is not None
 
     # ------------------------------------------------------------------ #
-    #  Ключи
+    #  Keys
     # ------------------------------------------------------------------ #
 
     @staticmethod
     def make_key(scope: str, **parts: Any) -> str:
-        """Детерминированный ключ: ``bt:scope:hash(params)``.
+        """Deterministic key: ``bt:scope:hash(params)``.
 
-        Параметры хешируются, поэтому длинные даты и списки не раздувают ключ,
-        а порядок аргументов не влияет на попадание в кеш.
+        Parameters are hashed, so long dates and lists do not inflate the key,
+        and the order of arguments does not affect cache hits.
         """
         payload = json.dumps(parts, sort_keys=True, default=str, ensure_ascii=False)
         digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:20]
         return f"{PREFIX}:{scope}:{digest}"
 
     # ------------------------------------------------------------------ #
-    #  Чтение и запись
+    #  Read and write
     # ------------------------------------------------------------------ #
 
     @classmethod
@@ -67,7 +66,7 @@ class Cache:
             return None
         try:
             raw = await cls._client.get(key)
-        except Exception as caught:  # noqa: BLE001 — кеш не должен ронять запрос
+        except Exception as caught:  # noqa: BLE001 — cache must not crash a request
             logger.warning("Cache read failed (%s): %s", key, caught)
             return None
         if raw is None:
@@ -101,9 +100,9 @@ class Cache:
 
     @classmethod
     async def delete_scope(cls, scope: str) -> None:
-        """Сбрасывает весь раздел: нужен после записи, которая влияет на агрегаты.
+        """Invalidates an entire scope: needed after writes that affect aggregates.
 
-        ``SCAN`` вместо ``KEYS``: второй блокирует Redis на больших базах.
+        Uses ``SCAN`` instead of ``KEYS``: the latter blocks Redis on large databases.
         """
         if cls._client is None:
             return
@@ -121,9 +120,9 @@ class Cache:
 
 
 async def cached(scope: str, key_parts: dict, ttl: int, factory):
-    """Вернуть значение из кеша или посчитать и положить.
+    """Return a value from the cache, or compute and store it.
 
-    ``factory`` — корутина без аргументов. Ошибки вычисления не кешируются.
+    ``factory`` is a no-argument coroutine. Computation errors are not cached.
     """
     key = Cache.make_key(scope, **key_parts)
     hit = await Cache.get(key)

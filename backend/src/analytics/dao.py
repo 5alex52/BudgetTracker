@@ -1,8 +1,8 @@
-"""Аналитические выборки: агрегаты поверх записей finance.
+"""Analytics queries: aggregates over finance transaction records.
 
-Приложение ``analytics`` читает данные finance, но ничего в них не пишет, поэтому
-здесь нет CRUD-операций — только SELECT-ы. Модели импортируются из finance: это
-read-model, а не второй источник истины.
+The ``analytics`` app reads finance data but never writes to it, so there is no
+CRUD here — only SELECTs. Models are imported from finance: this is a read-model,
+not a second source of truth.
 """
 
 from collections.abc import Sequence
@@ -28,24 +28,24 @@ from src.users.models import UserModel
 
 
 class AnalyticsDAO:
-    """Агрегаты для «Обзора» и «Аналитики».
+    """Aggregates for the Overview and Analytics pages.
 
-    Соглашение по умолчанию: суммы переводятся в базовую валюту пользователя
-    (``UserModel.base_currency``) с учётом его личных курсов, счета с флагом
-    «исключён из статистики» в расчёт не входят, записи, скрытые правилом
-    (``is_excluded``), — тоже.
+    Default convention: amounts are converted to the user's base currency
+    (``UserModel.base_currency``) using their personal rates; accounts marked as
+    "excluded from statistics" are not counted, and records hidden by rule
+    (``is_excluded``) are skipped too.
     """
 
-    #: Допустимые группировки временных рядов (Postgres date_trunc)
+    #: Valid time series groupings (Postgres date_trunc)
     GROUP_BY_OPTIONS = ("day", "week", "month")
 
     @classmethod
     async def _base_rate(cls, session: AsyncSession, user_id) -> float:
-        """Во сколько базовых единиц оценивается единица базовой валюты.
+        """How many base-currency units equal one unit of the base currency.
 
-        Справочник хранит курсы относительно USD, а базовой валютой пользователя
-        может быть любая другая, поэтому делим на курс самой базовой валюты.
-        Личный курс пользователя переопределяет справочный.
+        The catalog stores rates relative to USD, and the user's base currency
+        may be any other currency, so we divide by the rate of the base currency
+        itself. The user's personal rate overrides the catalog rate.
         """
         user = await session.get(UserModel, user_id)
         base = (getattr(user, "base_currency", None) or "USD").upper()
@@ -60,11 +60,11 @@ class AnalyticsDAO:
 
     @classmethod
     def _effective_rate(cls, user_id, currency_code_column):
-        """Курс валюты с учётом личного курса пользователя.
+        """Currency rate considering the user's personal rate.
 
-        В справочнике лежит курс относительно USD, но пользователь может задать
-        свой курс. Для всех агрегатов важен именно личный курс: иначе итоги на
-        экране «Аналитика» расходятся с настройками валют.
+        The catalog stores rates relative to USD, but the user may set their own
+        rate. For all aggregates the personal rate is what matters: otherwise the
+        Analytics page totals would disagree with currency settings.
         """
         override = (
             select(UserCurrencyRateModel.rate)
@@ -78,7 +78,7 @@ class AnalyticsDAO:
 
     @classmethod
     def _statistics_condition(cls) -> tuple:
-        """Условия «участвует в статистике»: счёт не исключён и запись не скрыта правилом."""
+        """Conditions for "participates in statistics": account not excluded and record not hidden by rule."""
         return (
             AccountModel.is_excluded.is_(False),
             TransactionModel.is_excluded.is_(False),
@@ -96,7 +96,7 @@ class AnalyticsDAO:
         only_statistics: bool = True,
         base_rate: float = 1.0,
     ) -> Select:
-        """Плоский срез записей пользователя с уже посчитанной суммой в базовой валюте."""
+        """Flat slice of the user's records with the amount already converted to the base currency."""
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
         rate = cls._effective_rate(user_id, CurrencyModel.code)
         amount_base = TransactionModel.amount * rate / divisor
@@ -129,8 +129,8 @@ class AnalyticsDAO:
             .join(CurrencyModel, TransactionModel.currency_id == CurrencyModel.code)
             .where(
                 AccountModel.user_id == user_id,
-                # Переводы не доход и не расход: они не должны попадать в
-                # структуру расходов, KPI и счётчик записей аналитики.
+                # Transfers are neither income nor expense: they must not appear in
+                # expense breakdowns, KPI, or the analytics record counter.
                 TransactionModel.type != TransactionType.TRANSFER,
             )
         )
@@ -150,7 +150,7 @@ class AnalyticsDAO:
 
     @classmethod
     async def total_balance_base(cls, session: AsyncSession, user_id) -> float:
-        """Сумма балансов счетов в базовой валюте — точка отсчёта для графика остатка."""
+        """Sum of account balances in the base currency — the starting point for the balance chart."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
         rate = cls._effective_rate(user_id, CurrencyModel.code)
@@ -165,9 +165,9 @@ class AnalyticsDAO:
             .join(CurrencyModel, AccountModel.currency_id == CurrencyModel.code)
             .where(
                 AccountModel.user_id == user_id,
-                # Архивные счета участвуют в статистике — пользователь может
-                # посмотреть итоги за любой период. Исключённые из статистики
-                # не влияют ни на баланс, ни на обороты.
+                # Archived accounts participate in statistics — the user can
+                # view totals for any period. Accounts excluded from statistics
+                # do not affect either balance or turnover.
                 AccountModel.is_excluded.is_(False),
             )
         )
@@ -184,7 +184,7 @@ class AnalyticsDAO:
         only_statistics: bool = True,
         account_ids: Optional[Sequence[int]] = None,
     ) -> dict:
-        """Доходы, расходы и количество записей за период (в базовой валюте)."""
+        """Income, expense, and record count for the period (in the base currency)."""
         base_rate = await cls._base_rate(session, user_id)
         scope = cls._scope(
             user_id,
@@ -218,7 +218,7 @@ class AnalyticsDAO:
         end_date: Optional[datetime] = None,
         only_statistics: bool = True,
     ) -> List:
-        """Доходы и расходы по дням/неделям/месяцам."""
+        """Income and expense by day/week/month."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
         rate = cls._effective_rate(user_id, CurrencyModel.code)
@@ -232,8 +232,8 @@ class AnalyticsDAO:
                     0.0,
                 ).label("total"),
             )
-            # select_from обязателен: в списке колонок нет самой transactions,
-            # и без него FROM выводится из выражений — джойны начинаются не с той таблицы
+            # select_from is required: the column list doesn't reference transactions directly,
+            # and without it FROM is inferred from expressions — joins would start from the wrong table
             .select_from(TransactionModel)
             .join(AccountModel, TransactionModel.account_id == AccountModel.id)
             .join(CurrencyModel, TransactionModel.currency_id == CurrencyModel.code)
@@ -262,7 +262,7 @@ class AnalyticsDAO:
         end_date: datetime,
         only_statistics: bool = True,
     ) -> List:
-        """Подписанные обороты по бакетам — из них собирается кривая остатка."""
+        """Signed turnover by bucket — used to build the balance curve."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
         rate = cls._effective_rate(user_id, CurrencyModel.code)
@@ -303,7 +303,7 @@ class AnalyticsDAO:
         moment: datetime,
         only_statistics: bool = True,
     ) -> float:
-        """Суммарный подписанный оборот после указанного момента."""
+        """Total signed turnover after the given moment."""
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
         rate = cls._effective_rate(user_id, CurrencyModel.code)
@@ -343,7 +343,7 @@ class AnalyticsDAO:
         rollup: bool = False,
         only_statistics: bool = True,
     ) -> List:
-        """Суммы по категориям; ``rollup`` сворачивает подкатегории в родителя."""
+        """Totals by category; ``rollup`` folds subcategories into the parent."""
         base_rate = await cls._base_rate(session, user_id)
         scope = cls._scope(
             user_id,
@@ -394,7 +394,7 @@ class AnalyticsDAO:
         end_date: Optional[datetime] = None,
         only_statistics: bool = True,
     ) -> List:
-        """Обороты по счетам за период."""
+        """Account turnover for the period."""
         base_rate = await cls._base_rate(session, user_id)
         scope = cls._scope(
             user_id,
@@ -449,7 +449,7 @@ class AnalyticsDAO:
         only_statistics: bool = True,
         account_ids: Optional[Sequence[int]] = None,
     ) -> List:
-        """Отчёт «категории × месяцы»: суммы по парам (категория, бакет)."""
+        """Categories × months report: totals for (category, bucket) pairs."""
         base_rate = await cls._base_rate(session, user_id)
         scope = cls._scope(
             user_id,

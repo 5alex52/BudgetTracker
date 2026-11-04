@@ -1,8 +1,8 @@
-"""Реестр платёжных провайдеров.
+"""Payment provider registry.
 
-Провайдер выбирается настройкой ``BILLING_PROVIDER``: сервис биллинга спрашивает
-реестр, а не знает конкретные классы — подключение реального эквайринга сводится
-к регистрации класса и переменной окружения.
+The provider is selected by the ``BILLING_PROVIDER`` setting: the billing service asks the
+registry rather than knowing specific classes — connecting real acquiring is reduced to
+registering a class and setting an environment variable.
 """
 
 from typing import Dict
@@ -18,7 +18,7 @@ from .crypto import CryptoPaymentProvider
 from .mock import MockPaymentProvider
 from .stripe import StripePaymentProvider
 
-#: Все известные провайдеры: код → экземпляр
+#: All known providers: code → instance
 PROVIDERS: Dict[str, PaymentProvider] = {
     provider.code: provider
     for provider in (
@@ -30,10 +30,10 @@ PROVIDERS: Dict[str, PaymentProvider] = {
 
 
 def get_provider(code: str | None = None) -> PaymentProvider:
-    """Провайдер по коду; по умолчанию — из настроек.
+    """Provider by code; defaults to the one from settings.
 
-    Если выбранный реальный провайдер не настроен (нет ключей), падаем громко:
-    тихо подменять его моком нельзя — пользователь решит, что заплатил.
+    If the selected real provider is not configured (no keys), fail loudly:
+    silently swapping it with a mock would make the user think they paid.
     """
     resolved = (code or settings.BILLING_PROVIDER or "mock").lower()
     provider = PROVIDERS.get(resolved)

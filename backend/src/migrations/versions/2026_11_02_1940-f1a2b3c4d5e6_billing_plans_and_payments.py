@@ -17,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-#: Тарифы по умолчанию: бесплатный, месячный и годовой
+#: Default plans: free, monthly, and yearly
 PLANS = [
     {
         "code": "free",
@@ -116,9 +116,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("plan_subscriptions_pkey")),
     )
-    op.create_index(
-        op.f("plan_subscriptions_id_idx"), "plan_subscriptions", ["id"], unique=False
-    )
+    op.create_index(op.f("plan_subscriptions_id_idx"), "plan_subscriptions", ["id"], unique=False)
     op.create_index(
         op.f("plan_subscriptions_user_id_idx"),
         "plan_subscriptions",
@@ -149,9 +147,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("payment_methods_pkey")),
     )
-    op.create_index(
-        op.f("payment_methods_id_idx"), "payment_methods", ["id"], unique=False
-    )
+    op.create_index(op.f("payment_methods_id_idx"), "payment_methods", ["id"], unique=False)
     op.create_index(
         op.f("payment_methods_user_id_idx"),
         "payment_methods",
@@ -174,9 +170,7 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column(
             "status",
-            sa.Enum(
-                "pending", "succeeded", "failed", "refunded", name="payment_status"
-            ),
+            sa.Enum("pending", "succeeded", "failed", "refunded", name="payment_status"),
             nullable=False,
         ),
         sa.Column("provider", sa.String(length=32), nullable=False),
@@ -207,9 +201,9 @@ def upgrade() -> None:
     )
     op.create_index(op.f("payments_user_id_idx"), "payments", ["user_id"], unique=False)
 
-    # Каталог тарифов нужен сразу: без него экран «Тарифы» пуст.
-    # Типы колонок указаны явно: period — enum, иначе драйвер пришлёт VARCHAR
-    # и Postgres откажется приводить его к plan_period.
+    # The plan catalog is needed immediately: without it the "Plans" screen is empty.
+    # Column types are specified explicitly: period is an enum, otherwise the driver
+    # would send VARCHAR and Postgres would refuse to cast it to plan_period.
     op.bulk_insert(
         sa.table(
             "plans",
@@ -245,14 +239,12 @@ def downgrade() -> None:
     op.drop_index(op.f("payment_methods_user_id_idx"), table_name="payment_methods")
     op.drop_index(op.f("payment_methods_id_idx"), table_name="payment_methods")
     op.drop_table("payment_methods")
-    op.drop_index(
-        op.f("plan_subscriptions_user_id_idx"), table_name="plan_subscriptions"
-    )
+    op.drop_index(op.f("plan_subscriptions_user_id_idx"), table_name="plan_subscriptions")
     op.drop_index(op.f("plan_subscriptions_id_idx"), table_name="plan_subscriptions")
     op.drop_table("plan_subscriptions")
     op.drop_table("plans")
-    # Postgres не удаляет enum-типы вместе с таблицами: без этого повторный
-    # upgrade упадёт на «type already exists»
+    # Postgres does not drop enum types when tables are dropped: without this,
+    # a re-upgrade would fail with "type already exists"
     for enum_name in (
         "plan_period",
         "subscription_status",

@@ -21,15 +21,15 @@ __all__ = ["BasePermission", "BaseViewSet", "check_permissions"]
 
 
 def check_permissions(action: str):
-    """Декоратор для проверки прав доступа.
+    """Decorator for access control checks.
 
-    Перед вызовом метода ViewSet-а инстанцируется ``permission``-класс ViewSet-а и
-    вызывается с указанным действием. Permission-класс может бросить HTTPException(403).
+    Before calling a ViewSet method, the ViewSet's ``permission`` class is instantiated
+    and invoked with the specified action. The permission class may raise HTTPException(403).
     """
 
     def decorator(func):
-        # request пробрасывается в метод, только если он объявлен в его сигнатуре явно,
-        # иначе он бы попал в **kwargs и был бы передан в сервис как лишний аргумент.
+        # Request is passed to the method only if it's explicitly declared in its signature,
+        # otherwise it would end up in **kwargs and be passed to the service as an extra argument.
         accepts_request = "request" in inspect.signature(func).parameters
 
         async def wrapper(cls, *args, request: Optional[Request] = None, **kwargs):
@@ -46,7 +46,7 @@ def check_permissions(action: str):
 
 
 class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
-    """Базовый ViewSet для обработки CRUD операций"""
+    """Base ViewSet for handling CRUD operations"""
 
     service: BaseService = None
     permission = BasePermission
@@ -58,7 +58,7 @@ class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ):
-        """Создание нового объекта"""
+        """Create a new object"""
         return await cls.service.create(schema=obj_data, session_maker=session_maker, **kwargs)
 
     @classmethod
@@ -68,7 +68,7 @@ class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ):
-        """Получение одного объекта"""
+        """Retrieve a single object"""
         return await cls.service.get(id=obj_id, session_maker=session_maker)
 
     @classmethod
@@ -79,7 +79,7 @@ class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ):
-        """Обновление объекта"""
+        """Update an object"""
         return await cls.service.update(id=obj_id, schema=obj_data, session_maker=session_maker)
 
     @classmethod
@@ -89,7 +89,7 @@ class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ):
-        """Удаление объекта"""
+        """Delete an object"""
         await cls.service.delete(id=obj_id, session_maker=session_maker)
 
     @classmethod
@@ -98,5 +98,5 @@ class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ):
-        """Список объектов"""
+        """List objects"""
         return await cls.service.get_list(session_maker=session_maker)

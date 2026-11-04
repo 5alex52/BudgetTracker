@@ -1,4 +1,4 @@
-"""Тесты аналитики: итоги, ряды, разбивки, отчёт по месяцам."""
+"""Analytics tests: summaries, series, breakdowns, monthly report."""
 
 from datetime import datetime
 from datetime import timedelta
@@ -32,7 +32,7 @@ async def _make_transaction(
     note: str = "",
     transfer_account_id=None,
 ):
-    """Создаёт запись напрямую через сервис (он же пересчитывает баланс счёта)."""
+    """Creates a record directly via the service (which also recalculates the account balance)."""
     return await TransactionService.create_for_user(
         schema=TransactionCreate(
             account_id=account.id,
@@ -85,7 +85,7 @@ async def test_summary_counts_income_and_expense(user, account, expense_category
 
 @pytest.mark.asyncio
 async def test_summary_does_not_count_transfers_as_income_or_expense(user, account, second_account, session_maker):
-    """Перевод двигает остаток, но не является ни доходом, ни расходом."""
+    """Transfers move the balance but are neither income nor expense."""
     transfer_category = await CategoryService.create_for_user(
         schema=CategoryCreate(name="Transfer", type=CategoryType.TRANSFER),
         user_id=user.id,
@@ -117,7 +117,7 @@ async def test_summary_does_not_count_transfers_as_income_or_expense(user, accou
 
 @pytest.mark.asyncio
 async def test_summary_compares_with_previous_period(user, account, income_category, session_maker):
-    # Прошлый период (сентябрь): доход 500
+    # Previous period (September): income 500
     await _make_transaction(
         account,
         income_category,
@@ -127,7 +127,7 @@ async def test_summary_compares_with_previous_period(user, account, income_categ
         TransactionType.INCOME,
         datetime(2025, 9, 15),
     )
-    # Текущий период (октябрь): доход 1000 — рост на 100 %
+    # Current period (October): income 1000 — 100% growth
     await _make_transaction(
         account,
         income_category,
@@ -177,7 +177,7 @@ async def test_summary_without_compare_has_no_previous(user, account, income_cat
 
 @pytest.mark.asyncio
 async def test_summary_converts_currency_to_base(user, session_maker, currencies, premium_entitlements):
-    """Итоги складываются в базовой валюте: 100 EUR при курсе 1.1 — это 110 USD."""
+    """Totals are aggregated in the base currency: 100 EUR at rate 1.1 is 110 USD."""
     euro_account = await AccountService.create_for_user(
         schema=AccountCreate(name="Euro", type=AccountType.CASH, currency_id="EUR", balance=0.0),
         user_id=user.id,
@@ -211,7 +211,7 @@ async def test_summary_converts_currency_to_base(user, session_maker, currencies
 
 @pytest.mark.asyncio
 async def test_summary_uses_personal_currency_rate(user, session_maker, currencies, premium_entitlements):
-    """Личный курс пользователя важнее справочного: 100 EUR по 2.0 — это 200 USD."""
+    """The user's personal rate takes precedence over the catalog rate: 100 EUR at 2.0 is 200 USD."""
     await CurrencyService.set_user_rate(code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker)
     euro_account = await AccountService.create_for_user(
         schema=AccountCreate(name="Euro", type=AccountType.CASH, currency_id="EUR", balance=0.0),
@@ -343,7 +343,7 @@ async def test_timeseries_cashflow_by_day(user, account, expense_category, incom
 async def test_timeseries_cashflow_excludes_transfers(
     user, account, second_account, expense_category, income_category, session_maker
 ):
-    """Перевод не должен попадать в расходы графика cashflow."""
+    """A transfer must not appear in the cashflow chart expenses."""
     transfer_category = await CategoryService.create_for_user(
         schema=CategoryCreate(name="Transfer", type=CategoryType.TRANSFER),
         user_id=user.id,
@@ -425,7 +425,7 @@ async def test_timeseries_balance_ends_at_current_balance(
         session_maker=session_maker,
     )
 
-    # Баланс счёта после двух операций: 1000 + 200 - 50
+    # Account balance after two operations: 1000 + 200 - 50
     assert series.points[-1].value == 1150.0
 
 
@@ -473,7 +473,7 @@ async def test_by_category_shares_and_rollup(user, account, expense_category, se
         end_date=PERIOD_END,
         session_maker=session_maker,
     )
-    # Подкатегория сворачивается в родительскую категорию
+    # Subcategory rolls up into the parent category
     assert [item.name for item in rolled.items] == [expense_category.name, "Transport"]
 
 
@@ -564,7 +564,7 @@ async def test_by_account_reports_turnover(user, account, second_account, expens
     by_name = {item.name: item.expense for item in breakdown.items}
     assert by_name["Cash"] == 30.0
     assert by_name["Savings"] == 70.0
-    assert breakdown.total == -100.0  # нетто: расходы со знаком минус складываются в -100
+    assert breakdown.total == -100.0  # net: negative expenses sum to -100
 
 
 @pytest.mark.asyncio
@@ -599,7 +599,7 @@ async def test_matrix_has_months_and_rows(user, account, expense_category, sessi
     assert matrix.months == ["2025-09", "2025-10"]
     assert len(matrix.rows) == 1
     assert matrix.rows[0].values == [60.0, 90.0]
-    # Рост к предыдущему месяцу: (90 - 60) / 60 * 100
+    # Growth vs previous month: (90 - 60) / 60 * 100
     assert matrix.rows[0].trends[1] == 50.0
 
 

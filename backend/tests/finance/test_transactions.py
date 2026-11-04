@@ -288,7 +288,7 @@ async def test_transfer_moves_money_to_second_account(account, second_account, u
     )
 
     assert transfer.transfer_account_id == second_account.id
-    # Перевод не требует категории: сервер создаёт служебную
+    # A transfer does not require a category: the server creates a system one
     assert transfer.category.type == CategoryType.TRANSFER
 
     source = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)

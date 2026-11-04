@@ -1,4 +1,4 @@
-"""HTTP-уровень новых эндпоинтов: коды ответов, заголовки, тело."""
+"""HTTP level of new endpoints: status codes, headers, body."""
 
 import json
 
@@ -7,7 +7,7 @@ from httpx import AsyncClient
 
 
 async def _seed(client: AsyncClient, currencies: dict) -> dict:
-    """Готовит пользователю счёт, две категории и три записи."""
+    """Prepares an account, two categories, and three records for the user."""
     del currencies
     account = await client.post(
         "/api/finance/accounts/",
@@ -66,7 +66,7 @@ async def _seed(client: AsyncClient, currencies: dict) -> dict:
 
 @pytest.mark.asyncio
 async def test_new_endpoints_require_authentication(async_client: AsyncClient, currencies):
-    del currencies  # справочник нужен, чтобы публичные курсы отвечали 200, а не 400
+    del currencies  # the catalog is needed so public rates return 200, not 400
     public_paths = (
         "/api/analytics/summary",
         "/api/analytics/timeseries",
@@ -78,7 +78,7 @@ async def test_new_endpoints_require_authentication(async_client: AsyncClient, c
         "/api/finance/currencies/rates",
     )
     for path in public_paths:
-        # У курсов базовая валюта обязательна: справочник в тестах без BYN
+        # Rates require a base currency: the test catalog has no BYN
         params = {"base": "USD"} if path.endswith("/rates") else None
         response = await async_client.get(path, params=params)
         assert response.status_code in {200, 401}, f"{path} → {response.status_code}"
@@ -95,7 +95,7 @@ async def test_transactions_list_exposes_total_count(verified_user_client, curre
     assert len(response.json()) == 2
     assert response.headers["X-Total-Count"] == "3"
 
-    # Фильтр сужает и выдачу, и счётчик
+    # Filter narrows both the response and the counter
     filtered = await async_client.get("/api/finance/transactions/", params={"types": "expense"})
     assert filtered.headers["X-Total-Count"] == "2"
     assert all(item["type"] == "expense" for item in filtered.json())
@@ -201,7 +201,7 @@ async def test_account_summary_and_exclude_endpoints(verified_user_client, curre
 
 @pytest.mark.asyncio
 async def test_archive_account_endpoint_returns_fresh_object(verified_user_client, currencies):
-    """Архивация через HTTP: ответ сериализуется после коммита, поэтому модель обновляем в сессии."""
+    """Archiving via HTTP: the response is serialized after commit, so the model is refreshed in the session."""
     async_client, _, _ = verified_user_client
     seeded = await _seed(async_client, currencies)
 
@@ -232,7 +232,7 @@ async def test_categories_tree_and_stats_endpoints(verified_user_client, currenc
     tree = await async_client.get("/api/finance/categories/tree", params={"category_type": "expense"})
     assert tree.status_code == 200
     roots = tree.json()
-    # Кроме созданной категории у пользователя есть набор категорий по умолчанию.
+    # Besides the created category the user has a set of default categories.
     food = next(node for node in roots if node["name"] == "Food")
     assert [node["name"] for node in food["children"]] == ["Cafe"]
     assert food["transactions_count"] == 2

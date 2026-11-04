@@ -50,26 +50,26 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
     async def create(cls, schema: UserCreate, base_url: str, session_maker: async_sessionmaker) -> UserModel:
         schema.password = get_password_hash(schema.password)
         new_user = await super().create(schema, session_maker)
-        # Стандартный набор категорий: пользователь сразу получает привычную
-        # структуру расходов и доходов, а не пустой список.
-        # Импорт ленивый: finance.service тянет users.dependencies, и на верхнем
-        # уровне модуля это даёт циклический импорт.
+        # Standard set of categories: the user gets a familiar expense/income
+        # structure right away instead of an empty list.
+        # Lazy import: finance.service pulls in users.dependencies, which would
+        # cause a circular import at module level.
         from src.finance.service import CategoryService
 
         await CategoryService.create_defaults_for_user(new_user.id, session_maker=session_maker)
         await cls.send_verification_email(new_user.email, base_url, session_maker)
-        # Локальная среда без Redis: письмо отправить некуда, а без подтверждения
-        # пользователь не попадёт в собственные данные. Сразу считаем адрес верным.
+        # Local environment without Redis: nowhere to send the email, and without
+        # confirmation the user won't reach their own data. Mark the address as verified.
         if settings.ENVIRONMENT == "LOCAL" and not getattr(cls, "verification_redis", None):
             async with session_maker() as session:
                 await cls.dao.update(session, UserModel.id == new_user.id, obj_in={"is_verified": True})
                 await session.commit()
-        # Перечитываем пользователя, чтобы получить вычисляемые поля (fullname) и значения по умолчанию
+        # Re-read the user to get computed fields (fullname) and defaults
         return await cls.get(new_user.id, session_maker)
 
     @classmethod
     async def get_by_email(cls, email: str, session_maker: async_sessionmaker = None) -> Optional[UserModel]:
-        """Возвращает пользователя по email или None"""
+        """Returns a user by email or None"""
         if session_maker is None:
             session_maker = default_session_maker
         async with session_maker() as session:
@@ -79,9 +79,9 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
     async def _create_verification_token(cls, user_id: uuid.UUID) -> Optional[str]:
         """Creates verification token and saves it to Redis.
 
-        Возвращает ``None``, если Redis недоступен: регистрация в локальной
-        среде не должна падать из-за отсутствия кэша. В production отсутствие
-        Redis — ошибка конфигурации, поэтому там исключение пробрасывается.
+        Returns ``None`` if Redis is unavailable: registration in a local
+        environment should not fail due to a missing cache. In production,
+        a missing Redis is a configuration error, so the exception is raised.
         """
         token = str(uuid.uuid4())
         if not getattr(cls, "verification_redis", None):
@@ -111,15 +111,15 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
 
         token = await cls._create_verification_token(user.id)
         if token is None:
-            # Redis недоступен — письмо не отправляем, но пользователь создан
+            # Redis is unavailable — email not sent, but user is created
             return {"message": "Verification email skipped: Redis is not initialized"}
 
-        # Ссылка ведёт на страницу приложения, а не в API: она сама отправит
-        # токен на /auth/verify-email и покажет результат.
+        # The link points to the app page, not to the API: the app itself
+        # will send the token to /auth/verify-email and show the result.
         frontend = getattr(settings, "FRONTEND_URL", "") or base_url
         verification_url = f"{frontend.rstrip('/')}/verify-email?token={token}"
 
-        # Логируем URL для локального тестирования
+        # Log the URL for local testing
         logger.info(f"Verification URL for {user.email}: {verification_url}")
 
         email_template = f"""
@@ -173,14 +173,14 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
             await session.commit()
             await cls.verification_redis.delete(f"email_verification:{token}")
 
-        # Генерируем токен для автоматического входа
+        # Generate token for automatic login
         if device_info is not None:
             return await cls._create_token(user.id, device_info, session_maker)
         return None
 
     @classmethod
     async def get_profile(cls, user_id: uuid.UUID, session_maker: async_sessionmaker) -> UserModel:
-        """Текущий пользователь: шапка, меню и страница настроек."""
+        """Current user: header, menu, and settings page."""
         user = await cls.get(user_id, session_maker)
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -193,7 +193,7 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         schema: UserProfileUpdate,
         session_maker: async_sessionmaker,
     ) -> UserModel:
-        """Правка собственного профиля. Привилегии менять нельзя — их нет в схеме."""
+        """Edit own profile. Privileges cannot be changed — they are not in the schema."""
         payload = schema.model_dump(exclude_unset=True)
         if "email" in payload:
             payload["email"] = payload["email"].lower()
@@ -220,7 +220,7 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         schema: PasswordChange,
         session_maker: async_sessionmaker,
     ) -> None:
-        """Меняет пароль, предварительно проверяя текущий."""
+        """Changes password, after verifying the current one."""
         async with session_maker() as session:
             user = await UserDAO.find_one_or_none(session, id=user_id)
             if user is None:
@@ -240,10 +240,10 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
 
     @classmethod
     async def export_data(cls, user_id: uuid.UUID, session_maker: async_sessionmaker) -> UserExport:
-        """Архив данных пользователя для «Скачать мои данные».
+        """User data archive for "Download my data".
 
-        Всё, что принадлежит человеку: счета, категории, записи, подписки и справочник
-        валют, на который эти записи ссылаются.
+        Everything that belongs to the user: accounts, categories, records,
+        subscriptions, and the currency catalog referenced by those records.
         """
         from src.finance.dao import AccountDAO
         from src.finance.dao import CategoryDAO
@@ -282,11 +282,11 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         schema: AccountDeleteConfirmation,
         session_maker: async_sessionmaker,
     ) -> None:
-        """Удаление аккаунта пользователем.
+        """Delete user's own account.
 
-        Пароль обязателен: удаление необратимо, а украденная сессия не должна
-        позволять снести аккаунт одним запросом. Финансовые данные уходят
-        каскадом по внешним ключам.
+        Password is required: deletion is irreversible, and a stolen session
+        should not be able to wipe the account with a single request.
+        Financial data is cascade-deleted via foreign keys.
         """
         async with session_maker() as session:
             user = await UserDAO.find_one_or_none(session, id=user_id)

@@ -88,7 +88,7 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     async def get_or_create(
         cls, session: AsyncSession, defaults: Optional[Dict[str, Any]] = None, **kwargs
     ) -> Optional[ModelType]:
-        # Схема может быть передана целиком: её поля используются как фильтр и как данные для создания
+        # Schema can be passed as a whole: its fields are used as both filter and creation data
         if isinstance(defaults, BaseModel):
             kwargs.update(defaults.model_dump())
             defaults = None
@@ -126,7 +126,7 @@ class BaseDAO(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         else:
             update_data = obj_in.model_dump(exclude_unset=True)
         if not update_data:
-            # Пустой PATCH не должен приводить к генерации UPDATE без SET
+            # Empty PATCH should not trigger an UPDATE without SET
             db_obj = await cls.find_one_or_none(session, *where)
             if db_obj is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")

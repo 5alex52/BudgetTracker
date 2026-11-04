@@ -50,10 +50,10 @@ async def get_current_active_user_optional(
     request: Request,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Optional[User]:
-    """Текущий пользователь или ``None`` — для эндпоинтов, работающих и без авторизации.
+    """Current user or ``None`` — for endpoints that work without authentication.
 
-    Нужен там, где один и тот же ответ обогащается личными данными при наличии
-    сессии: например, курсы валют (справочник + личные переопределения).
+    Used where the same response is enriched with personal data when a session
+    exists: e.g. currency rates (catalog + personal overrides).
     """
     token = get_token(request, auto_error=False)
     if not token:

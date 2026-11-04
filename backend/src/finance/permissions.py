@@ -8,21 +8,21 @@ from src.permissions import BasePermission
 
 
 class FinancePermission(BasePermission):
-    """Права доступа для финансовых операций.
+    """Access control for financial operations.
 
-    Финансовые данные всегда принадлежат конкретному пользователю, поэтому любой
-    непубличный метод требует аутентифицированного пользователя. Управление
-    справочником валют (создание/изменение/удаление) доступно только суперпользователю.
+    Financial data always belongs to a specific user, so any non-public method
+    requires an authenticated user. Currency catalog management (create/update/
+    delete) is available only to superusers.
     """
 
-    #: Действия, доступные без аутентификации
+    #: Actions available without authentication
     PUBLIC_ACTIONS: Set[str] = {
         "list_currencies",
         "retrieve_currency",
         "currency_rates",
     }
 
-    #: Действия, доступные только суперпользователю
+    #: Actions available only to superusers
     SUPERUSER_ACTIONS: Set[str] = {
         "create_currency",
         "update_currency",

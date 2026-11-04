@@ -65,13 +65,13 @@ currencies_router = APIRouter(prefix="/api/finance/currencies", tags=["Currencie
 async def get_accounts(
     request: Request,
     user: CurrentUser,
-    include_archived: bool = Query(False, description="Включать архивированные счета"),
-    include_excluded: bool = Query(True, description="Включать счета, исключённые из статистики"),
+    include_archived: bool = Query(False, description="Include archived accounts"),
+    include_excluded: bool = Query(True, description="Include accounts excluded from statistics"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[AccountResponse]:
-    """Счета текущего пользователя."""
+    """Accounts of the current user."""
     return await AccountViewSet.list(
         request=request,
         user=user,
@@ -87,14 +87,14 @@ async def get_accounts(
 async def get_balance_overview(
     request: Request,
     user: CurrentUser,
-    start_date: Optional[datetime] = Query(None, description="Начало периода"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода: остаток на эту дату"),
+    start_date: Optional[datetime] = Query(None, description="Start of the period"),
+    end_date: Optional[datetime] = Query(None, description="End of the period: balance at this date"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> BalanceOverview:
-    """Остаток по всем счетам в базовой валюте.
+    """Balance across all accounts in the base currency.
 
-    Если переданы границы периода, отдаётся остаток **на конец периода**
-    (как выписка в банке), а не сегодняшний.
+    If period boundaries are given, the balance is returned **as of the end of
+    the period** (like a bank statement), not today's.
     """
     return await AccountViewSet.balance(
         request=request,
@@ -112,7 +112,7 @@ async def get_account(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
-    """Счет по идентификатору."""
+    """Account by ID."""
     return await AccountViewSet.retrieve(request=request, obj_id=account_id, user=user, session_maker=session_maker)
 
 
@@ -123,7 +123,7 @@ async def create_account(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
-    """Создание счета."""
+    """Create an account."""
     return await AccountViewSet.create(request=request, obj_data=account_data, user=user, session_maker=session_maker)
 
 
@@ -135,7 +135,7 @@ async def update_account(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
-    """Обновление счета."""
+    """Update an account."""
     return await AccountViewSet.update(
         request=request,
         obj_id=account_id,
@@ -154,10 +154,10 @@ async def archive_account(
     request: Request,
     account_id: int,
     user: CurrentUser,
-    is_archived: bool = Query(True, description="Архивировать или вернуть из архива"),
+    is_archived: bool = Query(True, description="Archive or restore from archive"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
-    """Архивация счета."""
+    """Archive an account."""
     return await AccountViewSet.archive(
         request=request,
         obj_id=account_id,
@@ -176,10 +176,10 @@ async def exclude_account(
     request: Request,
     account_id: int,
     user: CurrentUser,
-    is_excluded: bool = Query(True, description="Исключить счёт из статистики или вернуть обратно"),
+    is_excluded: bool = Query(True, description="Exclude the account from statistics or restore it"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
-    """Исключение счёта из статистики: счёт и записи остаются, итоги их не учитывают."""
+    """Exclude the account from statistics: the account and its records stay, but totals ignore them."""
     return await AccountViewSet.exclude(
         request=request,
         obj_id=account_id,
@@ -198,11 +198,11 @@ async def get_account_summary(
     request: Request,
     account_id: int,
     user: CurrentUser,
-    start_date: Optional[datetime] = Query(None, description="Начало периода"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода"),
+    start_date: Optional[datetime] = Query(None, description="Start of the period"),
+    end_date: Optional[datetime] = Query(None, description="End of the period"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountSummary:
-    """Обороты по счёту за период — для карточки счёта."""
+    """Account turnover for the period — for the account card."""
     return await AccountViewSet.summary(
         request=request,
         obj_id=account_id,
@@ -220,7 +220,7 @@ async def delete_account(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Удаление счета вместе с его транзакциями."""
+    """Delete the account together with its transactions."""
     await AccountViewSet.delete(request=request, obj_id=account_id, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -229,13 +229,13 @@ async def delete_account(
 async def get_categories(
     request: Request,
     user: CurrentUser,
-    category_type: Optional[CategoryType] = Query(None, description="Тип категории"),
-    parent_id: Optional[int] = Query(None, description="Родительская категория"),
+    category_type: Optional[CategoryType] = Query(None, description="Category type"),
+    parent_id: Optional[int] = Query(None, description="Parent category"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[CategoryResponse]:
-    """Категории текущего пользователя."""
+    """Categories of the current user."""
     return await CategoryViewSet.list(
         request=request,
         user=user,
@@ -251,12 +251,12 @@ async def get_categories(
 async def get_categories_tree(
     request: Request,
     user: CurrentUser,
-    category_type: Optional[CategoryType] = Query(None, description="Тип категории"),
-    start_date: Optional[datetime] = Query(None, description="Начало периода для счётчиков"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода для счётчиков"),
+    category_type: Optional[CategoryType] = Query(None, description="Category type"),
+    start_date: Optional[datetime] = Query(None, description="Start of the period for counters"),
+    end_date: Optional[datetime] = Query(None, description="End of the period for counters"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[CategoryNode]:
-    """Категории с подкатегориями и количеством записей."""
+    """Categories with subcategories and transaction counts."""
     return await CategoryViewSet.tree(
         request=request,
         user=user,
@@ -271,12 +271,12 @@ async def get_categories_tree(
 async def get_categories_stats(
     request: Request,
     user: CurrentUser,
-    category_type: Optional[CategoryType] = Query(None, description="Тип категории"),
-    start_date: Optional[datetime] = Query(None, description="Начало периода"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода"),
+    category_type: Optional[CategoryType] = Query(None, description="Category type"),
+    start_date: Optional[datetime] = Query(None, description="Start of the period"),
+    end_date: Optional[datetime] = Query(None, description="End of the period"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[CategoryStat]:
-    """Сколько записей и на какую сумму приходится на каждую категорию."""
+    """How many records and what total amount each category has."""
     return await CategoryViewSet.stats(
         request=request,
         user=user,
@@ -294,7 +294,7 @@ async def get_category(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CategoryResponse:
-    """Категория по идентификатору."""
+    """Category by ID."""
     return await CategoryViewSet.retrieve(request=request, obj_id=category_id, user=user, session_maker=session_maker)
 
 
@@ -305,7 +305,7 @@ async def create_category(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CategoryResponse:
-    """Создание категории."""
+    """Create a category."""
     return await CategoryViewSet.create(request=request, obj_data=category_data, user=user, session_maker=session_maker)
 
 
@@ -317,7 +317,7 @@ async def update_category(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CategoryResponse:
-    """Обновление категории."""
+    """Update a category."""
     return await CategoryViewSet.update(
         request=request,
         obj_id=category_id,
@@ -334,7 +334,7 @@ async def delete_category(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Удаление категории без транзакций и подкатегорий."""
+    """Delete a category without transactions or subcategories."""
     await CategoryViewSet.delete(request=request, obj_id=category_id, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -349,7 +349,7 @@ def _transaction_filters(
     amount_max: Optional[float],
     tag_ids: Optional[List[int]] = None,
 ) -> dict:
-    """Собирает множественные фильтры списка записей в один словарь для сервиса."""
+    """Collects multiple transaction list filters into one dict for the service."""
     return {
         "account_ids": account_ids,
         "category_ids": category_ids,
@@ -367,29 +367,29 @@ async def get_transactions(
     request: Request,
     response: Response,
     user: CurrentUser,
-    account_id: Optional[int] = Query(None, description="Фильтр по счету"),
-    category_id: Optional[int] = Query(None, description="Фильтр по категории"),
-    transaction_type: Optional[TransactionType] = Query(None, description="Тип транзакции"),
-    account_ids: Optional[List[int]] = Query(None, description="Счета (множественный выбор)"),
-    category_ids: Optional[List[int]] = Query(None, description="Категории (множественный выбор)"),
-    currency_ids: Optional[List[str]] = Query(None, description="Валюты (множественный выбор)"),
-    types: Optional[List[TransactionType]] = Query(None, description="Типы записей (множественный выбор)"),
-    q: Optional[str] = Query(None, max_length=100, description="Поиск по заметке, категории и счёту"),
-    amount_min: Optional[float] = Query(None, ge=0, description="Сумма от"),
-    amount_max: Optional[float] = Query(None, ge=0, description="Сумма до"),
-    tag_ids: Optional[List[int]] = Query(None, description="Метки (множественный выбор)"),
-    start_date: Optional[datetime] = Query(None, description="Начало периода"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода"),
+    account_id: Optional[int] = Query(None, description="Filter by account"),
+    category_id: Optional[int] = Query(None, description="Filter by category"),
+    transaction_type: Optional[TransactionType] = Query(None, description="Transaction type"),
+    account_ids: Optional[List[int]] = Query(None, description="Accounts (multiple selection)"),
+    category_ids: Optional[List[int]] = Query(None, description="Categories (multiple selection)"),
+    currency_ids: Optional[List[str]] = Query(None, description="Currencies (multiple selection)"),
+    types: Optional[List[TransactionType]] = Query(None, description="Record types (multiple selection)"),
+    q: Optional[str] = Query(None, max_length=100, description="Search by note, category and account"),
+    amount_min: Optional[float] = Query(None, ge=0, description="Amount from"),
+    amount_max: Optional[float] = Query(None, ge=0, description="Amount to"),
+    tag_ids: Optional[List[int]] = Query(None, description="Tags (multiple selection)"),
+    start_date: Optional[datetime] = Query(None, description="Start of the period"),
+    end_date: Optional[datetime] = Query(None, description="End of the period"),
     sort: str = Query(
         "date_desc",
-        description="Сортировка: date_desc, date_asc, amount_desc, amount_asc",
+        description="Sort: date_desc, date_asc, amount_desc, amount_asc",
     ),
-    with_total: bool = Query(True, description="Отдать общее количество записей в заголовке X-Total-Count"),
+    with_total: bool = Query(True, description="Return total number of records in the X-Total-Count header"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[TransactionWithDetails]:
-    """Транзакции текущего пользователя с деталями по счету и категории."""
+    """Transactions of the current user with account and category details."""
     filters = _transaction_filters(
         account_ids,
         category_ids,
@@ -418,7 +418,7 @@ async def get_transactions(
         **filters,
     )
     if with_total:
-        # «Показать ещё» и счётчик в шапке списка требуют общего количества под теми же фильтрами
+        # "Show more" and the counter in the list header need the total count under the same filters
         total = await TransactionViewSet.count(
             request=request,
             user=user,
@@ -442,7 +442,7 @@ async def bulk_delete_transactions(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> BulkDeleteResult:
-    """Массовое удаление записей: балансы счетов откатываются, чужие записи не трогаются."""
+    """Bulk delete records: account balances are rolled back, other users' records are not touched."""
     deleted, missing = await TransactionViewSet.bulk_delete(
         request=request,
         ids=payload.ids,
@@ -456,7 +456,7 @@ async def bulk_delete_transactions(
 async def export_transactions(
     request: Request,
     user: CurrentUser,
-    export_format: str = Query("csv", alias="format", pattern="^(csv|json)$", description="csv или json"),
+    export_format: str = Query("csv", alias="format", pattern="^(csv|json)$", description="csv or json"),
     account_ids: Optional[List[int]] = Query(None),
     category_ids: Optional[List[int]] = Query(None),
     currency_ids: Optional[List[str]] = Query(None),
@@ -469,10 +469,10 @@ async def export_transactions(
     end_date: Optional[datetime] = Query(None),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Выгрузка записей за период: CSV или JSON.
+    """Export records for the period: CSV or JSON.
 
-    Выгружается до 5000 записей — этого хватает на год активного учёта;
-    ограничение защищает память процесса от запроса «отдай всё за всё время».
+    Up to 5000 records are exported — enough for a year of active bookkeeping;
+    the limit protects process memory from a "give me everything ever" request.
     """
     filters = _transaction_filters(
         account_ids,
@@ -533,12 +533,12 @@ async def export_transactions(
 async def get_transactions_summary(
     request: Request,
     user: CurrentUser,
-    transaction_type: Optional[TransactionType] = Query(None, description="Тип транзакции"),
-    start_date: Optional[datetime] = Query(None, description="Начало периода"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода"),
+    transaction_type: Optional[TransactionType] = Query(None, description="Transaction type"),
+    start_date: Optional[datetime] = Query(None, description="Start of the period"),
+    end_date: Optional[datetime] = Query(None, description="End of the period"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TransactionSummary:
-    """Сводка по категориям за период."""
+    """Summary by categories for the period."""
     return await TransactionViewSet.summary(
         request=request,
         user=user,
@@ -560,7 +560,7 @@ async def get_transaction(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TransactionResponse:
-    """Транзакция по идентификатору: с именем счёта, категорией и символом валюты."""
+    """Transaction by ID: with account name, category and currency symbol."""
     return await TransactionViewSet.retrieve(
         request=request, obj_id=transaction_id, user=user, session_maker=session_maker
     )
@@ -573,7 +573,7 @@ async def create_transaction(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TransactionResponse:
-    """Создание транзакции с пересчетом баланса счета."""
+    """Create a transaction with account balance recalculation."""
     return await TransactionViewSet.create(
         request=request,
         obj_data=transaction_data,
@@ -594,7 +594,7 @@ async def update_transaction(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TransactionResponse:
-    """Обновление транзакции с пересчетом баланса счета."""
+    """Update a transaction with account balance recalculation."""
     return await TransactionViewSet.update(
         request=request,
         obj_id=transaction_id,
@@ -611,7 +611,7 @@ async def delete_transaction(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Удаление транзакции с откатом баланса счета."""
+    """Delete a transaction with account balance rollback."""
     await TransactionViewSet.delete(request=request, obj_id=transaction_id, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -620,12 +620,12 @@ async def delete_transaction(
 async def get_subscriptions(
     request: Request,
     user: CurrentUser,
-    is_active: Optional[bool] = Query(None, description="Фильтр по активности подписки"),
+    is_active: Optional[bool] = Query(None, description="Filter by subscription activity"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[SubscriptionResponse]:
-    """Подписки текущего пользователя."""
+    """Subscriptions of the current user."""
     return await SubscriptionViewSet.list(
         request=request,
         user=user,
@@ -644,10 +644,10 @@ async def get_subscriptions(
 async def get_upcoming_subscriptions(
     request: Request,
     user: CurrentUser,
-    days: int = Query(7, ge=1, le=365, description="Горизонт планирования в днях"),
+    days: int = Query(7, ge=1, le=365, description="Planning horizon in days"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[SubscriptionResponse]:
-    """Ближайшие платежи по подпискам."""
+    """Upcoming subscription payments."""
     return await SubscriptionViewSet.upcoming(request=request, user=user, days=days, session_maker=session_maker)
 
 
@@ -662,7 +662,7 @@ async def get_subscription(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> SubscriptionResponse:
-    """Подписка по идентификатору."""
+    """Subscription by ID."""
     return await SubscriptionViewSet.retrieve(
         request=request, obj_id=subscription_id, user=user, session_maker=session_maker
     )
@@ -675,7 +675,7 @@ async def create_subscription(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> SubscriptionResponse:
-    """Оформление подписки на основе существующей транзакции."""
+    """Create a subscription based on an existing transaction."""
     return await SubscriptionViewSet.create(
         request=request,
         obj_data=subscription_data,
@@ -696,7 +696,7 @@ async def update_subscription(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> SubscriptionResponse:
-    """Обновление подписки."""
+    """Update a subscription."""
     return await SubscriptionViewSet.update(
         request=request,
         obj_id=subscription_id,
@@ -717,7 +717,7 @@ async def advance_subscription(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> SubscriptionResponse:
-    """Перенос даты следующего платежа на один период вперед."""
+    """Advance the next payment date by one period."""
     return await SubscriptionViewSet.advance(
         request=request, obj_id=subscription_id, user=user, session_maker=session_maker
     )
@@ -730,7 +730,7 @@ async def delete_subscription(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Удаление подписки."""
+    """Delete a subscription."""
     await SubscriptionViewSet.delete(request=request, obj_id=subscription_id, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -741,21 +741,22 @@ async def get_currencies(
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[CurrencyResponse]:
-    """Справочник валют."""
+    """Currency catalog."""
     return await CurrencyViewSet.list(offset=offset, limit=limit, session_maker=session_maker)
 
 
 @currencies_router.get("/rates", status_code=status.HTTP_200_OK, response_model=List[CurrencyRate])
 async def get_currency_rates(
     request: Request,
-    base: str = Query("BYN", min_length=3, max_length=3, description="Базовая валюта"),
+    base: str = Query("BYN", min_length=3, max_length=3, description="Base currency"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
     user: Optional[User] = Depends(get_current_active_user_optional),
 ) -> List[CurrencyRate]:
-    """Курсы валют относительно выбранной базовой: сколько единиц за одну базовую.
+    """Currency rates relative to the chosen base: how many units per one base unit.
 
-    Эндпоинт публичный: справочник курсов не является личными данными. Если
-    пользователь авторизован, в ответ попадают его личные курсы (``is_custom``).
+    The endpoint is public: the currency catalog is not personal data. If the
+    user is authenticated, their personal rates (``is_custom``) are included in
+    the response.
     """
     return await CurrencyViewSet.rates(request=request, base=base, user=user, session_maker=session_maker)
 
@@ -768,7 +769,7 @@ async def set_user_currency_rate(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CurrencyRate:
-    """Личный курс валюты: пользователь может считать по курсу своего банка."""
+    """Personal currency rate: the user can count by their own bank's rate."""
     return await CurrencyViewSet.set_rate(
         request=request,
         code=code,
@@ -785,7 +786,7 @@ async def reset_user_currency_rate(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
-    """Возврат к курсу справочника."""
+    """Revert to the catalog rate."""
     await CurrencyViewSet.reset_rate(request=request, code=code, user=user, session_maker=session_maker)
 
 
@@ -794,7 +795,7 @@ async def get_currency(
     code: str,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CurrencyResponse:
-    """Валюта по коду."""
+    """Currency by code."""
     return await CurrencyViewSet.retrieve(obj_id=code, session_maker=session_maker)
 
 
@@ -805,7 +806,7 @@ async def create_currency(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CurrencyResponse:
-    """Добавление валюты в справочник (только суперпользователь)."""
+    """Add a currency to the catalog (superuser only)."""
     return await CurrencyViewSet.create(request=request, obj_data=currency_data, user=user, session_maker=session_maker)
 
 
@@ -817,7 +818,7 @@ async def update_currency(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CurrencyResponse:
-    """Обновление валюты (только суперпользователь)."""
+    """Update a currency (superuser only)."""
     return await CurrencyViewSet.update(
         request=request,
         obj_id=code,
@@ -834,6 +835,6 @@ async def delete_currency(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Удаление валюты из справочника (только суперпользователь)."""
+    """Delete a currency from the catalog (superuser only)."""
     await CurrencyViewSet.delete(request=request, obj_id=code, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

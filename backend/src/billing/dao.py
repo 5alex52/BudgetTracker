@@ -1,4 +1,4 @@
-"""Доступ к данным биллинга."""
+"""Billing data access."""
 
 import uuid
 from datetime import datetime
@@ -18,7 +18,7 @@ from .models import SubscriptionStatus
 
 
 class PlanDAO:
-    """Справочник тарифов."""
+    """Plan catalog."""
 
     model = PlanModel
 
@@ -36,13 +36,13 @@ class PlanDAO:
 
 
 class SubscriptionDAO:
-    """Подписки пользователей."""
+    """User subscriptions."""
 
     model = PlanSubscriptionModel
 
     @classmethod
     async def find_current(cls, session: AsyncSession, user_id: uuid.UUID) -> Optional[PlanSubscriptionModel]:
-        """Последняя подписка пользователя — она и считается текущей."""
+        """Latest user subscription — considered the current one."""
         stmt = (
             select(PlanSubscriptionModel)
             .where(PlanSubscriptionModel.user_id == user_id)
@@ -68,7 +68,7 @@ class SubscriptionDAO:
 
 
 class PaymentMethodDAO:
-    """Способы оплаты."""
+    """Payment methods."""
 
     model = PaymentMethodModel
 
@@ -105,7 +105,7 @@ class PaymentMethodDAO:
 
 
 class PaymentDAO:
-    """Платежи."""
+    """Payments."""
 
     model = PaymentModel
 
@@ -137,7 +137,7 @@ class PaymentDAO:
 
     @classmethod
     async def find_by_reference(cls, session: AsyncSession, reference: str) -> Optional[PaymentModel]:
-        """Платёж по идентификатору у провайдера — так его находит вебхук."""
+        """Find payment by provider reference — how the webhook locates it."""
         stmt = select(PaymentModel).where(PaymentModel.provider_reference == reference)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()

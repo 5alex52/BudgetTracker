@@ -1,4 +1,4 @@
-"""Тесты биллинга: тарифы, подписка, способы оплаты, платежи и вебхуки."""
+"""Billing tests: plans, subscriptions, payment methods, payments, and webhooks."""
 
 import json
 
@@ -12,7 +12,7 @@ from src.billing.service import BillingService
 
 
 async def _seed_plans(session_maker) -> None:
-    """Тарифы заводятся миграцией: в тестовой базе создаём их вручную."""
+    """Plans are created by migrations: in the test database we create them manually."""
     from src.billing.models import PlanModel
     from src.billing.models import PlanPeriod
 
@@ -78,9 +78,7 @@ async def test_free_plan_does_not_create_payment(verified_user_client, session_m
     async_client, _, _ = verified_user_client
     await _seed_plans(session_maker)
 
-    response = await async_client.post(
-        "/api/billing/subscription", json={"plan_code": "free"}
-    )
+    response = await async_client.post("/api/billing/subscription", json={"plan_code": "free"})
 
     assert response.status_code == 200
     payload = response.json()
@@ -93,19 +91,15 @@ async def test_free_plan_does_not_create_payment(verified_user_client, session_m
 
 
 @pytest.mark.asyncio
-async def test_paid_plan_is_activated_by_mock_provider(
-    verified_user_client, session_maker
-):
+async def test_paid_plan_is_activated_by_mock_provider(verified_user_client, session_maker):
     async_client, _, _ = verified_user_client
     await _seed_plans(session_maker)
 
-    response = await async_client.post(
-        "/api/billing/subscription", json={"plan_code": "monthly"}
-    )
+    response = await async_client.post("/api/billing/subscription", json={"plan_code": "monthly"})
 
     assert response.status_code == 200
     payload = response.json()
-    # Мок подтверждает платёж сразу — редирект не нужен
+    # The mock confirms payment immediately — no redirect needed
     assert payload["requires_redirect"] is False
     assert payload["status"] == "succeeded"
     assert payload["provider"] == "mock"
@@ -126,24 +120,18 @@ async def test_unknown_plan_returns_404(verified_user_client, session_maker):
     async_client, _, _ = verified_user_client
     await _seed_plans(session_maker)
 
-    response = await async_client.post(
-        "/api/billing/subscription", json={"plan_code": "platinum"}
-    )
+    response = await async_client.post("/api/billing/subscription", json={"plan_code": "platinum"})
 
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_unconfigured_provider_does_not_grant_plan(
-    verified_user_client, session_maker
-):
-    """Если провайдер не настроен, подписка не активируется — иначе тариф выдаётся бесплатно."""
+async def test_unconfigured_provider_does_not_grant_plan(verified_user_client, session_maker):
+    """If the provider is not configured, the subscription is not activated — otherwise the plan would be granted for free."""
     async_client, _, _ = verified_user_client
     await _seed_plans(session_maker)
 
-    response = await async_client.post(
-        "/api/billing/subscription", json={"plan_code": "monthly", "provider": "stripe"}
-    )
+    response = await async_client.post("/api/billing/subscription", json={"plan_code": "monthly", "provider": "stripe"})
 
     assert response.status_code == 503
     subscription = await async_client.get("/api/billing/subscription")
@@ -173,9 +161,7 @@ async def test_cancel_immediately(verified_user_client, session_maker):
     await _seed_plans(session_maker)
     await async_client.post("/api/billing/subscription", json={"plan_code": "monthly"})
 
-    response = await async_client.request(
-        "DELETE", "/api/billing/subscription", params={"immediately": True}
-    )
+    response = await async_client.request("DELETE", "/api/billing/subscription", params={"immediately": True})
 
     assert response.status_code == 200
     assert response.json()["status"] == "canceled"
@@ -194,27 +180,21 @@ async def test_cancel_without_subscription_returns_404(verified_user_client):
 async def test_payment_methods_lifecycle(verified_user_client):
     async_client, _, _ = verified_user_client
 
-    created = await async_client.post(
-        "/api/billing/payment-methods", json={"kind": "card"}
-    )
+    created = await async_client.post("/api/billing/payment-methods", json={"kind": "card"})
     assert created.status_code == 201
     payload = created.json()
     assert payload["provider"] == "mock"
     assert payload["is_default"] is True
     assert payload["last4"] == "4242"
 
-    second = await async_client.post(
-        "/api/billing/payment-methods", json={"make_default": False}
-    )
+    second = await async_client.post("/api/billing/payment-methods", json={"make_default": False})
     assert second.status_code == 201
     assert second.json()["is_default"] is False
 
     listed = await async_client.get("/api/billing/payment-methods")
     assert len(listed.json()) == 2
 
-    default = await async_client.post(
-        f"/api/billing/payment-methods/{second.json()['id']}/default"
-    )
+    default = await async_client.post(f"/api/billing/payment-methods/{second.json()['id']}/default")
     assert default.json()["is_default"] is True
 
     listed = await async_client.get("/api/billing/payment-methods")
@@ -227,13 +207,11 @@ async def test_payment_methods_lifecycle(verified_user_client):
 
 
 @pytest.mark.asyncio
-async def test_payment_methods_are_isolated(
-    verified_user_client, other_user, session_maker
-):
+async def test_payment_methods_are_isolated(verified_user_client, other_user, session_maker):
     async_client, _, _ = verified_user_client
     created = await async_client.post("/api/billing/payment-methods", json={})
 
-    # Другой пользователь не может удалить чужой способ оплаты
+    # Another user cannot delete someone else's payment method
     with pytest.raises(HTTPException) as error:
         await BillingService.delete_payment_method(
             user_id=other_user.id,
@@ -245,16 +223,14 @@ async def test_payment_methods_are_isolated(
 
 @pytest.mark.asyncio
 async def test_webhook_confirms_pending_payment(verified_user_client, session_maker):
-    """Вебхук — путь реального эквайринга; мок тоже умеет его обработать."""
+    """Webhook is the real acquirer path; the mock can handle it too."""
     async_client, _, _ = verified_user_client
     await _seed_plans(session_maker)
 
-    checkout = await async_client.post(
-        "/api/billing/subscription", json={"plan_code": "monthly"}
-    )
+    checkout = await async_client.post("/api/billing/subscription", json={"plan_code": "monthly"})
     reference = checkout.json()["provider_reference"]
 
-    # Повторная обработка того же платежа не создаёт вторую подписку
+    # Re-processing the same payment does not create a second subscription
     payload = json.dumps({"provider_reference": reference}).encode()
     response = await async_client.post(
         "/api/billing/webhooks/mock",
@@ -285,10 +261,8 @@ async def test_webhook_rejects_unknown_payment(verified_user_client, session_mak
 
 
 @pytest.mark.asyncio
-async def test_real_provider_rejects_unsigned_webhook(
-    async_client: AsyncClient, session_maker
-):
-    """У реального провайдера подпись обязательна — иначе вебхук подделать тривиально."""
+async def test_real_provider_rejects_unsigned_webhook(async_client: AsyncClient, session_maker):
+    """A real provider requires a signature — otherwise the webhook is trivial to forge."""
     await _seed_plans(session_maker)
 
     payload = json.dumps({"provider_reference": "pi_123"}).encode()
@@ -302,25 +276,16 @@ async def test_real_provider_rejects_unsigned_webhook(
 
 
 @pytest.mark.asyncio
-async def test_renaming_period_extends_existing_subscription(
-    verified_user_client, session_maker
-):
-    """Повторная оплата того же тарифа продлевает период, а не заводит вторую подписку."""
+async def test_renaming_period_extends_existing_subscription(verified_user_client, session_maker):
+    """Paying again for the same plan extends the period rather than creating a second subscription."""
     async_client, _, _ = verified_user_client
     await _seed_plans(session_maker)
 
-    first = await async_client.post(
-        "/api/billing/subscription", json={"plan_code": "monthly"}
-    )
-    second = await async_client.post(
-        "/api/billing/subscription", json={"plan_code": "monthly"}
-    )
+    first = await async_client.post("/api/billing/subscription", json={"plan_code": "monthly"})
+    second = await async_client.post("/api/billing/subscription", json={"plan_code": "monthly"})
 
     assert first.json()["subscription"]["id"] == second.json()["subscription"]["id"]
-    assert (
-        second.json()["subscription"]["current_period_end"]
-        > first.json()["subscription"]["current_period_end"]
-    )
+    assert second.json()["subscription"]["current_period_end"] > first.json()["subscription"]["current_period_end"]
 
     payments = await async_client.get("/api/billing/payments")
     assert len(payments.json()) == 2

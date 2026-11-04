@@ -1,4 +1,4 @@
-"""Новые цены тарифов: 1.99 за месяц и 19.99 за год
+"""New plan prices: 1.99 per month and 19.99 per year
 
 Revision ID: a1b2c3d4e5f6
 Revises: f6a7b8c9d0e1

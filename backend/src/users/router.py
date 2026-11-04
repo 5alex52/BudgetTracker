@@ -30,7 +30,7 @@ from .schemas import UserUpdate
 from .viewsets import AuthViewSet
 from .viewsets import UserViewSet
 
-#: Провайдеры входа: клиент и адреса авторизации. Ключи — из настроек.
+#: OAuth providers: client IDs and authorization URLs. Keys come from settings.
 OAUTH_PROVIDERS = {
     "google": {
         "authorize": "https://accounts.google.com/o/oauth2/v2/auth",
@@ -121,11 +121,11 @@ async def abort_all_sessions(
 
 @auth_router.get("/oauth/{provider}")
 async def oauth_start(provider: str, request: Request):
-    """Начало входа через внешний сервис.
+    """Start sign-in via an external service.
 
-    Пока ключи не выданы, эндпоинт отвечает 503 с понятным текстом: кнопка в
-    интерфейсе остаётся, но пользователь видит причину, а не «белый экран».
-    Когда ключи появятся в настройках, редирект заработает сам.
+    Until keys are issued, the endpoint returns 503 with a clear message:
+    the button stays in the UI, but the user sees the reason instead of a
+    blank page. Once keys appear in settings, the redirect will work on its own.
     """
     from fastapi.responses import RedirectResponse
 
@@ -156,10 +156,10 @@ async def oauth_start(provider: str, request: Request):
 
 @auth_router.get("/oauth/{provider}/callback")
 async def oauth_callback(provider: str, code: Optional[str] = None):
-    """Обмен кода на профиль и вход.
+    """Exchange code for profile and sign-in.
 
-    Обработчик готов по месту: как только появятся ключи, здесь останется
-    обменять ``code`` на токен провайдера и найти/создать пользователя.
+    Handler is a placeholder: once keys are available, this will exchange
+    ``code`` for a provider token and find/create the user.
     """
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail="Unknown OAuth provider")
@@ -196,11 +196,11 @@ async def verify_email(
         try:
             device_info = get_device_info(user_agent)
         except HTTPException:
-            # Невалидный User-Agent: просто не создаём токен для авто-входа
+            # Invalid User-Agent: just skip the auto-login token
             pass
     result = await UserViewSet.verify_email(token=token, session_maker=session_maker, device_info=device_info)
     if result is not None:
-        # Устанавливаем cookies для автоматического входа
+        # Set cookies for automatic login
         response.set_cookie(
             "access_token",
             result.access_token,
@@ -234,7 +234,7 @@ async def get_me(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
-    """Текущий пользователь: кто вошёл, для шапки и страницы настроек."""
+    """Current user: who is logged in, for header and settings page."""
     return await UserViewSet.get_profile(user=user, session_maker=session_maker)
 
 
@@ -244,7 +244,7 @@ async def update_me(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
-    """Правка своего профиля: имя, почта, фото, часовой пояс, язык, базовая валюта, тема."""
+    """Edit own profile: name, email, photo, timezone, language, base currency, theme."""
     return await UserViewSet.update_profile(obj_data=user_data, user=user, session_maker=session_maker)
 
 
@@ -254,7 +254,7 @@ async def change_my_password(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Смена пароля с проверкой текущего."""
+    """Change password with current password verification."""
     await UserViewSet.change_password(obj_data=payload, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -264,7 +264,7 @@ async def export_my_data(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> UserExport:
-    """Выгрузка всех данных пользователя одним JSON — «Скачать мои данные»."""
+    """Export all user data as a single JSON — "Download my data"."""
     return await UserViewSet.export_data(user=user, session_maker=session_maker)
 
 
@@ -274,7 +274,7 @@ async def delete_my_account(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
-    """Удаление аккаунта вместе с финансовыми данными (требуется пароль)."""
+    """Delete account along with financial data (password required)."""
     await UserViewSet.delete_own_account(obj_data=payload, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

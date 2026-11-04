@@ -1,4 +1,4 @@
-"""HTTP-слой биллинга."""
+"""Billing HTTP layer."""
 
 from typing import List
 from typing import Optional
@@ -34,13 +34,13 @@ async def get_plans(
     request: Request,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[PlanResponse]:
-    """Каталог тарифов. Публичный: показывается до входа."""
+    """Plan catalog. Public: shown before login."""
     return await BillingViewSet.plans(request=request, session_maker=session_maker)
 
 
 @billing_router.get("/providers", status_code=status.HTTP_200_OK, response_model=List[ProviderInfo])
 async def get_providers(request: Request) -> List[ProviderInfo]:
-    """Доступные платёжные провайдеры и их состояние."""
+    """Available payment providers and their status."""
     return await BillingViewSet.providers(request=request)
 
 
@@ -50,7 +50,7 @@ async def get_subscription(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> SubscriptionResponse:
-    """Текущая подписка; без подписки — бесплатный тариф."""
+    """Current subscription; falls back to free plan when absent."""
     return await BillingViewSet.subscription(request=request, user=user, session_maker=session_maker)
 
 
@@ -60,7 +60,7 @@ async def get_entitlements(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Entitlements:
-    """Лимиты и премиум-возможности текущего тарифа."""
+    """Limits and premium features of the current plan."""
     return await BillingViewSet.entitlements(request=request, user=user, session_maker=session_maker)
 
 
@@ -71,10 +71,11 @@ async def change_subscription(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CheckoutSession:
-    """Оформление тарифа.
+    """Subscribe to a plan.
 
-    Мок-провайдер подтверждает платёж сразу и возвращает ``requires_redirect=False``;
-    реальный эквайринг вернёт ссылку на оплату, а подписка активируется по вебхуку.
+    The mock provider confirms the payment immediately and returns
+    ``requires_redirect=False``; a real acquirer returns a payment link,
+    and the subscription is activated via webhook.
     """
     return await BillingViewSet.change_plan(request=request, user=user, payload=payload, session_maker=session_maker)
 
@@ -83,10 +84,10 @@ async def change_subscription(
 async def cancel_subscription(
     request: Request,
     user: CurrentUser,
-    immediately: bool = Query(False, description="Отключить сразу, а не в конце периода"),
+    immediately: bool = Query(False, description="Cancel immediately instead of at the end of the period"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> SubscriptionResponse:
-    """Отмена подписки: по умолчанию действует до конца оплаченного периода."""
+    """Cancel subscription: by default remains active until the end of the paid period."""
     return await BillingViewSet.cancel(request=request, user=user, immediately=immediately, session_maker=session_maker)
 
 
@@ -100,7 +101,7 @@ async def get_payment_methods(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[PaymentMethodResponse]:
-    """Сохранённые способы оплаты."""
+    """Saved payment methods."""
     return await BillingViewSet.payment_methods(request=request, user=user, session_maker=session_maker)
 
 
@@ -115,7 +116,7 @@ async def attach_payment_method(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> PaymentMethodResponse:
-    """Привязка способа оплаты по токену провайдера."""
+    """Attach a payment method using a provider token."""
     return await BillingViewSet.attach_method(request=request, user=user, payload=payload, session_maker=session_maker)
 
 
@@ -130,7 +131,7 @@ async def set_default_payment_method(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> PaymentMethodResponse:
-    """Сделать способ оплаты основным."""
+    """Set a payment method as default."""
     return await BillingViewSet.set_default(request=request, user=user, obj_id=method_id, session_maker=session_maker)
 
 
@@ -141,7 +142,7 @@ async def delete_payment_method(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
-    """Удаление способа оплаты."""
+    """Delete a payment method."""
     await BillingViewSet.delete_method(request=request, user=user, obj_id=method_id, session_maker=session_maker)
 
 
@@ -153,7 +154,7 @@ async def get_payments(
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[PaymentResponse]:
-    """История платежей пользователя."""
+    """User payment history."""
     return await BillingViewSet.payments(
         request=request,
         user=user,
@@ -170,13 +171,13 @@ async def provider_webhook(
     signature: Optional[str] = Header(None, alias="X-Signature"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> JSONResponse:
-    """Вебхук платёжного провайдера.
+    """Payment provider webhook.
 
-    У мока подпись не проверяется, у реальных провайдеров проверяется секретом из
-    настроек. Эндпоинт существует заранее, чтобы подключение Stripe или крипто-
-    процессинга не требовало менять API.
+    The mock does not verify the signature; real providers verify it with a
+    secret from settings. The endpoint exists in advance so that connecting
+    Stripe or crypto processing does not require changing the API.
     """
-    # Тело читаем как есть: подпись считается по исходным байтам, а не по модели
+    # Read the body as-is: signature is computed over the original bytes, not the model
     payload = await request.body()
     result = await BillingService.handle_webhook(
         provider_code=provider_code,

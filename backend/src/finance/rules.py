@@ -1,9 +1,10 @@
-"""Правила авто-категоризации и их движок.
+"""Auto-categorization rules and their engine.
 
-Правило — это условие над записью (заметка или сумма) и набор действий: подменить
-категорию, повесить метку, скрыть запись из статистики. Движок применяется в двух
-местах: при создании записи (``TransactionService.create_for_user``) и по запросу
-пользователя к уже существующим записям (``POST /rules/apply``).
+A rule is a condition on a record (note or amount) and a set of actions: change
+the category, attach a tag, hide the record from statistics. The engine is
+applied in two places: when creating a record
+(``TransactionService.create_for_user``) and on the user's request to already
+existing records (``POST /rules/apply``).
 """
 
 import logging
@@ -62,10 +63,10 @@ def _not_found(detail: str = "Rule not found") -> HTTPException:
 
 
 def match_rule(rule: RuleModel, note: Optional[str], amount: float) -> bool:
-    """Проверяет условие правила.
+    """Check the rule condition.
 
-    Заметка сравнивается без учёта регистра: пользователь пишет «Пятёрочка» и
-    «пятёрочка» в одном смысле, а правило должно срабатывать на оба варианта.
+    The note is compared case-insensitively: the user writes "Store" and "store"
+    with the same meaning, and the rule must match both.
     """
     if rule.field == RuleField.NOTE:
         haystack = (note or "").lower()
@@ -74,7 +75,7 @@ def match_rule(rule: RuleModel, note: Optional[str], amount: float) -> bool:
             return needle in haystack
         if rule.operator == RuleOperator.EQUALS:
             return haystack == needle
-        # Числовые операторы к тексту не применяются
+        # Numeric operators do not apply to text
         return False
 
     try:
@@ -96,10 +97,10 @@ async def apply_rules(
     user_id: uuid.UUID,
     rules: Optional[Sequence[RuleModel]] = None,
 ) -> List[int]:
-    """Применяет активные правила к записи. Возвращает идентификаторы сработавших.
+    """Apply active rules to a record. Returns ids of the rules that matched.
 
-    Правила применяются по возрастанию приоритета, поэтому более приоритетное
-    правило может переписать решение менее приоритетного.
+    Rules are applied in ascending priority order, so a higher-priority rule can
+    override a lower-priority one.
     """
     if rules is None:
         rules = await RuleDAO.find_active_by_user(session, user_id)
@@ -109,7 +110,7 @@ async def apply_rules(
         if not match_rule(rule, transaction.note, transaction.amount):
             continue
         matched.append(rule.id)
-        # У перевода категория служебная: правило не должно подменить её на расход
+        # A transfer has a service category: a rule must not replace it with an expense
         if rule.set_category_id is not None and transaction.type != TransactionType.TRANSFER:
             transaction.category_id = rule.set_category_id
         if rule.exclude_from_statistics:
@@ -124,7 +125,7 @@ async def apply_rules(
 
 
 class RuleDAO:
-    """Доступ к правилам пользователя."""
+    """Access to user rules."""
 
     model = RuleModel
 
@@ -152,7 +153,7 @@ class RuleDAO:
 
 
 class RuleEngine:
-    """Применение правил к уже существующим записям."""
+    """Apply rules to already existing records."""
 
     @classmethod
     async def apply_to_existing(
@@ -209,7 +210,7 @@ class RuleEngine:
 
 
 class RuleService:
-    """CRUD правил и запуск движка."""
+    """Rule CRUD and running the engine."""
 
     dao = RuleDAO
 
@@ -446,7 +447,7 @@ async def list_rules(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[RuleResponse]:
-    """Правила авто-категоризации в порядке приоритета."""
+    """Auto-categorization rules in priority order."""
     return await RuleViewSet.list(request=request, user=user, session_maker=session_maker)
 
 
@@ -457,7 +458,7 @@ async def create_rule(
     payload: RuleCreate,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> RuleResponse:
-    """Новое правило; категория и метка должны принадлежать пользователю."""
+    """New rule; category and tag must belong to the user."""
     return await RuleViewSet.create(request=request, user=user, obj_data=payload, session_maker=session_maker)
 
 
@@ -465,12 +466,12 @@ async def create_rule(
 async def apply_rules_endpoint(
     request: Request,
     user: CurrentUser,
-    start_date: Optional[datetime] = Query(None, description="Начало периода применения"),
-    end_date: Optional[datetime] = Query(None, description="Конец периода применения"),
-    dry_run: bool = Query(False, description="Только показать, что изменилось бы"),
+    start_date: Optional[datetime] = Query(None, description="Start of the application period"),
+    end_date: Optional[datetime] = Query(None, description="End of the application period"),
+    dry_run: bool = Query(False, description="Only show what would change"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> RuleApplyResult:
-    """Прогоняет правила по существующим записям (например, после создания правила)."""
+    """Run rules over existing records (e.g. after creating a rule)."""
     return await RuleViewSet.apply(
         request=request,
         user=user,
@@ -488,7 +489,7 @@ async def get_rule(
     rule_id: int,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> RuleResponse:
-    """Правило по идентификатору."""
+    """Rule by ID."""
     return await RuleViewSet.retrieve(request=request, user=user, obj_id=rule_id, session_maker=session_maker)
 
 
@@ -500,7 +501,7 @@ async def update_rule(
     payload: RuleUpdate,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> RuleResponse:
-    """Изменение правила."""
+    """Update a rule."""
     return await RuleViewSet.update(
         request=request,
         user=user,
@@ -517,5 +518,5 @@ async def delete_rule(
     rule_id: int,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
-    """Удаление правила; уже применённые изменения не откатываются."""
+    """Delete a rule; already applied changes are not rolled back."""
     await RuleViewSet.delete(request=request, user=user, obj_id=rule_id, session_maker=session_maker)

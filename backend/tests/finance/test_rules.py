@@ -1,4 +1,4 @@
-"""Тесты правил авто-категоризации и движка применения."""
+"""Tests for auto-categorization rules and the apply engine."""
 
 from datetime import datetime
 
@@ -23,7 +23,7 @@ PERIOD_START = datetime(2025, 10, 1)
 
 
 class _FakeRule:
-    """Минимальная заготовка правила для проверки чистого условия."""
+    """Minimal rule stub for testing a pure condition."""
 
     def __init__(self, field, operator, value):
         self.field = field
@@ -55,11 +55,8 @@ def test_match_rule_note_operators():
     assert match_rule(contains, "ВкусВилл", 10.0) is False
     assert match_rule(equals, "Такси", 10.0) is True
     assert match_rule(equals, "Такси домой", 10.0) is False
-    # Числовые операторы к тексту не применяются
-    assert (
-        match_rule(_FakeRule(RuleField.NOTE, RuleOperator.GREATER, "5"), "что-то", 10.0)
-        is False
-    )
+    # Numeric operators do not apply to text
+    assert match_rule(_FakeRule(RuleField.NOTE, RuleOperator.GREATER, "5"), "что-то", 10.0) is False
 
 
 def test_match_rule_amount_operators():
@@ -69,19 +66,12 @@ def test_match_rule_amount_operators():
     assert match_rule(greater, "", 100.5) is True
     assert match_rule(greater, "", 99.0) is False
     assert match_rule(less, "", 99.0) is True
-    # Некорректное значение правила не срабатывает, а не падает
-    assert (
-        match_rule(
-            _FakeRule(RuleField.AMOUNT, RuleOperator.GREATER, "дорого"), "", 10.0
-        )
-        is False
-    )
+    # An invalid rule value does not fire, rather than crashing
+    assert match_rule(_FakeRule(RuleField.AMOUNT, RuleOperator.GREATER, "дорого"), "", 10.0) is False
 
 
 @pytest.mark.asyncio
-async def test_rule_sets_category_on_create(
-    user, account, expense_category, income_category, session_maker
-):
+async def test_rule_sets_category_on_create(user, account, expense_category, income_category, session_maker):
     groceries = await _category(user, session_maker, "Продукты")
     await RuleService.create_for_user(
         schema=RuleCreate(
@@ -95,9 +85,7 @@ async def test_rule_sets_category_on_create(
         session_maker=session_maker,
     )
 
-    transaction = await _tx(
-        account, expense_category, user, session_maker, note="Пятёрочка на углу"
-    )
+    transaction = await _tx(account, expense_category, user, session_maker, note="Пятёрочка на углу")
 
     assert transaction.category_id == groceries.id
 
@@ -119,17 +107,13 @@ async def test_rule_adds_tag(user, account, expense_category, session_maker):
         session_maker=session_maker,
     )
 
-    transaction = await _tx(
-        account, expense_category, user, session_maker, note="Пятёрочка"
-    )
+    transaction = await _tx(account, expense_category, user, session_maker, note="Пятёрочка")
 
     assert [item.id for item in transaction.tags] == [tag.id]
 
 
 @pytest.mark.asyncio
-async def test_rule_hides_transaction_from_statistics(
-    user, account, expense_category, session_maker
-):
+async def test_rule_hides_transaction_from_statistics(user, account, expense_category, session_maker):
     from src.analytics.service import AnalyticsService
 
     await RuleService.create_for_user(
@@ -144,9 +128,7 @@ async def test_rule_hides_transaction_from_statistics(
         session_maker=session_maker,
     )
 
-    await _tx(
-        account, expense_category, user, session_maker, amount=1000.0, note="Диван"
-    )
+    await _tx(account, expense_category, user, session_maker, amount=1000.0, note="Диван")
     await _tx(account, expense_category, user, session_maker, amount=100.0, note="Хлеб")
 
     summary = await AnalyticsService.summary(
@@ -157,10 +139,8 @@ async def test_rule_hides_transaction_from_statistics(
     )
     assert summary.expense == 100.0
 
-    # В списках запись остаётся: правило не удаляет данные
-    listed = await TransactionService.get_list_by_user(
-        user.id, session_maker=session_maker
-    )
+    # The record remains in listings: the rule does not delete data
+    listed = await TransactionService.get_list_by_user(user.id, session_maker=session_maker)
     assert len(listed) == 2
     assert [item.is_excluded for item in listed].count(True) == 1
 
@@ -181,17 +161,13 @@ async def test_inactive_rule_is_ignored(user, account, expense_category, session
         session_maker=session_maker,
     )
 
-    transaction = await _tx(
-        account, expense_category, user, session_maker, note="Пятёрочка"
-    )
+    transaction = await _tx(account, expense_category, user, session_maker, note="Пятёрочка")
 
     assert transaction.category_id == expense_category.id
 
 
 @pytest.mark.asyncio
-async def test_priority_order_decides_winner(
-    user, account, expense_category, session_maker
-):
+async def test_priority_order_decides_winner(user, account, expense_category, session_maker):
     first = await _category(user, session_maker, "Первая")
     second = await _category(user, session_maker, "Вторая")
     await RuleService.create_for_user(
@@ -219,21 +195,15 @@ async def test_priority_order_decides_winner(
         session_maker=session_maker,
     )
 
-    transaction = await _tx(
-        account, expense_category, user, session_maker, note="Магазин у дома"
-    )
+    transaction = await _tx(account, expense_category, user, session_maker, note="Магазин у дома")
 
-    # Правило с меньшим приоритетом применяется раньше, последнее слово — за ним по порядку
+    # The rule with lower priority is applied first; the last write wins in order
     assert transaction.category_id == second.id
 
 
 @pytest.mark.asyncio
-async def test_rules_apply_to_existing_transactions(
-    user, account, expense_category, session_maker
-):
-    already = await _tx(
-        account, expense_category, user, session_maker, note="Пятёрочка"
-    )
+async def test_rules_apply_to_existing_transactions(user, account, expense_category, session_maker):
+    already = await _tx(account, expense_category, user, session_maker, note="Пятёрочка")
     groceries = await _category(user, session_maker, "Продукты")
     rule = await RuleService.create_for_user(
         schema=RuleCreate(
@@ -251,19 +221,13 @@ async def test_rules_apply_to_existing_transactions(
 
     assert result.updated_transactions == 1
     assert result.matched_rules == [rule.id]
-    updated = await TransactionService.get_by_user(
-        already.id, user.id, session_maker=session_maker
-    )
+    updated = await TransactionService.get_by_user(already.id, user.id, session_maker=session_maker)
     assert updated.category_id == groceries.id
 
 
 @pytest.mark.asyncio
-async def test_dry_run_does_not_change_data(
-    user, account, expense_category, session_maker
-):
-    already = await _tx(
-        account, expense_category, user, session_maker, note="Пятёрочка"
-    )
+async def test_dry_run_does_not_change_data(user, account, expense_category, session_maker):
+    already = await _tx(account, expense_category, user, session_maker, note="Пятёрочка")
     groceries = await _category(user, session_maker, "Продукты")
     await RuleService.create_for_user(
         schema=RuleCreate(
@@ -277,15 +241,11 @@ async def test_dry_run_does_not_change_data(
         session_maker=session_maker,
     )
 
-    result = await RuleService.apply_to_existing(
-        user.id, dry_run=True, session_maker=session_maker
-    )
+    result = await RuleService.apply_to_existing(user.id, dry_run=True, session_maker=session_maker)
 
     assert result.dry_run is True
     assert result.updated_transactions == 1
-    untouched = await TransactionService.get_by_user(
-        already.id, user.id, session_maker=session_maker
-    )
+    untouched = await TransactionService.get_by_user(already.id, user.id, session_maker=session_maker)
     assert untouched.category_id == expense_category.id
 
 
@@ -298,16 +258,8 @@ async def test_rule_apply_endpoint(verified_user_client, currencies):
             json={"name": "Cash", "type": "cash", "currency_id": "USD", "balance": 0.0},
         )
     ).json()
-    expense = (
-        await client.post(
-            "/api/finance/categories/", json={"name": "Прочее", "type": "expense"}
-        )
-    ).json()
-    groceries = (
-        await client.post(
-            "/api/finance/categories/", json={"name": "Продукты", "type": "expense"}
-        )
-    ).json()
+    expense = (await client.post("/api/finance/categories/", json={"name": "Прочее", "type": "expense"})).json()
+    groceries = (await client.post("/api/finance/categories/", json={"name": "Продукты", "type": "expense"})).json()
     await client.post(
         "/api/finance/transactions/",
         json={
@@ -358,9 +310,7 @@ async def test_rule_crud_through_api(verified_user_client):
     listed = await client.get("/api/finance/rules/")
     assert [item["id"] for item in listed.json()] == [rule_id]
 
-    updated = await client.patch(
-        f"/api/finance/rules/{rule_id}", json={"is_active": False}
-    )
+    updated = await client.patch(f"/api/finance/rules/{rule_id}", json={"is_active": False})
     assert updated.json()["is_active"] is False
 
     deleted = await client.delete(f"/api/finance/rules/{rule_id}")
@@ -388,33 +338,22 @@ async def test_rule_validates_foreign_category(user, other_user, session_maker):
 
 
 @pytest.mark.asyncio
-async def test_rules_are_isolated(
-    user, other_user, account, expense_category, session_maker
-):
+async def test_rules_are_isolated(user, other_user, account, expense_category, session_maker):
     rule = await RuleService.create_for_user(
-        schema=RuleCreate(
-            name="Своё", field=RuleField.NOTE, operator=RuleOperator.CONTAINS, value="x"
-        ),
+        schema=RuleCreate(name="Своё", field=RuleField.NOTE, operator=RuleOperator.CONTAINS, value="x"),
         user_id=user.id,
         session_maker=session_maker,
     )
 
-    assert (
-        await RuleService.get_list_by_user(other_user.id, session_maker=session_maker)
-        == []
-    )
+    assert await RuleService.get_list_by_user(other_user.id, session_maker=session_maker) == []
     with pytest.raises(HTTPException) as error:
-        await RuleService.get_by_user(
-            rule.id, other_user.id, session_maker=session_maker
-        )
+        await RuleService.get_by_user(rule.id, other_user.id, session_maker=session_maker)
     assert error.value.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_engine_counts_only_changed_transactions(
-    user, account, expense_category, session_maker
-):
-    """Записи без совпадений не считаются изменёнными."""
+async def test_engine_counts_only_changed_transactions(user, account, expense_category, session_maker):
+    """Records without matches are not counted as changed."""
     await _tx(account, expense_category, user, session_maker, note="ВкусВилл")
     await RuleService.create_for_user(
         schema=RuleCreate(
@@ -440,12 +379,8 @@ async def test_rules_endpoints_require_authentication(async_client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_update_rule_keeps_links(
-    user, other_user, account, expense_category, session_maker
-):
-    tag = await TagService.create_for_user(
-        schema=TagCreate(name="Метка"), user_id=user.id, session_maker=session_maker
-    )
+async def test_update_rule_keeps_links(user, other_user, account, expense_category, session_maker):
+    tag = await TagService.create_for_user(schema=TagCreate(name="Метка"), user_id=user.id, session_maker=session_maker)
     rule = await RuleService.create_for_user(
         schema=RuleCreate(
             name="С меткой",
@@ -458,9 +393,7 @@ async def test_update_rule_keeps_links(
         session_maker=session_maker,
     )
 
-    updated = await RuleService.update_for_user(
-        rule.id, RuleUpdate(priority=5), user.id, session_maker=session_maker
-    )
+    updated = await RuleService.update_for_user(rule.id, RuleUpdate(priority=5), user.id, session_maker=session_maker)
 
     assert updated.priority == 5
     assert updated.tag_name == "Метка"

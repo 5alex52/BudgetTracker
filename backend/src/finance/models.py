@@ -53,7 +53,7 @@ class AccountModel(Base):
     currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), index=True, nullable=False)
     balance: Mapped[float] = mapped_column(sa.Float, default=0.0, nullable=False)
     is_archived: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
-    #: Исключён из статистики: счёт живёт, операции видны, но не участвует в итогах и графиках
+    #: Excluded from statistics: account lives on, operations are visible, but it does not affect totals or charts
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
@@ -105,7 +105,7 @@ class TransactionModel(Base):
         nullable=False,
     )
     category_id: Mapped[int] = mapped_column(sa.Integer, sa.ForeignKey("categories.id"), index=True, nullable=False)
-    #: Счёт-получатель перевода (только для type=transfer)
+    #: Destination account for a transfer (only for type=transfer)
     transfer_account_id: Mapped[Optional[int]] = mapped_column(
         sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True
     )
@@ -118,7 +118,7 @@ class TransactionModel(Base):
     date: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False, index=True)
     note: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
     is_subscription: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
-    #: Скрыта из статистики правилом авто-категоризации (сама запись остаётся в списках)
+    #: Hidden from statistics by an auto-categorization rule (the record itself stays in lists)
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     receipt_url: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
@@ -175,7 +175,7 @@ class SubscriptionModel(Base):
     transaction: Mapped["TransactionModel"] = relationship("TransactionModel", back_populates="subscription")
 
 
-#: Метки и записи связаны многие-ко-многим: одна покупка может попасть в несколько подборок
+#: Tags and records are related many-to-many: one purchase may appear in several collections
 transaction_tags = sa.Table(
     "transaction_tags",
     Base.metadata,
@@ -195,7 +195,7 @@ transaction_tags = sa.Table(
 
 
 class TagModel(Base):
-    """Метка пользователя: «отпуск», «ремонт», «работа»."""
+    """User tag: "vacation", "renovation", "work"."""
 
     __tablename__ = "tags"
     __table_args__ = (sa.UniqueConstraint("user_id", "name", name="uq_tags_user_name"),)
@@ -215,7 +215,7 @@ class TagModel(Base):
     )
 
 
-#: Метки шаблона: при применении шаблона они вешаются на созданную запись
+#: Template tags: when the template is applied, these are attached to the created record
 template_tags = sa.Table(
     "template_tags",
     Base.metadata,
@@ -235,7 +235,7 @@ template_tags = sa.Table(
 
 
 class TemplateModel(Base):
-    """Шаблон быстрого ввода: заготовка записи, из которой создаётся транзакция."""
+    """Quick-entry template: a pre-set record that creates a transaction."""
 
     __tablename__ = "templates"
 
@@ -256,7 +256,7 @@ class TemplateModel(Base):
     category_id: Mapped[int] = mapped_column(sa.Integer, sa.ForeignKey("categories.id"), nullable=False)
     note: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
     icon: Mapped[str] = mapped_column(sa.String(255), default="bolt", nullable=False)
-    #: Сколько раз шаблон применяли — фронтенд сортирует по популярности
+    #: How many times the template was used — the frontend sorts by popularity
     usage_count: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
@@ -266,7 +266,7 @@ class TemplateModel(Base):
 
 
 class RuleModel(Base):
-    """Правило авто-категоризации: условие над записью и действия при совпадении."""
+    """Auto-categorization rule: a condition on a record and actions on match."""
 
     __tablename__ = "rules"
 
@@ -276,7 +276,7 @@ class RuleModel(Base):
     )
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
-    #: Меньше — раньше; правила применяются по возрастанию приоритета
+    #: Lower is earlier; rules are applied in ascending priority order
     priority: Mapped[int] = mapped_column(sa.Integer, default=100, nullable=False)
     field: Mapped[RuleField] = mapped_column(
         sa.Enum(RuleField, name="rule_field", values_callable=_enum_values),
@@ -301,7 +301,7 @@ class RuleModel(Base):
 
 
 class UserCurrencyRateModel(Base):
-    """Личный курс пользователя: переопределяет курс справочника для его расчётов."""
+    """Personal user rate: overrides the catalog rate for their calculations."""
 
     __tablename__ = "user_currency_rates"
     __table_args__ = (sa.UniqueConstraint("user_id", "code", name="uq_user_currency_rates_user_code"),)

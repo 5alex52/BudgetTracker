@@ -131,9 +131,14 @@ export function DashboardPage() {
     [cashflowSeries.data, locale],
   )
   const segments = useMemo(
-    () => (expenseStructure.data ? toDonutSegments(expenseStructure.data.items, 5) : []),
+    () => (expenseStructure.data ? toDonutSegments(expenseStructure.data.items, 6) : []),
     [expenseStructure.data],
   )
+  const expenseItems = useMemo(
+    () => (expenseStructure.data ? expenseStructure.data.items : []),
+    [expenseStructure.data],
+  )
+  const expenseTotal = expenseStructure.data?.total ?? 0
 
   const totals = summary.data
   const change = summary.data?.change
@@ -472,34 +477,83 @@ export function DashboardPage() {
         </Card>
 
         {/* Структура расходов */}
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader title={t('dashboard.expenseStructure')} subtitle={rangeLabel} />
           {segments.length > 0 ? (
-            <div className="mt-3 flex items-center gap-4">
-              <DonutChart
-                segments={segments}
-                ariaLabel={t('dashboard.expenseStructure')}
-                center={
-                  <span className="flex flex-col items-center">
-                    <Amount value={-(totals?.expense ?? 0)} size="sm" tone="negative" />
-                  </span>
-                }
-                size={132}
-                thickness={14}
-              />
-              <ul className="min-w-0 flex-1 space-y-1.5">
-                {segments.map((item) => (
-                  <li key={item.name} className="flex items-center gap-2 text-caption">
-                    <span
-                      className="size-2 shrink-0 rounded-pill"
-                      style={{ backgroundColor: item.color }}
-                      aria-hidden="true"
-                    />
-                    <span className="truncate text-fg-secondary">{item.name}</span>
-                    <Amount value={-item.value} size="xs" tone="neutral" className="ml-auto" />
-                  </li>
-                ))}
-              </ul>
+            <div className="mt-3 space-y-4">
+              <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+                <DonutChart
+                  segments={segments}
+                  ariaLabel={t('dashboard.expenseStructure')}
+                  center={
+                    <span className="flex flex-col items-center">
+                      <Amount value={-expenseTotal} size="sm" tone="negative" />
+                      <span className="text-overline text-fg-tertiary">
+                        {expenseItems.length} {t('dashboard.categories')}
+                      </span>
+                    </span>
+                  }
+                  size={160}
+                  thickness={16}
+                />
+                <ul className="min-w-0 flex-1 space-y-1.5">
+                  {segments.map((item) => {
+                    const raw = expenseItems.find((e) => e.name === item.name)
+                    const pct = expenseTotal > 0 ? (item.value / expenseTotal) * 100 : 0
+                    return (
+                      <li key={item.name} className="flex items-center gap-2 text-caption">
+                        <span
+                          className="size-2 shrink-0 rounded-pill"
+                          style={{ backgroundColor: item.color }}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-fg-secondary">{item.name}</span>
+                        {raw && (
+                          <span className="shrink-0 text-fg-tertiary">
+                            {raw.transactions_count} {t('dashboard.tx')}
+                          </span>
+                        )}
+                        <span className="shrink-0 text-fg-tertiary">{pct.toFixed(0)}%</span>
+                        <Amount value={-item.value} size="xs" tone="neutral" />
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+              {expenseItems.length > 6 && (
+                <div className="space-y-2 border-t border-stroke-subtle pt-3">
+                  <p className="text-overline uppercase text-fg-tertiary">{t('dashboard.otherCategories')}</p>
+                  {expenseItems.slice(6).map((item) => {
+                    const pct = expenseTotal > 0 ? (Math.abs(item.total) / expenseTotal) * 100 : 0
+                    return (
+                      <div key={item.category_id} className="space-y-1">
+                        <div className="flex items-center gap-2 text-caption">
+                          <span
+                            className="size-2 shrink-0 rounded-pill"
+                            style={{ backgroundColor: item.color || undefined }}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1 truncate text-fg-secondary">{item.name}</span>
+                          <span className="shrink-0 text-fg-tertiary">
+                            {item.transactions_count} {t('dashboard.tx')}
+                          </span>
+                          <span className="shrink-0 text-fg-tertiary">{pct.toFixed(0)}%</span>
+                          <Amount value={-Math.abs(item.total)} size="xs" tone="neutral" />
+                        </div>
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-surface-2">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              backgroundColor: item.color || undefined,
+                              width: `${pct}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             <p className="mt-3 text-caption text-fg-tertiary">

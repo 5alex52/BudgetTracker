@@ -1,10 +1,10 @@
-"""Сервис биллинга: тарифы, подписка, способы оплаты и платежи.
+"""Billing service: plans, subscription, payment methods and payments.
 
-Списание денег делегируется провайдеру (``src/billing/providers``): сервис создаёт
-платёж, просит сессию оплаты и активирует подписку только после подтверждения.
-Сейчас по умолчанию подключён мок, который подтверждает платёж сразу, поэтому
-API возвращает ``requires_redirect=False``; реальный эквайринг вернёт ссылку на
-оплату, а подтверждение придёт вебхуком.
+Money charging is delegated to a provider (``src/billing/providers``): the service
+creates a payment, requests a checkout session and activates the subscription only
+after confirmation. Currently a mock is connected by default, which confirms the
+payment immediately, so the API returns ``requires_redirect=False``; a real
+acquirer would return a payment link, and the confirmation would arrive via webhook.
 """
 
 import logging
@@ -47,10 +47,10 @@ from .schemas import SubscriptionResponse
 
 logger = logging.getLogger(__name__)
 
-#: Тариф по умолчанию для всех, кто ещё ничего не оплачивал
+#: Default plan for everyone who hasn't paid yet
 FREE_PLAN_CODE = "free"
 
-#: Сколько счетов можно вести на бесплатном тарифе
+#: How many accounts are available on the free plan
 FREE_MAX_ACCOUNTS = 2
 
 
@@ -65,7 +65,7 @@ def _resolve_session_maker(
 
 
 def _period_end(plan: PlanModel, start: datetime) -> Optional[datetime]:
-    """Когда заканчивается оплаченный период тарифа."""
+    """When the paid billing period ends."""
     if plan.period == PlanPeriod.MONTH:
         return start + timedelta(days=30)
     if plan.period == PlanPeriod.YEAR:
@@ -74,18 +74,19 @@ def _period_end(plan: PlanModel, start: datetime) -> Optional[datetime]:
 
 
 class BillingService:
-    """Операции биллинга в разрезе пользователя."""
+    """Billing operations scoped to a user."""
 
     # ------------------------------------------------------------------ #
-    #  Тарифы и провайдеры
+    #  Plans and providers
     # ------------------------------------------------------------------ #
 
     @classmethod
     async def get_plans(cls, session_maker: Optional[async_sessionmaker] = None) -> List[PlanResponse]:
-        """Каталог тарифов.
+        """Plan catalog.
 
-        Меняется редко, а спрашивается на каждой странице оплаты — держим в Redis
-        пять минут. Кеш необязателен: без Redis ответ просто считается заново.
+        Rarely changes but requested on every payment page — cached in Redis
+        for five minutes. Cache is optional: without Redis the response is
+        simply recomputed.
         """
         from src.cache import Cache
 
@@ -107,7 +108,7 @@ class BillingService:
 
     @classmethod
     def get_providers(cls) -> List[ProviderInfo]:
-        """Список провайдеров: фронтенд показывает доступные способы оплаты."""
+        """List of providers: frontend shows available payment methods."""
         default_code = (settings.BILLING_PROVIDER or "mock").lower()
         return [
             ProviderInfo(
@@ -122,14 +123,14 @@ class BillingService:
         ]
 
     # ------------------------------------------------------------------ #
-    #  Подписка
+    #  Subscription
     # ------------------------------------------------------------------ #
 
     @classmethod
     async def get_subscription(
         cls, user_id: uuid.UUID, session_maker: Optional[async_sessionmaker] = None
     ) -> SubscriptionResponse:
-        """Текущая подписка; если её нет — бесплатный тариф."""
+        """Current subscription; falls back to free plan when absent."""
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             subscription = await SubscriptionDAO.find_current(session, user_id)
@@ -145,10 +146,10 @@ class BillingService:
     async def get_entitlements(
         cls, user_id: uuid.UUID, session_maker: Optional[async_sessionmaker] = None
     ) -> Entitlements:
-        """Права пользователя по тарифу — один ответ и для лимитов, и для UI.
+        """User entitlements by plan — one response for both limits and UI.
 
-        Просроченная или отменённая подписка не даёт премиум-возможностей:
-        пользователь откатывается к бесплатному тарифу, но данные остаются.
+        An expired or canceled subscription grants no premium features:
+        the user rolls back to the free plan, but data is preserved.
         """
         subscription = await cls.get_subscription(user_id, session_maker=session_maker)
         now = datetime.utcnow()
@@ -209,10 +210,10 @@ class BillingService:
         request: SubscriptionChangeRequest,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> CheckoutSession:
-        """Оформление тарифа: создаёт платёж, спрашивает провайдера и активирует подписку.
+        """Subscribe to a plan: creates a payment, asks the provider and activates the subscription.
 
-        Порядок важен: подписка становится активной только после подтверждения
-        платежа, иначе пользователь получил бы тариф без оплаты.
+        Order matters: the subscription becomes active only after the payment
+        is confirmed, otherwise the user would get the plan without paying.
         """
         maker = _resolve_session_maker(session_maker)
         provider = get_provider(request.provider)
@@ -223,7 +224,7 @@ class BillingService:
                 raise _not_found("Plan not found")
 
             if plan.period == PlanPeriod.NONE:
-                # Бесплатный тариф не оплачивается: просто фиксируем подписку
+                # Free plan requires no payment: just record the subscription
                 subscription = PlanSubscriptionModel(
                     user_id=user_id,
                     plan_code=plan.code,
@@ -263,8 +264,8 @@ class BillingService:
                     return_url=request.return_url or settings.BILLING_RETURN_URL,
                 )
             except NotImplementedError as error:
-                # Провайдер выбран, но не настроен: честно говорим об этом,
-                # а не выдаём пользователю подписку без оплаты
+                # Provider is selected but not configured: be honest about it
+                # instead of granting a subscription without payment
                 logger.warning("Payment provider %s is not configured: %s", provider.code, error)
                 await PaymentDAO.mark(session, payment, PaymentStatus.FAILED, "Provider not configured")
                 await session.commit()
@@ -276,7 +277,7 @@ class BillingService:
             await session.commit()
 
             if checkout.requires_redirect:
-                # Реальный эквайринг: ждём вебхук, подписку пока не активируем
+                # Real acquirer: wait for webhook, don't activate subscription yet
                 return CheckoutSession(
                     payment_id=payment.id,
                     status=payment.status,
@@ -320,7 +321,7 @@ class BillingService:
         provider: PaymentProvider,
         payment: PaymentModel,
     ) -> PlanSubscriptionModel:
-        """Продлевает текущую подписку или заводит новую."""
+        """Renews the current subscription or creates a new one."""
         current = await SubscriptionDAO.find_current(session, user_id)
         now = datetime.now()
         if current is not None and current.plan_code == plan.code and current.status == SubscriptionStatus.ACTIVE:
@@ -353,7 +354,7 @@ class BillingService:
         immediately: bool = False,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> SubscriptionResponse:
-        """Отмена подписки: по умолчанию — до конца оплаченного периода."""
+        """Cancel subscription: by default until the end of the paid period."""
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             subscription = await SubscriptionDAO.find_current(session, user_id)
@@ -369,7 +370,7 @@ class BillingService:
             return cls._subscription_response(subscription)
 
     # ------------------------------------------------------------------ #
-    #  Способы оплаты
+    #  Payment methods
     # ------------------------------------------------------------------ #
 
     @classmethod
@@ -391,9 +392,10 @@ class BillingService:
         make_default: bool = True,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> PaymentMethodResponse:
-        """Привязывает способ оплаты через провайдера.
+        """Attach a payment method via the provider.
 
-        Номер карты и CVC сюда не попадают: токен выдаёт провайдер на своей форме.
+        Card number and CVC never reach here: the token is issued by the
+        provider on its own form.
         """
         maker = _resolve_session_maker(session_maker)
         provider = get_provider(provider_code)
@@ -457,7 +459,7 @@ class BillingService:
         return PaymentMethodResponse.model_validate(method)
 
     # ------------------------------------------------------------------ #
-    #  Платежи
+    #  Payments
     # ------------------------------------------------------------------ #
 
     @classmethod
@@ -481,11 +483,11 @@ class BillingService:
         signature: Optional[str],
         session_maker: Optional[async_sessionmaker] = None,
     ) -> PaymentStatus:
-        """Обработка вебхука провайдера: подтверждает платёж и активирует подписку.
+        """Handle provider webhook: confirms the payment and activates the subscription.
 
-        Этот путь используется реальным эквайрингом; мок его не требует, но
-        эндпоинт существует и покрыт тестом, чтобы подключение провайдера не
-        потребовало менять API.
+        This path is used by a real acquirer; the mock does not require it, but
+        the endpoint exists and is covered by a test so that connecting a provider
+        does not require changing the API.
         """
         provider = get_provider(provider_code)
         if not provider.verify_webhook(payload, signature):

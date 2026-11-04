@@ -13,7 +13,7 @@ coverage.xml
 report.html
 junit.xml
 
-# локальные конфиги и артефакты IDE
+# local IDE configs and artifacts
 .env
 .env.*
 !.env.example

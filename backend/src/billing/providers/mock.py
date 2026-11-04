@@ -1,9 +1,9 @@
-"""Мок-провайдер: подтверждает любой платёж.
+"""Mock provider: approves any payment.
 
-Нужен, чтобы биллинг можно было пройти целиком без реального эквайринга:
-сессия оплаты создаётся, платёж подтверждается сразу, подписка активируется.
-Для боевого режима достаточно указать ``BILLING_PROVIDER=stripe`` (или другого
-провайдера) — код сервиса и API при этом не меняются.
+Exists so that the billing flow can be completed end-to-end without real acquiring:
+a checkout session is created, the payment is confirmed immediately, and the subscription
+is activated. For production, just set ``BILLING_PROVIDER=stripe`` (or another provider) —
+the service and API code stay the same.
 """
 
 import uuid
@@ -16,7 +16,7 @@ from .base import PaymentResult
 
 
 class MockPaymentProvider(PaymentProvider):
-    """Всегда положительное решение по оплате."""
+    """Always-approve payment decision."""
 
     code = "mock"
     title = "Тестовая оплата (мок)"
@@ -26,7 +26,7 @@ class MockPaymentProvider(PaymentProvider):
     async def create_checkout(
         self, *, user_id, amount: float, currency: str, plan_code: str, return_url: str
     ) -> CheckoutSession:
-        # Ссылки на оплату нет: платёж считается подтверждённым сразу
+        # No payment link: payment is considered confirmed immediately
         return CheckoutSession(
             provider_reference=f"mock_{uuid.uuid4().hex[:16]}",
             checkout_url=None,
@@ -63,6 +63,6 @@ class MockPaymentProvider(PaymentProvider):
         )
 
     def verify_webhook(self, payload: bytes, signature=None) -> bool:
-        # У мока нет секрета: вебхуки от него принимаются всегда, но и ущерба нет —
-        # провайдер всё равно подтверждает любой платёж
+        # Mock has no secret: its webhooks are always accepted, but there is no harm either —
+        # the provider approves any payment anyway
         return True

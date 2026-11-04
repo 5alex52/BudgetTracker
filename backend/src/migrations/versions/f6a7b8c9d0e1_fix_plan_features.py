@@ -1,8 +1,8 @@
-"""Починка features у тарифов: массив вместо JSON-строки
+"""Fix plan features: array instead of JSON string
 
-Предыдущая миграция записала список возможностей сериализованной строкой.
-Колонка `json` хранила строку, а не массив, из-за чего ответ `/billing/plans`
-падал на валидации схемы. Здесь строка разворачивается в настоящий JSON-массив.
+The previous migration stored the features list as a serialized string.
+The `json` column held a string, not an array, causing `/billing/plans`
+to fail schema validation. Here the string is expanded into a real JSON array.
 
 Revision ID: f6a7b8c9d0e1
 Revises: e5f6a7b8c9d0
@@ -19,19 +19,13 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Строка JSON → массив: `#>> '{}'` достаёт текст, приведение даёт json
+    # JSON string → array: `#>> '{}'` extracts the text, cast yields json
     op.execute(
-        sa.text(
-            "UPDATE plans SET features = (features #>> '{}')::json "
-            "WHERE json_typeof(features) = 'string'"
-        )
+        sa.text("UPDATE plans SET features = (features #>> '{}')::json " "WHERE json_typeof(features) = 'string'")
     )
 
 
 def downgrade() -> None:
     op.execute(
-        sa.text(
-            "UPDATE plans SET features = to_json(features::text)::json "
-            "WHERE json_typeof(features) = 'array'"
-        )
+        sa.text("UPDATE plans SET features = to_json(features::text)::json " "WHERE json_typeof(features) = 'array'")
     )

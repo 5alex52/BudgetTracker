@@ -1,0 +1,66 @@
+---
+# Application deployment role
+
+- name: Clone or update repository
+  ansible.builtin.git:
+    repo: "https://github.com/yourorg/budgettracker.git"
+    dest: "{{ app_dir }}"
+    version: "{{ deploy_version | default('main') }}"
+    force: yes
+  become_user: "{{ app_user }}"
+  register: git_clone
+
+- name: Copy environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0600'
+  notify: restart application
+
+- name: Create PostgreSQL data directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}/data/postgres"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+
+- name: Create Redis data directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}/data/redis"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+
+- name: Build Docker images
+  ansible.builtin.command:
+    cmd: docker-compose build
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+  when: git_clone.changed
+  notify: restart application
+
+- name: Start application with Docker Compose
+  ansible.builtin.command:
+    cmd: docker-compose up -d
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+  register: docker_up
+  changed_when: "'Started' in docker_up.stdout"
+
+- name: Wait for application to be ready
+  ansible.builtin.wait_for:
+    port: "{{ backend_port }}"
+    host: localhost
+    delay: 5
+    timeout: 60
+
+- name: Apply database migrations
+  ansible.builtin.command:
+    cmd: docker-compose exec -T backend alembic upgrade head
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+  when: git_clone.changed

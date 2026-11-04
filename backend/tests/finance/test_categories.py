@@ -34,8 +34,8 @@ async def test_list_categories_filtered_by_type(user, expense_category, income_c
         user.id, category_type=CategoryType.INCOME, session_maker=session_maker
     )
 
-    # При регистрации сервис создаёт набор категорий по умолчанию, поэтому
-    # проверяем фильтр по типу, а не точный список.
+    # On registration the service creates a set of default categories, so
+    # we check the type filter rather than the exact list.
     assert expense_category.id in [category.id for category in expenses]
     assert income_category.id in [category.id for category in incomes]
     assert all(category.type == CategoryType.EXPENSE for category in expenses)

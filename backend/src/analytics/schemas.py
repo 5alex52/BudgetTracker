@@ -1,6 +1,6 @@
-"""Схемы аналитики: агрегаты «Обзора» и «Аналитики».
+"""Analytics schemas: aggregates for Overview and Analytics.
 
-Модели данных живут в finance — здесь только представления ответов.
+Data models live in finance — here we only have response representations.
 """
 
 from datetime import datetime
@@ -14,7 +14,7 @@ from src.finance.schemas import CategoryType
 
 
 class PeriodTotals(BaseModel):
-    """Итоги за период в базовой валюте."""
+    """Period totals in the base currency."""
 
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -25,7 +25,7 @@ class PeriodTotals(BaseModel):
 
 
 class PeriodChange(BaseModel):
-    """Изменение в процентах к предыдущему периоду."""
+    """Percentage change compared to the previous period."""
 
     income: Optional[float] = None
     expense: Optional[float] = None
@@ -33,14 +33,14 @@ class PeriodChange(BaseModel):
 
 
 class AnalyticsSummary(PeriodTotals):
-    """Итоги периода плюс сравнение с предыдущим таким же периодом."""
+    """Period totals plus comparison to the previous period of the same length."""
 
     previous: Optional[PeriodTotals] = None
     change: Optional[PeriodChange] = None
 
 
 class SeriesPoint(BaseModel):
-    """Точка графика денежного потока."""
+    """Cash flow chart point."""
 
     date: datetime
     income: float = 0.0
@@ -49,7 +49,7 @@ class SeriesPoint(BaseModel):
 
 
 class BalancePoint(BaseModel):
-    """Точка графика остатка: сколько всего денег на конец интервала."""
+    """Balance chart point: total amount of money at the end of the interval."""
 
     date: datetime
     value: float
@@ -62,7 +62,7 @@ class TimeseriesResponse(BaseModel):
 
 
 class CategoryShare(BaseModel):
-    """Доля категории в расходах/доходах за период."""
+    """Category share in expenses/income for the period."""
 
     category_id: int
     name: str
@@ -81,7 +81,7 @@ class CategoryShareResponse(BaseModel):
 
 
 class AccountShare(BaseModel):
-    """Обороты счёта за период."""
+    """Account turnover for the period."""
 
     account_id: int
     name: str
@@ -98,7 +98,7 @@ class AccountShareResponse(BaseModel):
 
 
 class MatrixRow(BaseModel):
-    """Строка отчёта «категории × месяцы»."""
+    """Row of the "categories × months" report."""
 
     category_id: int
     name: str

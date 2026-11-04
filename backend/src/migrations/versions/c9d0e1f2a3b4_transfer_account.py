@@ -4,9 +4,9 @@ Revision ID: c9d0e1f2a3b4
 Revises: a1b2c3d4e5f6
 Create Date: 2026-11-04 00:00:00.000000
 
-Перевод между счетами хранится одной записью: ``account_id`` — источник,
-``transfer_account_id`` — получатель. Отдельная транзакция на получателя не
-создаётся, поэтому аналитика продолжает исключать переводы по типу.
+A transfer between accounts is stored as a single record: ``account_id`` is the source,
+``transfer_account_id`` is the destination. A separate transaction for the recipient is
+not created, so analytics continues to exclude transfers by type.
 """
 
 import sqlalchemy as sa

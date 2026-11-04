@@ -1,0 +1,30 @@
+---
+# Automated backup role
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ backup_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+
+- name: Deploy backup script
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: /usr/local/bin/backup-budgettracker.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Setup backup cron job
+  ansible.builtin.cron:
+    name: "BudgetTracker daily backup"
+    job: "/usr/local/bin/backup-budgettracker.sh"
+    minute: "{{ backup_minute }}"
+    hour: "{{ backup_hour }}"
+    user: root
+
+- name: Display backup configuration
+  ansible.builtin.debug:
+    msg: "Backup configured: daily at {{ backup_hour }}:{{ backup_minute }}, retention {{ backup_retention_days }} days"

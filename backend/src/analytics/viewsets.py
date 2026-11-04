@@ -1,4 +1,4 @@
-"""ViewSet аналитики: только чтение, поэтому без CRUD-методов базового класса."""
+"""Analytics ViewSet: read-only, so no CRUD methods from the base class."""
 
 from datetime import datetime
 from typing import Optional
@@ -20,7 +20,7 @@ from .service import AnalyticsService
 
 
 class AnalyticsViewSet:
-    """Сводные показатели: не CRUD над одной таблицей, а выборки поверх записей."""
+    """Summary metrics: not CRUD over a single table, but queries over transaction records."""
 
     permission = AnalyticsPermission
     service = AnalyticsService

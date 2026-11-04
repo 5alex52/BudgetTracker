@@ -1,0 +1,50 @@
+#!/bin/bash
+# BudgetTracker automated backup script
+
+set -e
+
+BACKUP_DIR="{{ backup_dir }}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+RETENTION_DAYS={{ backup_retention_days }}
+
+# Create backup directory if it doesn't exist
+mkdir -p $BACKUP_DIR
+
+echo "Starting backup at $(date)"
+
+# PostgreSQL backup
+echo "Backing up PostgreSQL database..."
+cd {{ app_dir }}
+docker-compose exec -T db pg_dump -U {{ postgres_user }} {{ postgres_db }} | \
+    gzip > $BACKUP_DIR/db_$TIMESTAMP.sql.gz
+
+if [ $? -eq 0 ]; then
+    echo "PostgreSQL backup successful: db_$TIMESTAMP.sql.gz"
+else
+    echo "PostgreSQL backup failed!"
+    exit 1
+fi
+
+# Redis backup (if persistence enabled)
+if [ -f "{{ app_dir }}/data/redis/dump.rdb" ]; then
+    echo "Backing up Redis data..."
+    docker-compose exec -T redis redis-cli BGSAVE
+    sleep 2
+    cp {{ app_dir }}/data/redis/dump.rdb $BACKUP_DIR/redis_$TIMESTAMP.rdb
+    echo "Redis backup successful: redis_$TIMESTAMP.rdb"
+fi
+
+# Backup environment file
+echo "Backing up environment file..."
+cp {{ app_dir }}/.env $BACKUP_DIR/env_$TIMESTAMP
+echo "Environment backup successful"
+
+# Cleanup old backups
+echo "Cleaning up backups older than $RETENTION_DAYS days..."
+find $BACKUP_DIR -name "*.gz" -mtime +$RETENTION_DAYS -delete
+find $BACKUP_DIR -name "*.rdb" -mtime +$RETENTION_DAYS -delete
+find $BACKUP_DIR -name "env_*" -mtime +$RETENTION_DAYS -delete
+
+echo "Backup completed successfully at $(date)"
+echo "Backup location: $BACKUP_DIR"
+ls -lh $BACKUP_DIR/*_$TIMESTAMP* 2>/dev/null || true

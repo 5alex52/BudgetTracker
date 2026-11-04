@@ -1,4 +1,4 @@
-"""Модели биллинга: тарифы, подписки, способы оплаты и платежи."""
+"""Billing models: plans, subscriptions, payment methods and payments."""
 
 import uuid
 from datetime import datetime
@@ -23,7 +23,7 @@ def _enum_values(enum_cls) -> List[str]:
 
 
 class PlanPeriod(str, Enum):
-    """За какой срок списывается цена тарифа."""
+    """The billing period for which the plan price is charged."""
 
     NONE = "none"
     MONTH = "month"
@@ -31,7 +31,7 @@ class PlanPeriod(str, Enum):
 
 
 class SubscriptionStatus(str, Enum):
-    """Состояние подписки на тариф."""
+    """Subscription status."""
 
     ACTIVE = "active"
     PAST_DUE = "past_due"
@@ -40,7 +40,7 @@ class SubscriptionStatus(str, Enum):
 
 
 class PaymentStatus(str, Enum):
-    """Состояние платежа."""
+    """Payment status."""
 
     PENDING = "pending"
     SUCCEEDED = "succeeded"
@@ -49,14 +49,14 @@ class PaymentStatus(str, Enum):
 
 
 class PaymentKind(str, Enum):
-    """За что платёж."""
+    """What the payment is for."""
 
     SUBSCRIPTION = "subscription"
     METHOD_ATTACH = "method_attach"
 
 
 class PaymentMethodKind(str, Enum):
-    """Чем платит пользователь."""
+    """How the user pays."""
 
     CARD = "card"
     CRYPTO = "crypto"
@@ -64,7 +64,7 @@ class PaymentMethodKind(str, Enum):
 
 
 class PlanModel(Base):
-    """Тариф: цена, период списания и список возможностей."""
+    """Plan: price, billing period and feature list."""
 
     __tablename__ = "plans"
 
@@ -78,10 +78,10 @@ class PlanModel(Base):
         default=PlanPeriod.NONE,
         nullable=False,
     )
-    #: Список возможностей тарифа в человекочитаемом виде (JSON-массив строк)
+    #: List of plan features in human-readable form (JSON array of strings)
     features: Mapped[list] = mapped_column(sa.JSON, default=list, nullable=False)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
-    #: Порядок вывода на экране «Тарифы»
+    #: Display order on the Plans screen
     sort_order: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
@@ -90,7 +90,7 @@ class PlanModel(Base):
 
 
 class PlanSubscriptionModel(Base):
-    """Подписка пользователя на тариф."""
+    """User subscription to a plan."""
 
     __tablename__ = "plan_subscriptions"
 
@@ -106,9 +106,9 @@ class PlanSubscriptionModel(Base):
     )
     started_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now(), nullable=False)
     current_period_end: Mapped[Optional[datetime]] = mapped_column(sa.DateTime, nullable=True)
-    #: Пользователь отменил продление, но период ещё не закончился
+    #: User canceled renewal but the period has not ended yet
     cancel_at_period_end: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
-    #: Как оплачено: код провайдера (mock, stripe, crypto)
+    #: How it was paid: provider code (mock, stripe, crypto)
     provider: Mapped[str] = mapped_column(sa.String(32), default="mock", nullable=False)
     provider_reference: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
@@ -119,7 +119,7 @@ class PlanSubscriptionModel(Base):
 
 
 class PaymentMethodModel(Base):
-    """Сохранённый способ оплаты: карта, крипто-кошелёк или банковский перевод."""
+    """Saved payment method: card, crypto wallet or bank transfer."""
 
     __tablename__ = "payment_methods"
 
@@ -136,7 +136,7 @@ class PaymentMethodModel(Base):
     brand: Mapped[Optional[str]] = mapped_column(sa.String(32), nullable=True)
     last4: Mapped[Optional[str]] = mapped_column(sa.String(4), nullable=True)
     is_default: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
-    #: Идентификатор способа оплаты на стороне провайдера
+    #: Payment method identifier on the provider side
     provider_reference: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
 
@@ -144,7 +144,7 @@ class PaymentMethodModel(Base):
 
 
 class PaymentModel(Base):
-    """Платёж (счёт): создаётся до подтверждения провайдером."""
+    """Payment (invoice): created before provider confirmation."""
 
     __tablename__ = "payments"
 
@@ -171,7 +171,7 @@ class PaymentModel(Base):
         nullable=False,
     )
     provider: Mapped[str] = mapped_column(sa.String(32), nullable=False)
-    #: Идентификатор платежа у провайдера — по нему приходит вебхук
+    #: Payment identifier at the provider — how the webhook finds it
     provider_reference: Mapped[Optional[str]] = mapped_column(sa.String(255), index=True, nullable=True)
     failure_reason: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())

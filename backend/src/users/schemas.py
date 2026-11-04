@@ -41,10 +41,11 @@ class UserUpdate(UserBase):
 
 
 class UserProfileUpdate(BaseModel):
-    """Правка собственного профиля из «Настроек».
+    """Edit own profile from Settings.
 
-    Привилегии здесь намеренно отсутствуют: `is_superuser`, `is_active` и `is_verified`
-    меняются не через профиль, иначе пользователь мог бы выдать себе права.
+    Privileges are intentionally absent here: `is_superuser`, `is_active`, and
+    `is_verified` are not changed through the profile, otherwise the user could
+    grant themselves elevated rights.
     """
 
     firstname: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -80,20 +81,20 @@ class UserProfileUpdate(BaseModel):
 
 
 class PasswordChange(BaseModel):
-    """Смена пароля: требуется текущий пароль."""
+    """Change password: current password is required."""
 
     old_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
 class AccountDeleteConfirmation(BaseModel):
-    """Подтверждение удаления аккаунта паролем."""
+    """Confirm account deletion with a password."""
 
     password: str = Field(..., min_length=1)
 
 
 class UserExport(BaseModel):
-    """Архив данных пользователя для «Скачать мои данные»."""
+    """User data archive for "Download my data"."""
 
     user: "User"
     exported_at: datetime
@@ -108,7 +109,7 @@ class User(UserBase):
     id: uuid.UUID
     fullname: str
     email: str
-    #: Telegram привязывается не у всех: регистрация по почте его не заполняет
+    #: Not all users have Telegram linked: email registration doesn't fill it in
     telegram_id: Optional[int] = None
     is_active: bool
     is_verified: bool

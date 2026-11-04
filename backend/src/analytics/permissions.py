@@ -8,16 +8,16 @@ from src.permissions import BasePermission
 
 
 class AnalyticsPermission(BasePermission):
-    """Права доступа к аналитике.
+    """Analytics access permissions.
 
-    Аналитика строится по личным финансовым данным, поэтому все методы требуют
-    аутентификации: публичных отчётов в сервисе нет.
+    Analytics is built on personal financial data, so all methods require
+    authentication: there are no public reports in the service.
     """
 
-    #: Публичных действий нет — даже справочные отчёты считаются по данным пользователя
+    #: No public actions — even reference reports are calculated from user data
     PUBLIC_ACTIONS: Set[str] = set()
 
-    #: Действия для суперпользователя: не нужны, агрегаты всегда по своему user_id
+    #: Superuser actions: not needed, aggregates are always scoped to the user's own user_id
     SUPERUSER_ACTIONS: Set[str] = set()
 
     async def __call__(self, current_user: Optional[Any] = None, **kwargs) -> None:

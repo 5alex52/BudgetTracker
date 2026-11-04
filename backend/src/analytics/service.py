@@ -1,4 +1,4 @@
-"""Сервис аналитики: собирает агрегаты из DAO в ответы API."""
+"""Analytics service: assembles aggregates from DAO into API responses."""
 
 import logging
 
@@ -43,23 +43,23 @@ def _resolve_session_maker(
 
 
 class AnalyticsService:
-    """Агрегаты для «Обзора» и «Аналитики».
+    """Aggregates for the Overview and Analytics pages.
 
-    Класс не привязан к одной таблице, поэтому наследуется напрямую от ``object``:
-    viewset вызывает сервис, сервис ходит в DAO — та же связка слоёв, что и в
-    остальных приложениях, только без CRUD.
+    The class is not tied to a single table, so it inherits directly from ``object``:
+    the viewset calls the service, the service goes to the DAO — the same layer
+    pattern as in other apps, just without CRUD.
     """
 
     @staticmethod
     def _percent(now: float, before: float) -> Optional[float]:
-        """Изменение в процентах; ``None``, если сравнивать не с чем."""
+        """Percentage change; ``None`` if there is nothing to compare with."""
         if before == 0:
             return None
         return round((now - before) / abs(before) * 100, 2)
 
     @classmethod
     def _previous_period(cls, start_date: datetime, end_date: datetime) -> tuple:
-        """Предыдущий период той же длины, вплотную к текущему."""
+        """Previous period of the same length, immediately adjacent to the current one."""
         length = end_date - start_date
         previous_end = start_date - timedelta(microseconds=1)
         previous_start = previous_end - length
@@ -81,10 +81,11 @@ class AnalyticsService:
         compare: bool = True,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> AnalyticsSummary:
-        """Итоги периода с минутным кешем.
+        """Period totals with a one-minute cache.
 
-        «Обзор» перерисовывается часто, а цифры меняются только после записи,
-        поэтому ответ живёт в Redis и сбрасывается при любой операции с записями.
+        The Overview page redraws frequently, but the numbers only change after a
+        write, so the response lives in Redis and is invalidated on any transaction
+        operation.
         """
         start_date, end_date = normalize_period(start_date, end_date)
         key = Cache.make_key(
@@ -111,7 +112,7 @@ class AnalyticsService:
         compare: bool,
         session_maker: Optional[async_sessionmaker],
     ) -> AnalyticsSummary:
-        """Расчёт итогов без кеша."""
+        """Calculate period totals without cache."""
         start_date, end_date = normalize_period(start_date, end_date)
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
@@ -120,7 +121,7 @@ class AnalyticsService:
 
             previous = None
             change = None
-            # Сравнивать можно только когда период задан явно: иначе непонятно, с чем
+            # Comparison only makes sense when the period is explicit: otherwise there's nothing to compare with
             if compare and start_date is not None and end_date is not None:
                 previous_start, previous_end = cls._previous_period(start_date, end_date)
                 previous_rows = await AnalyticsDAO.totals_by_type(
@@ -154,7 +155,7 @@ class AnalyticsService:
 
     @classmethod
     def _bucket_bounds(cls, group_by: str, start_date: datetime, end_date: datetime) -> List[datetime]:
-        """Границы интервалов между началом и концом периода."""
+        """Bucket boundaries between the start and end of the period."""
         step = {"day": timedelta(days=1), "week": timedelta(weeks=1), "month": None}[group_by]
         bounds: List[datetime] = []
         cursor = start_date
@@ -176,7 +177,7 @@ class AnalyticsService:
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> TimeseriesResponse:
-        """Точки графика с минутным кешем: графики не должны ходить в БД каждый раз."""
+        """Chart points with a one-minute cache: charts shouldn't hit the DB every time."""
         start_date, end_date = normalize_period(start_date, end_date)
         key = Cache.make_key(
             "analytics:timeseries",
@@ -204,7 +205,7 @@ class AnalyticsService:
         end_date: Optional[datetime],
         session_maker: Optional[async_sessionmaker],
     ) -> TimeseriesResponse:
-        """Расчёт точек графика без кеша."""
+        """Calculate chart points without cache."""
         if group_by not in AnalyticsDAO.GROUP_BY_OPTIONS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -217,7 +218,7 @@ class AnalyticsService:
             )
         start_date, end_date = normalize_period(start_date, end_date)
         if start_date is None or end_date is None:
-            # Период по умолчанию — последние 30 дней: график без границ не построить
+            # Default period is the last 30 days: a chart can't be built without boundaries
             end_date = end_date or datetime.now()
             start_date = start_date or (end_date - timedelta(days=30))
 
@@ -235,8 +236,8 @@ class AnalyticsService:
                 if row.type == TransactionType.INCOME:
                     point.income = round(float(row.total), 2)
                 else:
-                    # Расход отдаём положительным числом: знак — дело отрисовки графика,
-                    # а в API все суммы сравнимы между собой (как в summary)
+                    # Expense returned as positive number: sign is a rendering concern,
+                    # and in the API all amounts are comparable to each other (as in summary)
                     point.expense = round(float(row.total), 2)
             for point in points.values():
                 point.net = round(point.income - point.expense, 2)
@@ -246,7 +247,7 @@ class AnalyticsService:
 
     @classmethod
     async def _balance_series(cls, session, user_id, group_by, start_date, end_date) -> TimeseriesResponse:
-        """Остаток на конец интервала: текущий баланс минус всё, что случилось позже."""
+        """Balance at the end of the interval: current balance minus everything that happened after."""
         current_total = await AnalyticsDAO.total_balance_base(session, user_id)
         rows = await AnalyticsDAO.balances_by_bucket(session, user_id, group_by, start_date, end_date)
         after = await AnalyticsDAO.signed_total_after(session, user_id, end_date)
@@ -274,7 +275,7 @@ class AnalyticsService:
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> CategoryShareResponse:
-        """Доли категорий за период с минутным кешем."""
+        """Category shares for the period with a one-minute cache."""
         start_date, end_date = normalize_period(start_date, end_date)
         key = Cache.make_key(
             "analytics:by-category",
@@ -315,7 +316,7 @@ class AnalyticsService:
         end_date: Optional[datetime],
         session_maker: Optional[async_sessionmaker],
     ) -> CategoryShareResponse:
-        """Расчёт долей категорий без кеша."""
+        """Calculate category shares without cache."""
         start_date, end_date = normalize_period(start_date, end_date)
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
@@ -376,7 +377,7 @@ class AnalyticsService:
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> AccountShareResponse:
-        """Обороты по счетам за период."""
+        """Account turnover for the period."""
         start_date, end_date = normalize_period(start_date, end_date)
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
@@ -405,7 +406,7 @@ class AnalyticsService:
         end_date: Optional[datetime] = None,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> MatrixResponse:
-        """Отчёт «категории × месяцы» для страницы «Аналитика»."""
+        """Categories × months report for the Analytics page."""
         if months < 1 or months > 36:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

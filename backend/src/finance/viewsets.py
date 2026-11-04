@@ -563,7 +563,7 @@ class CurrencyViewSet(BaseViewSet[str, CurrencyCreate, CurrencyUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[CurrencyRate]:
-        """Курсы справочника; для вошедшего пользователя — с учётом личных курсов."""
+        """Catalog rates; for an authenticated user — with personal rates applied."""
         return await cls.service.get_rates(base=base, user_id=getattr(user, "id", None), session_maker=session_maker)
 
     @classmethod

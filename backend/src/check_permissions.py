@@ -9,7 +9,7 @@ from src.permissions import BasePermission
 
 
 def check_permissions(action: str):
-    """Декоратор для проверки прав доступа"""
+    """Decorator for checking access permissions"""
 
     def decorator(func: Callable):
         async def wrapper(

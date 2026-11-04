@@ -1,9 +1,9 @@
-"""Метки записей: вертикальный срез приложения finance.
+"""Transaction tags: vertical slice of the finance app.
 
-Метки — часть финансового домена, поэтому живут в приложении ``finance``, но
-отдельным модулем: слой модели/схемы остаётся общим (``models.py``, ``schemas.py``),
-а DAO → сервис → viewset → роутер для меток собраны здесь, чтобы не раздувать
-общие файлы слоёв.
+Tags belong to the finance domain, so they live inside the ``finance`` app but
+in a separate module: the model/schema layer stays shared (``models.py``,
+``schemas.py``), while the DAO → service → viewset → router for tags are
+collected here to keep the shared layer files from growing too large.
 """
 
 import logging
@@ -58,13 +58,13 @@ def _not_found(detail: str = "Tag not found") -> HTTPException:
 
 
 class TagDAO:
-    """Доступ к меткам и их связи с записями."""
+    """Access to tags and their association with transactions."""
 
     model = TagModel
 
     @classmethod
     async def find_all_by_user(cls, session: AsyncSession, user_id: uuid.UUID) -> List:
-        """Метки пользователя со счётчиком записей, отсортированные по популярности."""
+        """User's tags with transaction count, sorted by popularity."""
         stmt = (
             select(
                 TagModel,
@@ -88,7 +88,7 @@ class TagDAO:
     async def find_many_by_ids(
         cls, session: AsyncSession, tag_ids: Sequence[int], user_id: uuid.UUID
     ) -> List[TagModel]:
-        """Метки пользователя по списку идентификаторов — чужие молча отбрасываются."""
+        """User's tags by a list of IDs — foreign ones are silently dropped."""
         if not tag_ids:
             return []
         stmt = select(TagModel).where(TagModel.id.in_(list(tag_ids)), TagModel.user_id == user_id)
@@ -113,7 +113,7 @@ class TagDAO:
 
 
 async def load_tags(session: AsyncSession, transaction: TransactionModel) -> List[TagModel]:
-    """Подтягивает метки записи: без этого ответ сериализуется без них."""
+    """Load tags for a transaction: without this the response is serialized without them."""
     stmt = (
         select(TransactionModel)
         .where(TransactionModel.id == transaction.id)
@@ -125,7 +125,7 @@ async def load_tags(session: AsyncSession, transaction: TransactionModel) -> Lis
 
 
 async def ensure_tags_owned(session: AsyncSession, tag_ids: Sequence[int], user_id: uuid.UUID) -> List[TagModel]:
-    """Проверяет, что все метки принадлежат пользователю."""
+    """Verify that all tags belong to the user."""
     if not tag_ids:
         return []
     tags = await TagDAO.find_many_by_ids(session, tag_ids, user_id)
@@ -135,10 +135,11 @@ async def ensure_tags_owned(session: AsyncSession, tag_ids: Sequence[int], user_
 
 
 async def tag_ids_of(session: AsyncSession, transaction_id: int) -> List[int]:
-    """Идентификаторы меток записи.
+    """Transaction tag identifiers.
 
-    Отдельным запросом, а не через связь ORM: обращение к ``transaction.tags`` в
-    async-сессии при неподгруженной связи требует IO и падает вне greenlet.
+    Fetched via a separate query rather than through the ORM relationship:
+    accessing ``transaction.tags`` in an async session with an unloaded
+    relationship requires IO and fails outside a greenlet.
     """
     stmt = select(transaction_tags.c.tag_id).where(transaction_tags.c.transaction_id == transaction_id)
     result = await session.execute(stmt)
@@ -146,7 +147,7 @@ async def tag_ids_of(session: AsyncSession, transaction_id: int) -> List[int]:
 
 
 async def attach_tags(session: AsyncSession, transaction_id: int, tag_ids: Sequence[int]) -> None:
-    """Перевешивает метки записи на новый набор (пустой список — снять все)."""
+    """Reassign transaction tags to a new set (empty list — remove all)."""
     await session.execute(delete(transaction_tags).where(transaction_tags.c.transaction_id == transaction_id))
     if tag_ids:
         await session.execute(
@@ -156,7 +157,7 @@ async def attach_tags(session: AsyncSession, transaction_id: int, tag_ids: Seque
 
 
 class TagService:
-    """Операции с метками; всегда в разрезе пользователя."""
+    """Tag operations; always scoped to a single user."""
 
     dao = TagDAO
 
@@ -315,7 +316,7 @@ async def list_tags(
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[TagResponse]:
-    """Метки пользователя со счётчиком записей."""
+    """User's tags with transaction count."""
     return await TagViewSet.list(request=request, user=user, session_maker=session_maker)
 
 
@@ -326,7 +327,7 @@ async def create_tag(
     payload: TagCreate,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TagModel:
-    """Новая метка; имя уникально в пределах пользователя."""
+    """Create a new tag; name is unique per user."""
     return await TagViewSet.create(request=request, user=user, obj_data=payload, session_maker=session_maker)
 
 
@@ -337,7 +338,7 @@ async def get_tag(
     tag_id: int,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TagModel:
-    """Метка по идентификатору."""
+    """Tag by ID."""
     return await TagViewSet.retrieve(request=request, user=user, obj_id=tag_id, session_maker=session_maker)
 
 
@@ -349,7 +350,7 @@ async def update_tag(
     payload: TagUpdate,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TagModel:
-    """Переименование метки или смена цвета."""
+    """Rename a tag or change its color."""
     return await TagViewSet.update(
         request=request,
         user=user,
@@ -366,5 +367,5 @@ async def delete_tag(
     tag_id: int,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
-    """Удаление метки; связи с записями уходят каскадом, сами записи остаются."""
+    """Delete a tag; relations with transactions cascade, transactions themselves are kept."""
     await TagViewSet.delete(request=request, user=user, obj_id=tag_id, session_maker=session_maker)

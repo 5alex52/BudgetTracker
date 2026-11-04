@@ -1,4 +1,4 @@
-"""Тесты личных курсов валют."""
+"""Tests for personal currency rates."""
 
 import pytest
 from fastapi import HTTPException
@@ -15,7 +15,7 @@ async def test_user_rate_overrides_catalog_rate(user, currencies, session_maker,
     rates = await CurrencyService.get_rates(base="USD", user_id=user.id, session_maker=session_maker)
     by_code = {rate.code: rate for rate in rates}
 
-    # 1 USD = 1 / 2.0 EUR вместо справочных 1 / 1.1
+    # 1 USD = 1 / 2.0 EUR instead of the catalog 1 / 1.1
     assert by_code["EUR"].rate == pytest.approx(0.5)
     assert by_code["EUR"].is_custom is True
     assert by_code["USD"].is_custom is False
@@ -116,7 +116,7 @@ async def test_reset_without_override_returns_404(verified_user_client, currenci
 
 @pytest.mark.asyncio
 async def test_rates_endpoint_is_public_without_personal_rates(async_client: AsyncClient, currencies):
-    """Справочник курсов не является личными данными: без сессии отдаём его же."""
+    """The currency catalog is not personal data: we return it even without a session."""
     del currencies
 
     response = await async_client.get("/api/finance/currencies/rates", params={"base": "USD"})

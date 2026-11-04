@@ -441,8 +441,13 @@ export function AdminPage() {
                     >
                       {user.is_premium ? user.plan_name : t('admin.free')}
                     </span>
-                    {user.is_premium && user.current_period_end && (
-                      <span className="text-caption text-fg-tertiary">
+                    {user.current_period_end && (
+                      <span
+                        className={cn(
+                          'text-caption',
+                          user.is_premium ? 'text-fg-tertiary' : 'text-fg-tertiary opacity-70',
+                        )}
+                      >
                         {t('admin.until')} {formatDate(user.current_period_end, locale)}
                       </span>
                     )}
