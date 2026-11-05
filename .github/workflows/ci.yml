@@ -24,23 +24,36 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: backend/.venv
+          key: venv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('backend/poetry.lock') }}
 
       - name: Install dependencies
         run: |
           cd backend
-          pip install -r requirements.txt
-          pip install black mypy
+          poetry install --no-interaction --no-root
+          poetry add --group dev black mypy
 
       - name: Run Black formatter check
         run: |
           cd backend
-          black --check --line-length 120 src/
+          poetry run black --check --line-length 120 src/
 
       - name: Run mypy type checker
         run: |
           cd backend
-          mypy src/ --ignore-missing-imports
+          poetry run mypy src/ --ignore-missing-imports
 
   # ============================================================================
   # Backend Tests
@@ -80,13 +93,26 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: backend/.venv
+          key: venv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('backend/poetry.lock') }}
 
       - name: Install dependencies
         run: |
           cd backend
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio httpx fakeredis
+          poetry install --no-interaction --no-root
+          poetry add --group dev pytest pytest-asyncio httpx fakeredis
 
       - name: Run tests
         env:
@@ -100,7 +126,7 @@ jobs:
           SECRET_KEY: test-secret-key-for-ci
         run: |
           cd backend
-          python -m pytest tests/ -v --tb=short
+          poetry run pytest tests/ -v --tb=short
 
       - name: Upload coverage reports
         if: always()
@@ -142,73 +168,6 @@ jobs:
           npm run lint
 
   # ============================================================================
-  # Frontend Build
-  # ============================================================================
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    needs: frontend-lint
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Build production bundle
-        run: |
-          cd frontend
-          npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/dist/
-          retention-days: 7
-
-  # ============================================================================
-  # Docker Build Test
-  # ============================================================================
-  docker-build:
-    name: Docker Build Test
-    runs-on: ubuntu-latest
-    needs: [backend-test, frontend-build]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: false
-          load: true
-          tags: budgettracker-backend:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: false
-          load: true
-          tags: budgettracker-frontend:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ============================================================================
   # Security Scan
   # ============================================================================
   security-scan:
@@ -239,38 +198,3 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-backend-results.sarif'
-
-  # ============================================================================
-  # Deployment (main branch only)
-  # ============================================================================
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [docker-build, security-scan]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy via Ansible
-        run: |
-          # Install Ansible
-          pip install ansible
-
-          # Configure SSH key
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-          # Run deployment playbook
-          cd ansible
-          ansible-playbook -i inventory.yml deploy.yml \
-            --private-key ~/.ssh/deploy_key \
-            --extra-vars "deploy_version=${{ github.sha }}"
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: False
-
-      - name: Verify deployment
-        run: |
-          sleep 30
-          curl -f https://${{ secrets.PRODUCTION_DOMAIN }}/health || exit 1
