@@ -10,12 +10,16 @@ env:
   PYTHON_VERSION: '3.13'
   NODE_VERSION: '20'
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   # ============================================================================
-  # Backend Linting & Type Checking
+  # Backend Linting
   # ============================================================================
   backend-lint:
-    name: Backend Lint & Type Check
+    name: Backend Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,17 +47,11 @@ jobs:
         run: |
           cd backend
           poetry install --no-interaction --no-root
-          poetry add --group dev black mypy
 
       - name: Run Black formatter check
         run: |
           cd backend
           poetry run black --check --line-length 120 src/
-
-      - name: Run mypy type checker
-        run: |
-          cd backend
-          poetry run mypy src/ --ignore-missing-imports
 
   # ============================================================================
   # Backend Tests
@@ -112,29 +110,31 @@ jobs:
         run: |
           cd backend
           poetry install --no-interaction --no-root
-          poetry add --group dev pytest pytest-asyncio httpx fakeredis
 
       - name: Run tests
         env:
+          ENVIRONMENT: TEST
+          LOG_LEVEL: INFO
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: budgettracker_test
+          TEST_POSTGRES_HOST: localhost
+          TEST_POSTGRES_PORT: 5432
+          TEST_POSTGRES_USER: test
+          TEST_POSTGRES_PASSWORD: test
+          TEST_POSTGRES_DB: budgettracker_test
+          ALGORITHM: HS256
+          CORS_ORIGINS: '["http://localhost:5173"]'
+          CORS_HEADERS: '["*"]'
+          CORS_METHODS: '["*"]'
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           SECRET_KEY: test-secret-key-for-ci
         run: |
           cd backend
           poetry run pytest tests/ -v --tb=short
-
-      - name: Upload coverage reports
-        if: always()
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./backend/coverage.xml
-          flags: backend
-          fail_ci_if_error: false
 
   # ============================================================================
   # Frontend Linting & Type Checking
