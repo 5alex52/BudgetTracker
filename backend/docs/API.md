@@ -65,6 +65,7 @@
 | Создать / изменить / удалить | `POST`, `PATCH`, `DELETE` | ✅ |
 | Массовое удаление выбранных | `POST /api/finance/transactions/bulk-delete` | ➕ |
 | Экспорт CSV / JSON за период | `GET /api/finance/transactions/export` | ➕ |
+| Импорт записей из файла выгрузки | `POST /api/finance/transactions/import` | ➕ |
 | Сводка по категориям за период | `GET /api/finance/transactions/summary` | ✅ |
 
 Карточка записи отдаёт `TransactionWithDetails` — с названием и цветом категории, именем счёта и
@@ -155,6 +156,11 @@ GET    /api/finance/transactions?account_ids=1&account_ids=2&category_ids=&curre
 POST   /api/finance/transactions/bulk-delete              → {deleted: int, missing: [int]}
                                                           тело: {"ids": [1, 2, 3]}
 GET    /api/finance/transactions/export?format=csv|json&… → файл (до 5000 записей)
+POST   /api/finance/transactions/import                   → {created, accounts_created,
+                                                          categories_created, skipped, errors[]}
+                                                          тело: {"format": "csv|json", "content": "<файл>"}
+                                                          отсутствует счёт/категория — создаются
+                                                          переводы пропускаются (в выгрузке нет счёта-получателя)
 ```
 
 ### Аналитика (отдельное приложение, префикс `/api/analytics`)
@@ -380,7 +386,7 @@ POST   /api/finance/rules/apply?start_date&end_date&dry_run=false → RuleApplyR
 
 ```
 $ ENVIRONMENT=TEST pytest tests -q
-169 passed
+173 passed
 ```
 
 | Набор | Тестов | Что проверяет |
@@ -421,7 +427,7 @@ $ ENVIRONMENT=TEST pytest tests -q
 | `/` (Обзор) | `GET /api/finance/accounts/`, `GET /api/analytics/summary`, `GET /api/analytics/timeseries` (balance и cashflow), `GET /api/analytics/by-category` |
 | `/accounts` | `GET /api/finance/accounts/`, `POST`, `PATCH /{id}`, `DELETE /{id}` |
 | `/accounts/{id}` | `GET /api/finance/accounts/`, `GET /api/analytics/by-account`, `GET /api/analytics/timeseries?metric=balance`, `GET /api/finance/transactions/?account_ids=…`, `POST /transactions/bulk-delete` (удаление дубликатов) |
-| `/records` | `GET /api/finance/transactions/` (фильтры, сортировка, `X-Total-Count`), `POST`, `PATCH`, `DELETE`, `POST /transactions/bulk-delete`, `GET /transactions/export?format=csv\|json` |
+| `/records` | `GET /api/finance/transactions/` (фильтры, сортировка, `X-Total-Count`), `POST`, `PATCH`, `DELETE`, `POST /transactions/bulk-delete`, `GET /transactions/export?format=csv\|json`, `POST /transactions/import` |
 | `/analytics` | `GET /api/analytics/matrix`, `/summary`, `/timeseries`, `/by-category`, `/by-account` |
 | `/settings` | `GET`/`PATCH /api/users/me`, `GET /api/finance/currencies/rates` |
 | `/settings/currencies` | `GET /api/finance/currencies/rates`, `PUT`/`DELETE /api/finance/currencies/{code}/rate` |
