@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { useAuthStore } from '@/store/auth'
@@ -28,6 +28,7 @@ export function RegisterPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const signIn = useAuthStore((state) => state.signIn)
+  const status = useAuthStore((state) => state.status)
 
   const [firstname, setFirstname] = useState('')
   const [lastname, setLastname] = useState('')
@@ -74,6 +75,11 @@ export function RegisterPage() {
     } finally {
       setPending(false)
     }
+  }
+
+  /* Уже вошёл? Форма регистрации не нужна: сразу на главный экран. */
+  if (status === 'authenticated') {
+    return <Navigate to="/" replace />
   }
 
   return (
