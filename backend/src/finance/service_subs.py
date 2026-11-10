@@ -333,8 +333,15 @@ class ServiceSubService:
             key = row.date.strftime("%Y-%m")
             amount = convert_amount(row.amount, rates.get(row.currency_id, base_rate), base_rate)
             totals[key] = round(totals.get(key, 0.0) + amount, 2)
-        points = [ServiceSubMonthTotal(month=key, total=value) for key, value in sorted(totals.items())]
-        return points[-months:]
+        # Zero-filled trailing months so the chart always has a continuous axis.
+        now = datetime.now()
+        base = now.year * 12 + (now.month - 1)
+        points = []
+        for index in range(months):
+            absolute = base - (months - 1) + index
+            key = f"{absolute // 12:04d}-{absolute % 12 + 1:02d}"
+            points.append(ServiceSubMonthTotal(month=key, total=totals.get(key, 0.0)))
+        return points
 
 
 @service_subs_router.get("", status_code=status.HTTP_200_OK, response_model=ServiceSubList)
