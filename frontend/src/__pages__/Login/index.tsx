@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { useAuthStore } from '@/store/auth'
@@ -33,6 +33,7 @@ export function LoginPage() {
   const redirectTo = useRedirectTarget()
   const { toast } = useToast()
   const signIn = useAuthStore((state) => state.signIn)
+  const status = useAuthStore((state) => state.status)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -69,6 +70,12 @@ export function LoginPage() {
     } finally {
       setPending(false)
     }
+  }
+
+  /* Уже вошёл? Форма входа не нужна: отправляем на запрошенный экран
+     (обычно главный). SessionGate к этому моменту уже проверил сессию. */
+  if (status === 'authenticated') {
+    return <Navigate to={redirectTo} replace />
   }
 
   return (
