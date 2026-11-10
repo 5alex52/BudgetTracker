@@ -45,7 +45,9 @@ def upgrade() -> None:
         sa.Column("code", sa.String(length=3), nullable=False),
         sa.Column("rate", sa.Float(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(["code"], ["currencies.code"], name=op.f("user_currency_rates_code_fkey")),
+        sa.ForeignKeyConstraint(
+            ["code"], ["currencies.code"], name=op.f("user_currency_rates_code_fkey")
+        ),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -55,7 +57,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("user_currency_rates_pkey")),
         sa.UniqueConstraint("user_id", "code", name="uq_user_currency_rates_user_code"),
     )
-    op.create_index(op.f("user_currency_rates_id_idx"), "user_currency_rates", ["id"], unique=False)
+    op.create_index(
+        op.f("user_currency_rates_id_idx"), "user_currency_rates", ["id"], unique=False
+    )
     op.create_index(
         op.f("user_currency_rates_user_id_idx"),
         "user_currency_rates",
@@ -70,7 +74,9 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.Column("priority", sa.Integer(), nullable=False),
-        sa.Column("field", sa.Enum("note", "amount", name="rule_field"), nullable=False),
+        sa.Column(
+            "field", sa.Enum("note", "amount", name="rule_field"), nullable=False
+        ),
         sa.Column(
             "operator",
             sa.Enum("contains", "equals", "greater", "less", name="rule_operator"),
@@ -138,7 +144,9 @@ def upgrade() -> None:
             name=op.f("templates_account_id_fkey"),
             ondelete="CASCADE",
         ),
-        sa.ForeignKeyConstraint(["category_id"], ["categories.id"], name=op.f("templates_category_id_fkey")),
+        sa.ForeignKeyConstraint(
+            ["category_id"], ["categories.id"], name=op.f("templates_category_id_fkey")
+        ),
         sa.ForeignKeyConstraint(
             ["currency_id"],
             ["currencies.code"],
@@ -153,7 +161,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("templates_pkey")),
     )
     op.create_index(op.f("templates_id_idx"), "templates", ["id"], unique=False)
-    op.create_index(op.f("templates_user_id_idx"), "templates", ["user_id"], unique=False)
+    op.create_index(
+        op.f("templates_user_id_idx"), "templates", ["user_id"], unique=False
+    )
 
     op.create_table(
         "template_tags",
@@ -171,7 +181,9 @@ def upgrade() -> None:
             name=op.f("template_tags_template_id_fkey"),
             ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint("template_id", "tag_id", name=op.f("template_tags_pkey")),
+        sa.PrimaryKeyConstraint(
+            "template_id", "tag_id", name=op.f("template_tags_pkey")
+        ),
     )
 
     op.create_table(
@@ -190,13 +202,17 @@ def upgrade() -> None:
             name=op.f("transaction_tags_transaction_id_fkey"),
             ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint("transaction_id", "tag_id", name=op.f("transaction_tags_pkey")),
+        sa.PrimaryKeyConstraint(
+            "transaction_id", "tag_id", name=op.f("transaction_tags_pkey")
+        ),
     )
 
     # server_default is required: the table already has rows, and adding a NOT NULL column without a default would fail
     op.add_column(
         "transactions",
-        sa.Column("is_excluded", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column(
+            "is_excluded", sa.Boolean(), nullable=False, server_default=sa.text("false")
+        ),
     )
 
 
@@ -210,7 +226,9 @@ def downgrade() -> None:
     op.drop_index(op.f("rules_user_id_idx"), table_name="rules")
     op.drop_index(op.f("rules_id_idx"), table_name="rules")
     op.drop_table("rules")
-    op.drop_index(op.f("user_currency_rates_user_id_idx"), table_name="user_currency_rates")
+    op.drop_index(
+        op.f("user_currency_rates_user_id_idx"), table_name="user_currency_rates"
+    )
     op.drop_index(op.f("user_currency_rates_id_idx"), table_name="user_currency_rates")
     op.drop_table("user_currency_rates")
     op.drop_index(op.f("tags_user_id_idx"), table_name="tags")

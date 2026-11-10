@@ -47,7 +47,9 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
     VERIFICATION_TOKEN_EXPIRE = 24 * 60 * 60
 
     @classmethod
-    async def create(cls, schema: UserCreate, base_url: str, session_maker: async_sessionmaker) -> UserModel:
+    async def create(
+        cls, schema: UserCreate, base_url: str, session_maker: async_sessionmaker
+    ) -> UserModel:
         schema.password = get_password_hash(schema.password)
         new_user = await super().create(schema, session_maker)
         # Standard set of categories: the user gets a familiar expense/income
@@ -56,19 +58,27 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         # cause a circular import at module level.
         from src.finance.service import CategoryService
 
-        await CategoryService.create_defaults_for_user(new_user.id, session_maker=session_maker)
+        await CategoryService.create_defaults_for_user(
+            new_user.id, session_maker=session_maker
+        )
         await cls.send_verification_email(new_user.email, base_url, session_maker)
         # Local environment without Redis: nowhere to send the email, and without
         # confirmation the user won't reach their own data. Mark the address as verified.
-        if settings.ENVIRONMENT == "LOCAL" and not getattr(cls, "verification_redis", None):
+        if settings.ENVIRONMENT == "LOCAL" and not getattr(
+            cls, "verification_redis", None
+        ):
             async with session_maker() as session:
-                await cls.dao.update(session, UserModel.id == new_user.id, obj_in={"is_verified": True})
+                await cls.dao.update(
+                    session, UserModel.id == new_user.id, obj_in={"is_verified": True}
+                )
                 await session.commit()
         # Re-read the user to get computed fields (fullname) and defaults
         return await cls.get(new_user.id, session_maker)
 
     @classmethod
-    async def get_by_email(cls, email: str, session_maker: async_sessionmaker = None) -> Optional[UserModel]:
+    async def get_by_email(
+        cls, email: str, session_maker: async_sessionmaker = None
+    ) -> Optional[UserModel]:
         """Returns a user by email or None"""
         if session_maker is None:
             session_maker = default_session_maker
@@ -101,13 +111,19 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         return token
 
     @classmethod
-    async def send_verification_email(cls, user_email: str, base_url: str, session_maker: async_sessionmaker) -> dict:
+    async def send_verification_email(
+        cls, user_email: str, base_url: str, session_maker: async_sessionmaker
+    ) -> dict:
         """Sends email with verification link"""
         user = await cls.get_by_email(user_email, session_maker)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
         if user.is_verified:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already verified")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="User already verified"
+            )
 
         token = await cls._create_verification_token(user.id)
         if token is None:
@@ -144,7 +160,10 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
 
     @classmethod
     async def verify_email(
-        cls, token: str, session_maker: async_sessionmaker, device_info: DeviceInfo = None
+        cls,
+        token: str,
+        session_maker: async_sessionmaker,
+        device_info: DeviceInfo = None,
     ) -> Optional[Token]:
         """Verifies email verification token and confirms user's email.
 
@@ -167,7 +186,9 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         async with session_maker() as session:
             user = await UserDAO.find_one_or_none(session, id=uuid.UUID(user_id))
             if not user:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+                )
 
             user.is_verified = True
             await session.commit()
@@ -179,11 +200,15 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         return None
 
     @classmethod
-    async def get_profile(cls, user_id: uuid.UUID, session_maker: async_sessionmaker) -> UserModel:
+    async def get_profile(
+        cls, user_id: uuid.UUID, session_maker: async_sessionmaker
+    ) -> UserModel:
         """Current user: header, menu, and settings page."""
         user = await cls.get(user_id, session_maker)
         if user is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
         return user
 
     @classmethod
@@ -207,7 +232,9 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         async with session_maker() as session:
             user = await UserDAO.find_one_or_none(session, id=user_id)
             if user is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+                )
             for field, value in payload.items():
                 setattr(user, field, value)
             await session.commit()
@@ -224,7 +251,9 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         async with session_maker() as session:
             user = await UserDAO.find_one_or_none(session, id=user_id)
             if user is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+                )
             if not is_valid_password(schema.old_password, user.password):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -239,7 +268,9 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
             await session.commit()
 
     @classmethod
-    async def export_data(cls, user_id: uuid.UUID, session_maker: async_sessionmaker) -> UserExport:
+    async def export_data(
+        cls, user_id: uuid.UUID, session_maker: async_sessionmaker
+    ) -> UserExport:
         """User data archive for "Download my data".
 
         Everything that belongs to the user: accounts, categories, records,
@@ -260,9 +291,15 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
                 include_excluded=True,
                 limit=1000,
             )
-            categories = await CategoryDAO.find_all_by_user(session, user_id, limit=1000)
-            transactions = await TransactionDAO.find_filtered(session, user_id, limit=5000)
-            subscriptions = await SubscriptionDAO.find_all_by_user(session, user_id, limit=1000)
+            categories = await CategoryDAO.find_all_by_user(
+                session, user_id, limit=1000
+            )
+            transactions = await TransactionDAO.find_filtered(
+                session, user_id, limit=5000
+            )
+            subscriptions = await SubscriptionDAO.find_all_by_user(
+                session, user_id, limit=1000
+            )
             currencies = await CurrencyDAO.find_all_ordered(session, limit=500)
 
         return UserExport(
@@ -291,9 +328,13 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         async with session_maker() as session:
             user = await UserDAO.find_one_or_none(session, id=user_id)
             if user is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+                )
             if not is_valid_password(schema.password, user.password):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Wrong password")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="Wrong password"
+                )
             await UserDAO.delete(session, UserModel.id == user_id)
             await session.commit()
 
@@ -309,9 +350,12 @@ class AuthService:
     def _create_access_token(cls, user_id: uuid.UUID) -> str:
         to_encode = {
             "sub": str(user_id),
-            "exp": datetime.now() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+            "exp": datetime.now()
+            + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         }
-        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        encoded_jwt = jwt.encode(
+            to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        )
         return f"Bearer {encoded_jwt}"
 
     @classmethod
@@ -341,7 +385,9 @@ class AuthService:
                 ),
             )
             await session.commit()
-        return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+        return Token(
+            access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+        )
 
     @classmethod
     async def _authenticate_user(
@@ -360,7 +406,9 @@ class AuthService:
         device_info: DeviceInfo,
         session_maker: async_sessionmaker,
     ) -> Token:
-        user = await cls._authenticate_user(credentials.username, credentials.password, session_maker)
+        user = await cls._authenticate_user(
+            credentials.username, credentials.password, session_maker
+        )
         token = await cls._create_token(user.id, device_info, session_maker)
         return token
 
@@ -375,7 +423,9 @@ class AuthService:
             await session.commit()
 
     @classmethod
-    async def refresh_token(cls, token: uuid.UUID, session_maker: async_sessionmaker) -> Token:
+    async def refresh_token(
+        cls, token: uuid.UUID, session_maker: async_sessionmaker
+    ) -> Token:
         async with session_maker() as session:
             refresh_session = await RefreshSessionDAO.find_one_or_none(
                 session, RefreshSessionModel.refresh_token == token
@@ -383,8 +433,12 @@ class AuthService:
 
             if refresh_session is None:
                 raise InvalidTokenException
-            if datetime.now(timezone.utc) >= refresh_session.created_at + timedelta(seconds=refresh_session.expires_in):
-                await RefreshSessionDAO.delete(session, RefreshSessionModel.id == refresh_session.id)
+            if datetime.now(timezone.utc) >= refresh_session.created_at + timedelta(
+                seconds=refresh_session.expires_in
+            ):
+                await RefreshSessionDAO.delete(
+                    session, RefreshSessionModel.id == refresh_session.id
+                )
                 raise TokenExpiredException
 
             user = await UserDAO.find_one_or_none(session, id=refresh_session.user_id)
@@ -405,17 +459,25 @@ class AuthService:
                 ),
             )
             await session.commit()
-        return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+        return Token(
+            access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+        )
 
     @classmethod
     async def get_user_sessions(
         cls, user_id: uuid.UUID, session_maker: async_sessionmaker
     ) -> List[RefreshSessionModel]:
         async with session_maker() as session:
-            return await RefreshSessionDAO.find_all(session, RefreshSessionModel.user_id == user_id)
+            return await RefreshSessionDAO.find_all(
+                session, RefreshSessionModel.user_id == user_id
+            )
 
     @classmethod
-    async def abort_all_sessions(cls, user_id: uuid.UUID, session_maker: async_sessionmaker):
+    async def abort_all_sessions(
+        cls, user_id: uuid.UUID, session_maker: async_sessionmaker
+    ):
         async with session_maker() as session:
-            await RefreshSessionDAO.delete_all(session, RefreshSessionModel.user_id == user_id)
+            await RefreshSessionDAO.delete_all(
+                session, RefreshSessionModel.user_id == user_id
+            )
             await session.commit()

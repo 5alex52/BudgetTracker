@@ -36,10 +36,5 @@ say "GET /analytics/by-category" "$(code "$BASE/analytics/by-category?transactio
 say "GET /analytics/by-account" "$(code "$BASE/analytics/by-account")"
 say "GET /analytics/matrix?months=6" "$(code "$BASE/analytics/matrix?months=6&transaction_type=expense&rollup=true")"
 
-say "GET /billing/plans" "$(code "$BASE/billing/plans")"
-say "GET /billing/providers" "$(code "$BASE/billing/providers")"
-say "GET /billing/subscription" "$(code "$BASE/billing/subscription")"
-say "GET /billing/payment-methods" "$(code "$BASE/billing/payment-methods")"
-say "GET /billing/payments" "$(code "$BASE/billing/payments?limit=5")"
 say "GET /users/me/export" "$(code "$BASE/users/me/export")"
 rm -f "$JAR"

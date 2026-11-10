@@ -34,7 +34,13 @@ class FinancePermission(BasePermission):
             return
 
         if current_user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+            )
 
-        if self.action in self.SUPERUSER_ACTIONS and not getattr(current_user, "is_superuser", False):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges")
+        if self.action in self.SUPERUSER_ACTIONS and not getattr(
+            current_user, "is_superuser", False
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges"
+            )

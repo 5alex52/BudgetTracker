@@ -21,7 +21,9 @@ def add_months(moment: datetime, months: int) -> datetime:
     return moment.replace(year=year, month=month, day=day)
 
 
-def calculate_next_payment_date(frequency: SubscriptionFrequency, from_date: datetime) -> datetime:
+def calculate_next_payment_date(
+    frequency: SubscriptionFrequency, from_date: datetime
+) -> datetime:
     """Returns the next payment date for a recurring transaction."""
     if frequency == SubscriptionFrequency.DAILY:
         return from_date + timedelta(days=1)
@@ -40,11 +42,15 @@ def calculate_next_payment_date(frequency: SubscriptionFrequency, from_date: dat
 def convert_amount(amount: float, source_rate: float, target_rate: float) -> float:
     """Converts an amount between two currencies using their rates to the base currency."""
     if source_rate <= 0 or target_rate <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid exchange rate")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid exchange rate"
+        )
     return round(amount * source_rate / target_rate, 2)
 
 
-def balance_delta(transaction_type: TransactionType, amount: float, rate: float = 1.0) -> float:
+def balance_delta(
+    transaction_type: TransactionType, amount: float, rate: float = 1.0
+) -> float:
     """Signed effect of a transaction on the account balance."""
     converted = round(amount * rate, 2)
     if transaction_type == TransactionType.INCOME:

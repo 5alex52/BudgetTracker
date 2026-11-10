@@ -24,9 +24,7 @@ export interface Account {
   excluded?: boolean
   archived?: boolean
   /** Данные доступны только на чтение */
-  locked?: boolean
   /** Почему счёт заблокирован: лимит или валюта тарифа */
-  lockReason?: string | null
 }
 
 export interface Category {

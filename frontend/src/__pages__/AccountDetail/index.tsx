@@ -224,8 +224,6 @@ export function AccountDetailPage() {
               <Button
                 size="sm"
                 onClick={onAddRecord}
-                disabled={Boolean(account.locked)}
-                title={account.locked ? t('accounts.lockedHint') : undefined}
                 className="gap-1.5"
               >
                 <Plus className="size-4" aria-hidden="true" />

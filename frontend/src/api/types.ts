@@ -9,11 +9,6 @@ export type CategoryTypeValue = 'income' | 'expense' | 'transfer'
 export type AccountTypeValue = 'cash' | 'checking' | 'credit_card' | 'savings' | 'investment'
 export type RuleFieldValue = 'note' | 'amount'
 export type RuleOperatorValue = 'contains' | 'equals' | 'greater' | 'less'
-export type PlanPeriodValue = 'none' | 'month' | 'year'
-export type SubscriptionStatusValue = 'active' | 'canceled' | 'expired' | 'pending'
-export type PaymentStatusValue = 'pending' | 'succeeded' | 'failed' | 'refunded'
-export type PaymentKindValue = 'subscription' | 'one_time'
-export type PaymentMethodKindValue = 'card' | 'crypto' | 'bank_transfer'
 
 /* ------------------------------- профиль -------------------------------- */
 
@@ -444,71 +439,7 @@ export interface RuleApplyResultDto {
   dry_run: boolean
 }
 
-/* -------------------------------- биллинг ------------------------------- */
-
-export interface PlanDto {
-  code: string
-  name: string
-  description: string | null
-  price: number
-  currency: string
-  period: PlanPeriodValue
-  features: string[]
-  is_active: boolean
-}
-
-export interface ProviderInfoDto {
-  code: string
-  title: string
-  methods: PaymentMethodKindValue[]
-  is_configured: boolean
-  is_default: boolean
-  is_mock: boolean
-}
-
-export interface SubscriptionDto {
-  id: number | null
-  plan_code: string
-  plan_name: string
-  status: SubscriptionStatusValue
-  started_at: string | null
-  current_period_end: string | null
-  cancel_at_period_end: boolean
-  provider: string
-}
-
-/** Лимиты и премиум-возможности текущего тарифа. */
-export interface EntitlementsDto {
-  plan_code: string
-  plan_name: string
-  is_paid: boolean
-  is_active: boolean
-  max_accounts: number | null
-  multi_currency: boolean
-  advanced_analytics: boolean
-  current_period_end: string | null
-  reason: string | null
-}
-
-export interface CheckoutSessionDto {
-  payment_id: number
-  status: PaymentStatusValue
-  provider: string
-  provider_reference: string | null
-  checkout_url: string | null
-  requires_redirect: boolean
-  subscription: SubscriptionDto | null
-}
-
-export interface PaymentMethodDto {
-  id: number
-  provider: string
-  kind: PaymentMethodKindValue
-  brand: string | null
-  last4: string | null
-  is_default: boolean
-  created_at: string | null
-}
+/* ------------------------------- админка -------------------------------- */
 
 /* ------------------------------- админка -------------------------------- */
 
@@ -521,11 +452,6 @@ export interface AdminUserDto {
   is_superuser: boolean
   created_at: string
   last_login_at: string | null
-  plan_code: string
-  plan_name: string
-  subscription_status: SubscriptionStatusValue
-  current_period_end: string | null
-  is_premium: boolean
 }
 
 export interface AdminUserPageDto {
@@ -535,48 +461,14 @@ export interface AdminUserPageDto {
   limit: number
 }
 
-export interface AdminPlanStatDto {
-  code: string
-  name: string
-  count: number
-}
-
 export interface AdminStatsDto {
   users_total: number
   users_new_30d: number
-  premium_total: number
-  free_total: number
-  expiring_soon: number
-  revenue_30d: number
-  plans: AdminPlanStatDto[]
 }
-
 export interface AdminUserUpdate {
   firstname?: string
   lastname?: string
   email?: string
   is_active?: boolean
   is_verified?: boolean
-}
-
-export interface AdminSubscriptionPointDto {
-  date: string
-  premium: number
-  free: number
-}
-
-export interface AdminSubscriptionTimelineDto {
-  points: AdminSubscriptionPointDto[]
-}
-
-export interface PaymentDto {
-  id: number
-  plan_code: string | null
-  kind: PaymentKindValue
-  amount: number
-  currency: string
-  status: PaymentStatusValue
-  provider: string
-  failure_reason: string | null
-  created_at: string | null
 }

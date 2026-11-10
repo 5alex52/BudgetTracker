@@ -141,7 +141,9 @@ class AnalyticsDAO:
         if end_date is not None:
             stmt = stmt.where(TransactionModel.date <= end_date)
         if category_type is not None:
-            stmt = stmt.where(TransactionModel.type == TransactionType(category_type.value))
+            stmt = stmt.where(
+                TransactionModel.type == TransactionType(category_type.value)
+            )
         if category_ids:
             stmt = stmt.where(TransactionModel.category_id.in_(list(category_ids)))
         if account_ids:
@@ -357,8 +359,12 @@ class AnalyticsDAO:
         count = func.count(scope.c.id).label("count")
 
         if rollup:
-            group_id = func.coalesce(scope.c.category_parent_id, scope.c.category_id).label("group_id")
-            stmt = select(group_id, total, count).group_by(group_id).order_by(total.desc())
+            group_id = func.coalesce(
+                scope.c.category_parent_id, scope.c.category_id
+            ).label("group_id")
+            stmt = (
+                select(group_id, total, count).group_by(group_id).order_by(total.desc())
+            )
         else:
             stmt = (
                 select(
@@ -430,7 +436,9 @@ class AnalyticsDAO:
                 expense.label("expense"),
                 func.count(scope.c.id).label("count"),
             )
-            .group_by(scope.c.account_id, scope.c.account_name, scope.c.account_currency_id)
+            .group_by(
+                scope.c.account_id, scope.c.account_name, scope.c.account_currency_id
+            )
             .order_by(func.sum(scope.c.amount_base).desc())
         )
         result = await session.execute(stmt)
@@ -462,7 +470,9 @@ class AnalyticsDAO:
         ).subquery()
         bucket = func.date_trunc(group_by, scope.c.date).label("bucket")
         group_id = (
-            func.coalesce(scope.c.category_parent_id, scope.c.category_id) if rollup else scope.c.category_id
+            func.coalesce(scope.c.category_parent_id, scope.c.category_id)
+            if rollup
+            else scope.c.category_id
         ).label("group_id")
         stmt = (
             select(

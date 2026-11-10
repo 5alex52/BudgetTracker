@@ -39,7 +39,11 @@ def upgrade() -> None:
             features=FREE_FEATURES,
         )
     )
-    op.execute(plans.update().where(plans.c.code == "monthly").values(features=MONTHLY_FEATURES))
+    op.execute(
+        plans.update()
+        .where(plans.c.code == "monthly")
+        .values(features=MONTHLY_FEATURES)
+    )
 
 
 def downgrade() -> None:
@@ -60,5 +64,7 @@ def downgrade() -> None:
     op.execute(
         plans.update()
         .where(plans.c.code == "monthly")
-        .values(features=["неограниченно счетов", "аналитика", "метки и правила", "экспорт"])
+        .values(
+            features=["неограниченно счетов", "аналитика", "метки и правила", "экспорт"]
+        )
     )

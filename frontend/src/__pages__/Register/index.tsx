@@ -36,7 +36,6 @@ export function RegisterPage() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const wantsPlan = new URLSearchParams(window.location.search).get('plan')
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -69,7 +68,7 @@ export function RegisterPage() {
       // LOCAL-режим без Redis: адрес уже подтверждён сервером, входим сразу.
       await signIn(email.trim(), password)
       toast({ title: t('register.done'), tone: 'success' })
-      navigate(wantsPlan ? '/settings/payments' : '/', { replace: true })
+      navigate('/', { replace: true })
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.detail : String(caught))
     } finally {

@@ -116,7 +116,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("plan_subscriptions_pkey")),
     )
-    op.create_index(op.f("plan_subscriptions_id_idx"), "plan_subscriptions", ["id"], unique=False)
+    op.create_index(
+        op.f("plan_subscriptions_id_idx"), "plan_subscriptions", ["id"], unique=False
+    )
     op.create_index(
         op.f("plan_subscriptions_user_id_idx"),
         "plan_subscriptions",
@@ -147,7 +149,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("payment_methods_pkey")),
     )
-    op.create_index(op.f("payment_methods_id_idx"), "payment_methods", ["id"], unique=False)
+    op.create_index(
+        op.f("payment_methods_id_idx"), "payment_methods", ["id"], unique=False
+    )
     op.create_index(
         op.f("payment_methods_user_id_idx"),
         "payment_methods",
@@ -170,7 +174,9 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("pending", "succeeded", "failed", "refunded", name="payment_status"),
+            sa.Enum(
+                "pending", "succeeded", "failed", "refunded", name="payment_status"
+            ),
             nullable=False,
         ),
         sa.Column("provider", sa.String(length=32), nullable=False),
@@ -239,7 +245,9 @@ def downgrade() -> None:
     op.drop_index(op.f("payment_methods_user_id_idx"), table_name="payment_methods")
     op.drop_index(op.f("payment_methods_id_idx"), table_name="payment_methods")
     op.drop_table("payment_methods")
-    op.drop_index(op.f("plan_subscriptions_user_id_idx"), table_name="plan_subscriptions")
+    op.drop_index(
+        op.f("plan_subscriptions_user_id_idx"), table_name="plan_subscriptions"
+    )
     op.drop_index(op.f("plan_subscriptions_id_idx"), table_name="plan_subscriptions")
     op.drop_table("plan_subscriptions")
     op.drop_table("plans")

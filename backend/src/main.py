@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .admin import admin_router
 from .analytics import analytics_router
-from .billing import billing_router
 from .config import settings
 from .finance import accounts_router
 from .finance import categories_router
@@ -91,7 +90,6 @@ async def health_check() -> dict:
 app.include_router(admin_router)
 app.include_router(accounts_router)
 app.include_router(analytics_router)
-app.include_router(billing_router)
 app.include_router(categories_router)
 app.include_router(transactions_router)
 app.include_router(subscriptions_router)

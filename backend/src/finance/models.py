@@ -31,11 +31,19 @@ class CurrencyModel(Base):
     code: Mapped[str] = mapped_column(sa.String(3), primary_key=True, index=True)
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     symbol: Mapped[str] = mapped_column(sa.String(10), default="$", nullable=False)
-    exchange_rate_to_base: Mapped[float] = mapped_column(sa.Float, default=1.0, nullable=False)
-    last_updated: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now(), onupdate=func.now())
+    exchange_rate_to_base: Mapped[float] = mapped_column(
+        sa.Float, default=1.0, nullable=False
+    )
+    last_updated: Mapped[datetime] = mapped_column(
+        sa.DateTime, default=func.now(), onupdate=func.now()
+    )
 
-    accounts: Mapped[List["AccountModel"]] = relationship("AccountModel", back_populates="currency")
-    transactions: Mapped[List["TransactionModel"]] = relationship("TransactionModel", back_populates="currency")
+    accounts: Mapped[List["AccountModel"]] = relationship(
+        "AccountModel", back_populates="currency"
+    )
+    transactions: Mapped[List["TransactionModel"]] = relationship(
+        "TransactionModel", back_populates="currency"
+    )
 
 
 class AccountModel(Base):
@@ -50,16 +58,22 @@ class AccountModel(Base):
         sa.Enum(AccountType, name="account_type", values_callable=_enum_values),
         nullable=False,
     )
-    currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), index=True, nullable=False)
+    currency_id: Mapped[str] = mapped_column(
+        sa.String(3), sa.ForeignKey("currencies.code"), index=True, nullable=False
+    )
     balance: Mapped[float] = mapped_column(sa.Float, default=0.0, nullable=False)
     is_archived: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     #: Excluded from statistics: account lives on, operations are visible, but it does not affect totals or charts
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, onupdate=func.now(), nullable=True
+    )
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="accounts")
-    currency: Mapped["CurrencyModel"] = relationship("CurrencyModel", back_populates="accounts", lazy="joined")
+    currency: Mapped["CurrencyModel"] = relationship(
+        "CurrencyModel", back_populates="accounts", lazy="joined"
+    )
     transactions: Mapped[List["TransactionModel"]] = relationship(
         "TransactionModel",
         back_populates="account",
@@ -76,22 +90,32 @@ class CategoryModel(Base):
         UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
-    parent_id: Mapped[Optional[int]] = mapped_column(sa.Integer, sa.ForeignKey("categories.id"), nullable=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        sa.Integer, sa.ForeignKey("categories.id"), nullable=True
+    )
     type: Mapped[CategoryType] = mapped_column(
         sa.Enum(CategoryType, name="category_type", values_callable=_enum_values),
         nullable=False,
     )
-    icon: Mapped[str] = mapped_column(sa.String(255), default="category", nullable=False)
+    icon: Mapped[str] = mapped_column(
+        sa.String(255), default="category", nullable=False
+    )
     color: Mapped[str] = mapped_column(sa.String(20), default="#6366f1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, onupdate=func.now(), nullable=True
+    )
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="categories")
     parent: Mapped[Optional["CategoryModel"]] = relationship(
         "CategoryModel", remote_side=[id], back_populates="children"
     )
-    children: Mapped[List["CategoryModel"]] = relationship("CategoryModel", back_populates="parent")
-    transactions: Mapped[List["TransactionModel"]] = relationship("TransactionModel", back_populates="category")
+    children: Mapped[List["CategoryModel"]] = relationship(
+        "CategoryModel", back_populates="parent"
+    )
+    transactions: Mapped[List["TransactionModel"]] = relationship(
+        "TransactionModel", back_populates="category"
+    )
 
 
 class TransactionModel(Base):
@@ -104,20 +128,29 @@ class TransactionModel(Base):
         index=True,
         nullable=False,
     )
-    category_id: Mapped[int] = mapped_column(sa.Integer, sa.ForeignKey("categories.id"), index=True, nullable=False)
+    category_id: Mapped[int] = mapped_column(
+        sa.Integer, sa.ForeignKey("categories.id"), index=True, nullable=False
+    )
     #: Destination account for a transfer (only for type=transfer)
     transfer_account_id: Mapped[Optional[int]] = mapped_column(
-        sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True
+        sa.Integer,
+        sa.ForeignKey("accounts.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
     )
     amount: Mapped[float] = mapped_column(sa.Float, nullable=False)
-    currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), index=True, nullable=False)
+    currency_id: Mapped[str] = mapped_column(
+        sa.String(3), sa.ForeignKey("currencies.code"), index=True, nullable=False
+    )
     type: Mapped[TransactionType] = mapped_column(
         sa.Enum(TransactionType, name="transaction_type", values_callable=_enum_values),
         nullable=False,
     )
     date: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False, index=True)
     note: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
-    is_subscription: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
+    is_subscription: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
     #: Hidden from statistics by an auto-categorization rule (the record itself stays in lists)
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     receipt_url: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
@@ -129,8 +162,12 @@ class TransactionModel(Base):
     transfer_account: Mapped[Optional["AccountModel"]] = relationship(
         "AccountModel", foreign_keys=[transfer_account_id]
     )
-    category: Mapped["CategoryModel"] = relationship("CategoryModel", back_populates="transactions", lazy="joined")
-    currency: Mapped["CurrencyModel"] = relationship("CurrencyModel", back_populates="transactions", lazy="joined")
+    category: Mapped["CategoryModel"] = relationship(
+        "CategoryModel", back_populates="transactions", lazy="joined"
+    )
+    currency: Mapped["CurrencyModel"] = relationship(
+        "CurrencyModel", back_populates="transactions", lazy="joined"
+    )
     subscription: Mapped[Optional["SubscriptionModel"]] = relationship(
         "SubscriptionModel",
         back_populates="transaction",
@@ -167,12 +204,18 @@ class SubscriptionModel(Base):
         ),
         nullable=False,
     )
-    next_payment_date: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False, index=True)
+    next_payment_date: Mapped[datetime] = mapped_column(
+        sa.DateTime, nullable=False, index=True
+    )
     is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, onupdate=func.now(), nullable=True
+    )
 
-    transaction: Mapped["TransactionModel"] = relationship("TransactionModel", back_populates="subscription")
+    transaction: Mapped["TransactionModel"] = relationship(
+        "TransactionModel", back_populates="subscription"
+    )
 
 
 #: Tags and records are related many-to-many: one purchase may appear in several collections
@@ -207,7 +250,9 @@ class TagModel(Base):
     name: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     color: Mapped[str] = mapped_column(sa.String(20), default="#6366f1", nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, onupdate=func.now(), nullable=True
+    )
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="tags")
     transactions: Mapped[List["TransactionModel"]] = relationship(
@@ -249,17 +294,23 @@ class TemplateModel(Base):
         nullable=False,
     )
     amount: Mapped[float] = mapped_column(sa.Float, nullable=False)
-    currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), nullable=False)
+    currency_id: Mapped[str] = mapped_column(
+        sa.String(3), sa.ForeignKey("currencies.code"), nullable=False
+    )
     account_id: Mapped[int] = mapped_column(
         sa.Integer, sa.ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
     )
-    category_id: Mapped[int] = mapped_column(sa.Integer, sa.ForeignKey("categories.id"), nullable=False)
+    category_id: Mapped[int] = mapped_column(
+        sa.Integer, sa.ForeignKey("categories.id"), nullable=False
+    )
     note: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
     icon: Mapped[str] = mapped_column(sa.String(255), default="bolt", nullable=False)
     #: How many times the template was used — the frontend sorts by popularity
     usage_count: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, onupdate=func.now(), nullable=True
+    )
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="templates")
     tags: Mapped[List["TagModel"]] = relationship("TagModel", secondary=template_tags)
@@ -293,9 +344,13 @@ class RuleModel(Base):
     add_tag_id: Mapped[Optional[int]] = mapped_column(
         sa.Integer, sa.ForeignKey("tags.id", ondelete="SET NULL"), nullable=True
     )
-    exclude_from_statistics: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
+    exclude_from_statistics: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, onupdate=func.now(), nullable=True
+    )
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="rules")
 
@@ -304,12 +359,18 @@ class UserCurrencyRateModel(Base):
     """Personal user rate: overrides the catalog rate for their calculations."""
 
     __tablename__ = "user_currency_rates"
-    __table_args__ = (sa.UniqueConstraint("user_id", "code", name="uq_user_currency_rates_user_code"),)
+    __table_args__ = (
+        sa.UniqueConstraint("user_id", "code", name="uq_user_currency_rates_user_code"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    code: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), nullable=False)
+    code: Mapped[str] = mapped_column(
+        sa.String(3), sa.ForeignKey("currencies.code"), nullable=False
+    )
     rate: Mapped[float] = mapped_column(sa.Float, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime, onupdate=func.now(), nullable=True
+    )

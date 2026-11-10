@@ -7,7 +7,9 @@ from .schemas import UserCreate
 from .schemas import UserUpdate
 
 
-class RefreshSessionDAO(BaseDAO[RefreshSessionModel, RefreshSessionCreate, RefreshSessionBase]):
+class RefreshSessionDAO(
+    BaseDAO[RefreshSessionModel, RefreshSessionCreate, RefreshSessionBase]
+):
     model = RefreshSessionModel
 
 

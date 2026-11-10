@@ -30,11 +30,15 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "accounts",
-        sa.Column("is_excluded", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column(
+            "is_excluded", sa.Boolean(), nullable=False, server_default=sa.false()
+        ),
     )
     op.add_column(
         "users",
-        sa.Column("base_currency", sa.String(length=3), nullable=True, server_default="BYN"),
+        sa.Column(
+            "base_currency", sa.String(length=3), nullable=True, server_default="BYN"
+        ),
     )
     op.add_column(
         "users",
@@ -42,7 +46,9 @@ def upgrade() -> None:
     )
     op.add_column(
         "users",
-        sa.Column("theme", sa.String(length=16), nullable=True, server_default="system"),
+        sa.Column(
+            "theme", sa.String(length=16), nullable=True, server_default="system"
+        ),
     )
 
 

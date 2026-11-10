@@ -68,19 +68,27 @@ class TagDAO:
         stmt = (
             select(
                 TagModel,
-                func.count(transaction_tags.c.transaction_id).label("transactions_count"),
+                func.count(transaction_tags.c.transaction_id).label(
+                    "transactions_count"
+                ),
             )
             .outerjoin(transaction_tags, transaction_tags.c.tag_id == TagModel.id)
             .where(TagModel.user_id == user_id)
             .group_by(TagModel.id)
-            .order_by(func.count(transaction_tags.c.transaction_id).desc(), TagModel.name)
+            .order_by(
+                func.count(transaction_tags.c.transaction_id).desc(), TagModel.name
+            )
         )
         result = await session.execute(stmt)
         return list(result.all())
 
     @classmethod
-    async def find_one_by_user(cls, session: AsyncSession, tag_id: int, user_id: uuid.UUID) -> Optional[TagModel]:
-        stmt = select(TagModel).where(TagModel.id == tag_id, TagModel.user_id == user_id)
+    async def find_one_by_user(
+        cls, session: AsyncSession, tag_id: int, user_id: uuid.UUID
+    ) -> Optional[TagModel]:
+        stmt = select(TagModel).where(
+            TagModel.id == tag_id, TagModel.user_id == user_id
+        )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
@@ -91,18 +99,26 @@ class TagDAO:
         """User's tags by a list of IDs — foreign ones are silently dropped."""
         if not tag_ids:
             return []
-        stmt = select(TagModel).where(TagModel.id.in_(list(tag_ids)), TagModel.user_id == user_id)
+        stmt = select(TagModel).where(
+            TagModel.id.in_(list(tag_ids)), TagModel.user_id == user_id
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     @classmethod
-    async def find_by_name(cls, session: AsyncSession, name: str, user_id: uuid.UUID) -> Optional[TagModel]:
-        stmt = select(TagModel).where(TagModel.name == name, TagModel.user_id == user_id)
+    async def find_by_name(
+        cls, session: AsyncSession, name: str, user_id: uuid.UUID
+    ) -> Optional[TagModel]:
+        stmt = select(TagModel).where(
+            TagModel.name == name, TagModel.user_id == user_id
+        )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
     @classmethod
-    async def count_for_transaction(cls, session: AsyncSession, transaction_id: int) -> int:
+    async def count_for_transaction(
+        cls, session: AsyncSession, transaction_id: int
+    ) -> int:
         stmt = (
             select(func.count())
             .select_from(transaction_tags)
@@ -112,7 +128,9 @@ class TagDAO:
         return int(result.scalar() or 0)
 
 
-async def load_tags(session: AsyncSession, transaction: TransactionModel) -> List[TagModel]:
+async def load_tags(
+    session: AsyncSession, transaction: TransactionModel
+) -> List[TagModel]:
     """Load tags for a transaction: without this the response is serialized without them."""
     stmt = (
         select(TransactionModel)
@@ -124,13 +142,17 @@ async def load_tags(session: AsyncSession, transaction: TransactionModel) -> Lis
     return list(loaded.tags)
 
 
-async def ensure_tags_owned(session: AsyncSession, tag_ids: Sequence[int], user_id: uuid.UUID) -> List[TagModel]:
+async def ensure_tags_owned(
+    session: AsyncSession, tag_ids: Sequence[int], user_id: uuid.UUID
+) -> List[TagModel]:
     """Verify that all tags belong to the user."""
     if not tag_ids:
         return []
     tags = await TagDAO.find_many_by_ids(session, tag_ids, user_id)
     if len(tags) != len(set(tag_ids)):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown tag ids")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown tag ids"
+        )
     return tags
 
 
@@ -141,18 +163,29 @@ async def tag_ids_of(session: AsyncSession, transaction_id: int) -> List[int]:
     accessing ``transaction.tags`` in an async session with an unloaded
     relationship requires IO and fails outside a greenlet.
     """
-    stmt = select(transaction_tags.c.tag_id).where(transaction_tags.c.transaction_id == transaction_id)
+    stmt = select(transaction_tags.c.tag_id).where(
+        transaction_tags.c.transaction_id == transaction_id
+    )
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
-async def attach_tags(session: AsyncSession, transaction_id: int, tag_ids: Sequence[int]) -> None:
+async def attach_tags(
+    session: AsyncSession, transaction_id: int, tag_ids: Sequence[int]
+) -> None:
     """Reassign transaction tags to a new set (empty list — remove all)."""
-    await session.execute(delete(transaction_tags).where(transaction_tags.c.transaction_id == transaction_id))
+    await session.execute(
+        delete(transaction_tags).where(
+            transaction_tags.c.transaction_id == transaction_id
+        )
+    )
     if tag_ids:
         await session.execute(
             insert(transaction_tags),
-            [{"transaction_id": transaction_id, "tag_id": tag_id} for tag_id in set(tag_ids)],
+            [
+                {"transaction_id": transaction_id, "tag_id": tag_id}
+                for tag_id in set(tag_ids)
+            ],
         )
 
 
@@ -169,7 +202,10 @@ class TagService:
         async with maker() as session:
             rows = await cls.dao.find_all_by_user(session, user_id)
         return [
-            TagResponse(id=tag.id, name=tag.name, color=tag.color, transactions_count=int(count)) for tag, count in rows
+            TagResponse(
+                id=tag.id, name=tag.name, color=tag.color, transactions_count=int(count)
+            )
+            for tag, count in rows
         ]
 
     @classmethod
@@ -182,7 +218,9 @@ class TagService:
         maker = session_maker or async_session_maker
         async with maker() as session:
             if await cls.dao.find_by_name(session, schema.name, user_id) is not None:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tag name already used")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, detail="Tag name already used"
+                )
             tag = cls.dao.model(user_id=user_id, name=schema.name, color=schema.color)
             session.add(tag)
             await session.commit()
@@ -218,7 +256,10 @@ class TagService:
                 raise _not_found()
             data = schema.model_dump(exclude_unset=True)
             if "name" in data and data["name"] != tag.name:
-                if await cls.dao.find_by_name(session, data["name"], user_id) is not None:
+                if (
+                    await cls.dao.find_by_name(session, data["name"], user_id)
+                    is not None
+                ):
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="Tag name already used",
@@ -257,7 +298,9 @@ class TagViewSet(BaseViewSet[int, TagCreate, TagUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[TagResponse]:
-        return await cls.service.get_list_by_user(user_id=user.id, session_maker=session_maker)
+        return await cls.service.get_list_by_user(
+            user_id=user.id, session_maker=session_maker
+        )
 
     @classmethod
     @check_permissions(action="retrieve_tag")
@@ -268,7 +311,9 @@ class TagViewSet(BaseViewSet[int, TagCreate, TagUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> TagModel:
-        return await cls.service.get_by_user(tag_id=obj_id, user_id=user.id, session_maker=session_maker)
+        return await cls.service.get_by_user(
+            tag_id=obj_id, user_id=user.id, session_maker=session_maker
+        )
 
     @classmethod
     @check_permissions(action="create_tag")
@@ -279,7 +324,9 @@ class TagViewSet(BaseViewSet[int, TagCreate, TagUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> TagModel:
-        return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
+        return await cls.service.create_for_user(
+            schema=obj_data, user_id=user.id, session_maker=session_maker
+        )
 
     @classmethod
     @check_permissions(action="update_tag")
@@ -304,7 +351,9 @@ class TagViewSet(BaseViewSet[int, TagCreate, TagUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_for_user(tag_id=obj_id, user_id=user.id, session_maker=session_maker)
+        await cls.service.delete_for_user(
+            tag_id=obj_id, user_id=user.id, session_maker=session_maker
+        )
 
 
 tags_router = APIRouter(prefix="/api/finance/tags", tags=["Tags"])
@@ -317,7 +366,9 @@ async def list_tags(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[TagResponse]:
     """User's tags with transaction count."""
-    return await TagViewSet.list(request=request, user=user, session_maker=session_maker)
+    return await TagViewSet.list(
+        request=request, user=user, session_maker=session_maker
+    )
 
 
 @tags_router.post("/", status_code=status.HTTP_201_CREATED, response_model=TagResponse)
@@ -328,10 +379,14 @@ async def create_tag(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TagModel:
     """Create a new tag; name is unique per user."""
-    return await TagViewSet.create(request=request, user=user, obj_data=payload, session_maker=session_maker)
+    return await TagViewSet.create(
+        request=request, user=user, obj_data=payload, session_maker=session_maker
+    )
 
 
-@tags_router.get("/{tag_id}", status_code=status.HTTP_200_OK, response_model=TagResponse)
+@tags_router.get(
+    "/{tag_id}", status_code=status.HTTP_200_OK, response_model=TagResponse
+)
 async def get_tag(
     request: Request,
     user: CurrentUser,
@@ -339,10 +394,14 @@ async def get_tag(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> TagModel:
     """Tag by ID."""
-    return await TagViewSet.retrieve(request=request, user=user, obj_id=tag_id, session_maker=session_maker)
+    return await TagViewSet.retrieve(
+        request=request, user=user, obj_id=tag_id, session_maker=session_maker
+    )
 
 
-@tags_router.patch("/{tag_id}", status_code=status.HTTP_200_OK, response_model=TagResponse)
+@tags_router.patch(
+    "/{tag_id}", status_code=status.HTTP_200_OK, response_model=TagResponse
+)
 async def update_tag(
     request: Request,
     user: CurrentUser,
@@ -368,4 +427,6 @@ async def delete_tag(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
     """Delete a tag; relations with transactions cascade, transactions themselves are kept."""
-    await TagViewSet.delete(request=request, user=user, obj_id=tag_id, session_maker=session_maker)
+    await TagViewSet.delete(
+        request=request, user=user, obj_id=tag_id, session_maker=session_maker
+    )

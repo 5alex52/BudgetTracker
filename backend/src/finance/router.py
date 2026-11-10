@@ -56,17 +56,25 @@ logger = logging.getLogger(__name__)
 
 accounts_router = APIRouter(prefix="/api/finance/accounts", tags=["Accounts"])
 categories_router = APIRouter(prefix="/api/finance/categories", tags=["Categories"])
-transactions_router = APIRouter(prefix="/api/finance/transactions", tags=["Transactions"])
-subscriptions_router = APIRouter(prefix="/api/finance/subscriptions", tags=["Subscriptions"])
+transactions_router = APIRouter(
+    prefix="/api/finance/transactions", tags=["Transactions"]
+)
+subscriptions_router = APIRouter(
+    prefix="/api/finance/subscriptions", tags=["Subscriptions"]
+)
 currencies_router = APIRouter(prefix="/api/finance/currencies", tags=["Currencies"])
 
 
-@accounts_router.get("/", status_code=status.HTTP_200_OK, response_model=List[AccountResponse])
+@accounts_router.get(
+    "/", status_code=status.HTTP_200_OK, response_model=List[AccountResponse]
+)
 async def get_accounts(
     request: Request,
     user: CurrentUser,
     include_archived: bool = Query(False, description="Include archived accounts"),
-    include_excluded: bool = Query(True, description="Include accounts excluded from statistics"),
+    include_excluded: bool = Query(
+        True, description="Include accounts excluded from statistics"
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
@@ -83,12 +91,16 @@ async def get_accounts(
     )
 
 
-@accounts_router.get("/balance", status_code=status.HTTP_200_OK, response_model=BalanceOverview)
+@accounts_router.get(
+    "/balance", status_code=status.HTTP_200_OK, response_model=BalanceOverview
+)
 async def get_balance_overview(
     request: Request,
     user: CurrentUser,
     start_date: Optional[datetime] = Query(None, description="Start of the period"),
-    end_date: Optional[datetime] = Query(None, description="End of the period: balance at this date"),
+    end_date: Optional[datetime] = Query(
+        None, description="End of the period: balance at this date"
+    ),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> BalanceOverview:
     """Balance across all accounts in the base currency.
@@ -105,7 +117,9 @@ async def get_balance_overview(
     )
 
 
-@accounts_router.get("/{account_id}", status_code=status.HTTP_200_OK, response_model=AccountResponse)
+@accounts_router.get(
+    "/{account_id}", status_code=status.HTTP_200_OK, response_model=AccountResponse
+)
 async def get_account(
     request: Request,
     account_id: int,
@@ -113,10 +127,14 @@ async def get_account(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
     """Account by ID."""
-    return await AccountViewSet.retrieve(request=request, obj_id=account_id, user=user, session_maker=session_maker)
+    return await AccountViewSet.retrieve(
+        request=request, obj_id=account_id, user=user, session_maker=session_maker
+    )
 
 
-@accounts_router.post("/", status_code=status.HTTP_201_CREATED, response_model=AccountResponse)
+@accounts_router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=AccountResponse
+)
 async def create_account(
     request: Request,
     account_data: AccountCreate,
@@ -124,10 +142,14 @@ async def create_account(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
     """Create an account."""
-    return await AccountViewSet.create(request=request, obj_data=account_data, user=user, session_maker=session_maker)
+    return await AccountViewSet.create(
+        request=request, obj_data=account_data, user=user, session_maker=session_maker
+    )
 
 
-@accounts_router.patch("/{account_id}", status_code=status.HTTP_200_OK, response_model=AccountResponse)
+@accounts_router.patch(
+    "/{account_id}", status_code=status.HTTP_200_OK, response_model=AccountResponse
+)
 async def update_account(
     request: Request,
     account_id: int,
@@ -176,7 +198,9 @@ async def exclude_account(
     request: Request,
     account_id: int,
     user: CurrentUser,
-    is_excluded: bool = Query(True, description="Exclude the account from statistics or restore it"),
+    is_excluded: bool = Query(
+        True, description="Exclude the account from statistics or restore it"
+    ),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AccountResponse:
     """Exclude the account from statistics: the account and its records stay, but totals ignore them."""
@@ -221,11 +245,15 @@ async def delete_account(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Delete the account together with its transactions."""
-    await AccountViewSet.delete(request=request, obj_id=account_id, user=user, session_maker=session_maker)
+    await AccountViewSet.delete(
+        request=request, obj_id=account_id, user=user, session_maker=session_maker
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@categories_router.get("/", status_code=status.HTTP_200_OK, response_model=List[CategoryResponse])
+@categories_router.get(
+    "/", status_code=status.HTTP_200_OK, response_model=List[CategoryResponse]
+)
 async def get_categories(
     request: Request,
     user: CurrentUser,
@@ -247,13 +275,19 @@ async def get_categories(
     )
 
 
-@categories_router.get("/tree", status_code=status.HTTP_200_OK, response_model=List[CategoryNode])
+@categories_router.get(
+    "/tree", status_code=status.HTTP_200_OK, response_model=List[CategoryNode]
+)
 async def get_categories_tree(
     request: Request,
     user: CurrentUser,
     category_type: Optional[CategoryType] = Query(None, description="Category type"),
-    start_date: Optional[datetime] = Query(None, description="Start of the period for counters"),
-    end_date: Optional[datetime] = Query(None, description="End of the period for counters"),
+    start_date: Optional[datetime] = Query(
+        None, description="Start of the period for counters"
+    ),
+    end_date: Optional[datetime] = Query(
+        None, description="End of the period for counters"
+    ),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[CategoryNode]:
     """Categories with subcategories and transaction counts."""
@@ -267,7 +301,9 @@ async def get_categories_tree(
     )
 
 
-@categories_router.get("/stats", status_code=status.HTTP_200_OK, response_model=List[CategoryStat])
+@categories_router.get(
+    "/stats", status_code=status.HTTP_200_OK, response_model=List[CategoryStat]
+)
 async def get_categories_stats(
     request: Request,
     user: CurrentUser,
@@ -287,7 +323,9 @@ async def get_categories_stats(
     )
 
 
-@categories_router.get("/{category_id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse)
+@categories_router.get(
+    "/{category_id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse
+)
 async def get_category(
     request: Request,
     category_id: int,
@@ -295,10 +333,14 @@ async def get_category(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CategoryResponse:
     """Category by ID."""
-    return await CategoryViewSet.retrieve(request=request, obj_id=category_id, user=user, session_maker=session_maker)
+    return await CategoryViewSet.retrieve(
+        request=request, obj_id=category_id, user=user, session_maker=session_maker
+    )
 
 
-@categories_router.post("/", status_code=status.HTTP_201_CREATED, response_model=CategoryResponse)
+@categories_router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=CategoryResponse
+)
 async def create_category(
     request: Request,
     category_data: CategoryCreate,
@@ -306,10 +348,14 @@ async def create_category(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CategoryResponse:
     """Create a category."""
-    return await CategoryViewSet.create(request=request, obj_data=category_data, user=user, session_maker=session_maker)
+    return await CategoryViewSet.create(
+        request=request, obj_data=category_data, user=user, session_maker=session_maker
+    )
 
 
-@categories_router.patch("/{category_id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse)
+@categories_router.patch(
+    "/{category_id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse
+)
 async def update_category(
     request: Request,
     category_id: int,
@@ -335,7 +381,9 @@ async def delete_category(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Delete a category without transactions or subcategories."""
-    await CategoryViewSet.delete(request=request, obj_id=category_id, user=user, session_maker=session_maker)
+    await CategoryViewSet.delete(
+        request=request, obj_id=category_id, user=user, session_maker=session_maker
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -353,7 +401,9 @@ def _transaction_filters(
     return {
         "account_ids": account_ids,
         "category_ids": category_ids,
-        "currency_ids": ([code.upper() for code in currency_ids] if currency_ids else None),
+        "currency_ids": (
+            [code.upper() for code in currency_ids] if currency_ids else None
+        ),
         "transaction_types": types,
         "query": query,
         "amount_min": amount_min,
@@ -362,19 +412,33 @@ def _transaction_filters(
     }
 
 
-@transactions_router.get("/", status_code=status.HTTP_200_OK, response_model=List[TransactionWithDetails])
+@transactions_router.get(
+    "/", status_code=status.HTTP_200_OK, response_model=List[TransactionWithDetails]
+)
 async def get_transactions(
     request: Request,
     response: Response,
     user: CurrentUser,
     account_id: Optional[int] = Query(None, description="Filter by account"),
     category_id: Optional[int] = Query(None, description="Filter by category"),
-    transaction_type: Optional[TransactionType] = Query(None, description="Transaction type"),
-    account_ids: Optional[List[int]] = Query(None, description="Accounts (multiple selection)"),
-    category_ids: Optional[List[int]] = Query(None, description="Categories (multiple selection)"),
-    currency_ids: Optional[List[str]] = Query(None, description="Currencies (multiple selection)"),
-    types: Optional[List[TransactionType]] = Query(None, description="Record types (multiple selection)"),
-    q: Optional[str] = Query(None, max_length=100, description="Search by note, category and account"),
+    transaction_type: Optional[TransactionType] = Query(
+        None, description="Transaction type"
+    ),
+    account_ids: Optional[List[int]] = Query(
+        None, description="Accounts (multiple selection)"
+    ),
+    category_ids: Optional[List[int]] = Query(
+        None, description="Categories (multiple selection)"
+    ),
+    currency_ids: Optional[List[str]] = Query(
+        None, description="Currencies (multiple selection)"
+    ),
+    types: Optional[List[TransactionType]] = Query(
+        None, description="Record types (multiple selection)"
+    ),
+    q: Optional[str] = Query(
+        None, max_length=100, description="Search by note, category and account"
+    ),
     amount_min: Optional[float] = Query(None, ge=0, description="Amount from"),
     amount_max: Optional[float] = Query(None, ge=0, description="Amount to"),
     tag_ids: Optional[List[int]] = Query(None, description="Tags (multiple selection)"),
@@ -384,7 +448,9 @@ async def get_transactions(
         "date_desc",
         description="Sort: date_desc, date_asc, amount_desc, amount_asc",
     ),
-    with_total: bool = Query(True, description="Return total number of records in the X-Total-Count header"),
+    with_total: bool = Query(
+        True, description="Return total number of records in the X-Total-Count header"
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
@@ -401,7 +467,9 @@ async def get_transactions(
         tag_ids,
     )
     if sort not in {"date_desc", "date_asc", "amount_desc", "amount_asc"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown sort option")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown sort option"
+        )
 
     transactions = await TransactionViewSet.list(
         request=request,
@@ -435,7 +503,9 @@ async def get_transactions(
     return transactions
 
 
-@transactions_router.post("/bulk-delete", status_code=status.HTTP_200_OK, response_model=BulkDeleteResult)
+@transactions_router.post(
+    "/bulk-delete", status_code=status.HTTP_200_OK, response_model=BulkDeleteResult
+)
 async def bulk_delete_transactions(
     request: Request,
     payload: BulkDeleteRequest,
@@ -456,7 +526,9 @@ async def bulk_delete_transactions(
 async def export_transactions(
     request: Request,
     user: CurrentUser,
-    export_format: str = Query("csv", alias="format", pattern="^(csv|json)$", description="csv or json"),
+    export_format: str = Query(
+        "csv", alias="format", pattern="^(csv|json)$", description="csv or json"
+    ),
     account_ids: Optional[List[int]] = Query(None),
     category_ids: Optional[List[int]] = Query(None),
     currency_ids: Optional[List[str]] = Query(None),
@@ -504,17 +576,25 @@ async def export_transactions(
         return Response(
             content=payload,
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="transactions-{stamp}.json"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="transactions-{stamp}.json"'
+            },
         )
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["date", "type", "account", "category", "amount", "currency", "note"])
+    writer.writerow(
+        ["date", "type", "account", "category", "amount", "currency", "note"]
+    )
     for transaction in transactions:
         writer.writerow(
             [
                 transaction.date.strftime("%Y-%m-%d %H:%M"),
-                (transaction.type.value if hasattr(transaction.type, "value") else transaction.type),
+                (
+                    transaction.type.value
+                    if hasattr(transaction.type, "value")
+                    else transaction.type
+                ),
                 transaction.account_name,
                 transaction.category_name,
                 transaction.amount,
@@ -525,15 +605,21 @@ async def export_transactions(
     return Response(
         content=buffer.getvalue(),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="transactions-{stamp}.csv"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="transactions-{stamp}.csv"'
+        },
     )
 
 
-@transactions_router.get("/summary", status_code=status.HTTP_200_OK, response_model=TransactionSummary)
+@transactions_router.get(
+    "/summary", status_code=status.HTTP_200_OK, response_model=TransactionSummary
+)
 async def get_transactions_summary(
     request: Request,
     user: CurrentUser,
-    transaction_type: Optional[TransactionType] = Query(None, description="Transaction type"),
+    transaction_type: Optional[TransactionType] = Query(
+        None, description="Transaction type"
+    ),
     start_date: Optional[datetime] = Query(None, description="Start of the period"),
     end_date: Optional[datetime] = Query(None, description="End of the period"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
@@ -566,7 +652,9 @@ async def get_transaction(
     )
 
 
-@transactions_router.post("/", status_code=status.HTTP_201_CREATED, response_model=TransactionResponse)
+@transactions_router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=TransactionResponse
+)
 async def create_transaction(
     request: Request,
     transaction_data: TransactionCreate,
@@ -612,15 +700,21 @@ async def delete_transaction(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Delete a transaction with account balance rollback."""
-    await TransactionViewSet.delete(request=request, obj_id=transaction_id, user=user, session_maker=session_maker)
+    await TransactionViewSet.delete(
+        request=request, obj_id=transaction_id, user=user, session_maker=session_maker
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@subscriptions_router.get("/", status_code=status.HTTP_200_OK, response_model=List[SubscriptionResponse])
+@subscriptions_router.get(
+    "/", status_code=status.HTTP_200_OK, response_model=List[SubscriptionResponse]
+)
 async def get_subscriptions(
     request: Request,
     user: CurrentUser,
-    is_active: Optional[bool] = Query(None, description="Filter by subscription activity"),
+    is_active: Optional[bool] = Query(
+        None, description="Filter by subscription activity"
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
@@ -648,7 +742,9 @@ async def get_upcoming_subscriptions(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[SubscriptionResponse]:
     """Upcoming subscription payments."""
-    return await SubscriptionViewSet.upcoming(request=request, user=user, days=days, session_maker=session_maker)
+    return await SubscriptionViewSet.upcoming(
+        request=request, user=user, days=days, session_maker=session_maker
+    )
 
 
 @subscriptions_router.get(
@@ -668,7 +764,9 @@ async def get_subscription(
     )
 
 
-@subscriptions_router.post("/", status_code=status.HTTP_201_CREATED, response_model=SubscriptionResponse)
+@subscriptions_router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=SubscriptionResponse
+)
 async def create_subscription(
     request: Request,
     subscription_data: SubscriptionCreate,
@@ -723,7 +821,9 @@ async def advance_subscription(
     )
 
 
-@subscriptions_router.delete("/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT)
+@subscriptions_router.delete(
+    "/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_subscription(
     request: Request,
     subscription_id: int,
@@ -731,25 +831,36 @@ async def delete_subscription(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Delete a subscription."""
-    await SubscriptionViewSet.delete(request=request, obj_id=subscription_id, user=user, session_maker=session_maker)
+    await SubscriptionViewSet.delete(
+        request=request, obj_id=subscription_id, user=user, session_maker=session_maker
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@currencies_router.get("/", status_code=status.HTTP_200_OK, response_model=List[CurrencyResponse])
+@currencies_router.get(
+    "/", status_code=status.HTTP_200_OK, response_model=List[CurrencyResponse]
+)
 async def get_currencies(
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[CurrencyResponse]:
     """Currency catalog."""
-    return await CurrencyViewSet.list(offset=offset, limit=limit, session_maker=session_maker)
+    return await CurrencyViewSet.list(
+        offset=offset, limit=limit, session_maker=session_maker
+    )
 
 
-@currencies_router.get("/rates", status_code=status.HTTP_200_OK, response_model=List[CurrencyRate])
+@currencies_router.get(
+    "/rates", status_code=status.HTTP_200_OK, response_model=List[CurrencyRate]
+)
 async def get_currency_rates(
     request: Request,
     base: Optional[str] = Query(
-        None, min_length=3, max_length=3, description="Base currency (defaults to user's base currency)"
+        None,
+        min_length=3,
+        max_length=3,
+        description="Base currency (defaults to user's base currency)",
     ),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
     user: Optional[User] = Depends(get_current_active_user_optional),
@@ -760,10 +871,14 @@ async def get_currency_rates(
     user is authenticated, their personal rates (``is_custom``) are included in
     the response.
     """
-    return await CurrencyViewSet.rates(request=request, base=base, user=user, session_maker=session_maker)
+    return await CurrencyViewSet.rates(
+        request=request, base=base, user=user, session_maker=session_maker
+    )
 
 
-@currencies_router.put("/{code}/rate", status_code=status.HTTP_200_OK, response_model=CurrencyRate)
+@currencies_router.put(
+    "/{code}/rate", status_code=status.HTTP_200_OK, response_model=CurrencyRate
+)
 async def set_user_currency_rate(
     request: Request,
     code: str,
@@ -789,10 +904,14 @@ async def reset_user_currency_rate(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
     """Revert to the catalog rate."""
-    await CurrencyViewSet.reset_rate(request=request, code=code, user=user, session_maker=session_maker)
+    await CurrencyViewSet.reset_rate(
+        request=request, code=code, user=user, session_maker=session_maker
+    )
 
 
-@currencies_router.get("/{code}", status_code=status.HTTP_200_OK, response_model=CurrencyResponse)
+@currencies_router.get(
+    "/{code}", status_code=status.HTTP_200_OK, response_model=CurrencyResponse
+)
 async def get_currency(
     code: str,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
@@ -801,7 +920,9 @@ async def get_currency(
     return await CurrencyViewSet.retrieve(obj_id=code, session_maker=session_maker)
 
 
-@currencies_router.post("/", status_code=status.HTTP_201_CREATED, response_model=CurrencyResponse)
+@currencies_router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=CurrencyResponse
+)
 async def create_currency(
     request: Request,
     currency_data: CurrencyCreate,
@@ -809,10 +930,14 @@ async def create_currency(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> CurrencyResponse:
     """Add a currency to the catalog (superuser only)."""
-    return await CurrencyViewSet.create(request=request, obj_data=currency_data, user=user, session_maker=session_maker)
+    return await CurrencyViewSet.create(
+        request=request, obj_data=currency_data, user=user, session_maker=session_maker
+    )
 
 
-@currencies_router.patch("/{code}", status_code=status.HTTP_200_OK, response_model=CurrencyResponse)
+@currencies_router.patch(
+    "/{code}", status_code=status.HTTP_200_OK, response_model=CurrencyResponse
+)
 async def update_currency(
     request: Request,
     code: str,
@@ -838,5 +963,7 @@ async def delete_currency(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Delete a currency from the catalog (superuser only)."""
-    await CurrencyViewSet.delete(request=request, obj_id=code, user=user, session_maker=session_maker)
+    await CurrencyViewSet.delete(
+        request=request, obj_id=code, user=user, session_maker=session_maker
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

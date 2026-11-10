@@ -11,9 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.database import get_async_session_maker
 from src.users.dependencies import get_current_superuser
 
-from .schemas import AdminGrantRequest
 from .schemas import AdminStats
-from .schemas import AdminSubscriptionTimeline
 from .schemas import AdminUser
 from .schemas import AdminUserPage
 from .schemas import AdminUserUpdate
@@ -30,24 +28,13 @@ admin_router = APIRouter(
 async def get_stats(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AdminStats:
-    """Summary of users and subscriptions."""
+    """Summary of registered users."""
     return await AdminService.get_stats(session_maker=session_maker)
 
 
 @admin_router.get(
-    "/stats/subscriptions",
-    status_code=status.HTTP_200_OK,
-    response_model=AdminSubscriptionTimeline,
+    "/users", status_code=status.HTTP_200_OK, response_model=AdminUserPage
 )
-async def get_subscription_timeline(
-    days: int = Query(30, ge=7, le=365),
-    session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> AdminSubscriptionTimeline:
-    """Subscription count timeline over the last N days."""
-    return await AdminService.get_subscription_timeline(days=days, session_maker=session_maker)
-
-
-@admin_router.get("/users", status_code=status.HTTP_200_OK, response_model=AdminUserPage)
 async def list_users(
     search: Optional[str] = Query(None, max_length=255),
     offset: int = Query(0, ge=0),
@@ -63,7 +50,9 @@ async def list_users(
     )
 
 
-@admin_router.patch("/users/{user_id}", status_code=status.HTTP_200_OK, response_model=AdminUser)
+@admin_router.patch(
+    "/users/{user_id}", status_code=status.HTTP_200_OK, response_model=AdminUser
+)
 async def update_user(
     user_id: uuid.UUID,
     payload: AdminUserUpdate,
@@ -73,39 +62,5 @@ async def update_user(
     return await AdminService.update_user(
         user_id=user_id,
         payload=payload,
-        session_maker=session_maker,
-    )
-
-
-@admin_router.post(
-    "/users/{user_id}/subscription",
-    status_code=status.HTTP_200_OK,
-    response_model=AdminUser,
-)
-async def grant_subscription(
-    user_id: uuid.UUID,
-    payload: AdminGrantRequest,
-    session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> AdminUser:
-    """Grant a free subscription for the plan's duration."""
-    return await AdminService.grant_subscription(
-        user_id=user_id,
-        request=payload,
-        session_maker=session_maker,
-    )
-
-
-@admin_router.delete(
-    "/users/{user_id}/subscription",
-    status_code=status.HTTP_200_OK,
-    response_model=AdminUser,
-)
-async def revoke_subscription(
-    user_id: uuid.UUID,
-    session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> AdminUser:
-    """Revoke subscription immediately."""
-    return await AdminService.revoke_subscription(
-        user_id=user_id,
         session_maker=session_maker,
     )

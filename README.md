@@ -39,15 +39,8 @@
 - **Smart categorization** with auto-rules and category tree
 - **Transfers between accounts** with real-time balance updates
 - **Advanced analytics** with period comparison, trends, and category breakdowns
-- **Subscription billing** with free/premium tiers and admin grants
-- **Admin panel** for user management and subscription control
-
-### Premium Features
-- Unlimited accounts (free tier: 2 accounts)
-- Multi-currency support
-- Extended analytics (category × month matrix, account insights)
-- Data export (CSV, JSON)
-- Recurring transaction templates
+- **Admin panel** for user management
+- Fully free and open-source: every feature is available to everyone
 - Budget limits per category
 
 ### Security & Privacy
@@ -132,7 +125,7 @@ docker compose exec backend python -m scripts.seed_admin
 ┌────────────────────▼────────────────────────────────────┐
 │  Backend (FastAPI + SQLAlchemy + Pydantic)              │
 │  ├── Layered architecture: Router → ViewSet → Service   │
-│  ├── Domain modules: users, finance, analytics, billing │
+│  ├── Domain modules: users, finance, analytics          │
 │  ├── JWT auth in httpOnly cookies                       │
 │  └── Redis caching with scope invalidation              │
 └────────────────────┬────────────────────────────────────┘
@@ -216,21 +209,6 @@ See [.env.example](./.env.example) for all available options.
 - `POSTGRES_PASSWORD` — Database password
 - `ENVIRONMENT` — Set to `PROD` for secure cookies
 - `CORS_ORIGINS` — Allowed frontend origins
-
-### Subscription tiers
-
-| Feature | Free | Premium |
-|---------|------|---------|
-| Accounts | 2 | Unlimited |
-| Currencies | Base only | All |
-| Analytics | Basic | Extended |
-| Export | ❌ | ✅ |
-| Templates | ❌ | ✅ |
-| Budgets | ❌ | ✅ |
-
-**Pricing:** $1.99/month or $19.99/year
-
-Admins can grant/revoke subscriptions via the admin panel without payment.
 
 ## 📖 API Examples
 

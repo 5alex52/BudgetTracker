@@ -15,12 +15,10 @@ import { SettingsPage } from '../__pages__/Settings'
 import { SettingsCurrenciesPage } from '../__pages__/SettingsCurrencies'
 import { SettingsCategoriesPage } from '../__pages__/SettingsCategories'
 import { SettingsPrivacyPage, SettingsRulesPage, SettingsTagsPage, SettingsTemplatesPage } from '../__pages__/SettingsExtras'
-import { SettingsPaymentsPage } from '../__pages__/SettingsPayments'
 import { AccountDetailPage } from '../__pages__/AccountDetail'
 import { LoginPage } from '../__pages__/Login'
 import { RegisterPage } from '../__pages__/Register'
 import { VerifyEmailPage } from '../__pages__/VerifyEmail'
-import { FeaturesPage } from '../__pages__/Features'
 import { AddRecordDialog } from '../components/records/AddRecordDialog'
 import { RecordDialogProvider } from '../components/records/RecordDialogContext'
 import '../styles/globals.css'
@@ -54,7 +52,6 @@ function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/verify-email" element={<VerifyEmailPage />} />
-                  <Route path="/features" element={<FeaturesPage />} />
                   <Route path="/" element={guarded(<DashboardPage />)} />
                   <Route path="/accounts" element={guarded(<AccountsPage />)} />
                   <Route path="/accounts/:accountId" element={guarded(<AccountDetailPage />)} />
@@ -66,7 +63,6 @@ function App() {
                   <Route path="/settings/templates" element={guarded(<SettingsTemplatesPage />)} />
                   <Route path="/settings/tags" element={guarded(<SettingsTagsPage />)} />
                   <Route path="/settings/rules" element={guarded(<SettingsRulesPage />)} />
-                  <Route path="/settings/payments" element={guarded(<SettingsPaymentsPage />)} />
                   <Route path="/settings/privacy" element={guarded(<SettingsPrivacyPage />)} />
                   <Route path="/admin" element={adminOnly(<AdminPage />)} />
                   {/* Витрина компонентов: не требует данных и остаётся доступной */}

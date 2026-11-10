@@ -90,7 +90,9 @@ async def logout(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ):
-    return await AuthViewSet.logout(user=user, request=request, response=response, session_maker=session_maker)
+    return await AuthViewSet.logout(
+        user=user, request=request, response=response, session_maker=session_maker
+    )
 
 
 @auth_router.post("/refresh")
@@ -99,7 +101,9 @@ async def refresh_token(
     response: Response,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Token:
-    return await AuthViewSet.refresh(request=request, response=response, session_maker=session_maker)
+    return await AuthViewSet.refresh(
+        request=request, response=response, session_maker=session_maker
+    )
 
 
 @auth_router.get("/sessions")
@@ -116,7 +120,9 @@ async def abort_all_sessions(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ):
-    return await AuthViewSet.abort(user=user, response=response, session_maker=session_maker)
+    return await AuthViewSet.abort(
+        user=user, response=response, session_maker=session_maker
+    )
 
 
 @auth_router.get("/oauth/{provider}")
@@ -198,7 +204,9 @@ async def verify_email(
         except HTTPException:
             # Invalid User-Agent: just skip the auto-login token
             pass
-    result = await UserViewSet.verify_email(token=token, session_maker=session_maker, device_info=device_info)
+    result = await UserViewSet.verify_email(
+        token=token, session_maker=session_maker, device_info=device_info
+    )
     if result is not None:
         # Set cookies for automatic login
         response.set_cookie(
@@ -245,7 +253,9 @@ async def update_me(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
     """Edit own profile: name, email, photo, timezone, language, base currency, theme."""
-    return await UserViewSet.update_profile(obj_data=user_data, user=user, session_maker=session_maker)
+    return await UserViewSet.update_profile(
+        obj_data=user_data, user=user, session_maker=session_maker
+    )
 
 
 @users_router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
@@ -255,7 +265,9 @@ async def change_my_password(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Change password with current password verification."""
-    await UserViewSet.change_password(obj_data=payload, user=user, session_maker=session_maker)
+    await UserViewSet.change_password(
+        obj_data=payload, user=user, session_maker=session_maker
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -275,7 +287,9 @@ async def delete_my_account(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     """Delete account along with financial data (password required)."""
-    await UserViewSet.delete_own_account(obj_data=payload, user=user, session_maker=session_maker)
+    await UserViewSet.delete_own_account(
+        obj_data=payload, user=user, session_maker=session_maker
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -285,7 +299,9 @@ async def get_one(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
-    return await UserViewSet.retrieve(user=user, session_maker=session_maker, obj_id=user_id)
+    return await UserViewSet.retrieve(
+        user=user, session_maker=session_maker, obj_id=user_id
+    )
 
 
 @users_router.patch("/{user_id}", status_code=status.HTTP_200_OK)
@@ -295,7 +311,9 @@ async def update(
     user: User = Depends(get_current_active_user),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> User:
-    return await UserViewSet.update(user=user, session_maker=session_maker, obj_id=user_id, obj_data=user_data)
+    return await UserViewSet.update(
+        user=user, session_maker=session_maker, obj_id=user_id, obj_data=user_data
+    )
 
 
 @users_router.delete("/{user_id}")

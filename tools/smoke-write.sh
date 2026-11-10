@@ -57,11 +57,7 @@ say "POST /finance/rules/apply?dry_run=true" "$(call POST '/finance/rules/apply?
 say "PUT /finance/currencies/USD/rate" "$(call PUT /finance/currencies/USD/rate '{"rate": 3.11}')"
 say "DELETE /finance/currencies/USD/rate" "$(call DELETE /finance/currencies/USD/rate)"
 
-say "POST /billing/subscription (mock)" "$(call POST /billing/subscription '{"plan_code":"monthly","provider":"mock"}')"
-say "GET /billing/subscription" "$(call GET /billing/subscription)"
-say "POST /billing/payment-methods" "$(call POST /billing/payment-methods '{"kind":"card","provider":"mock","token":"tok_4242","make_default":true}')"
 PM=$(python3 -c 'import json;d=json.load(open("/tmp/w.json"));print(d.get("id",""))' 2>/dev/null || echo '')
-[ -n "$PM" ] && say "DELETE /billing/payment-methods/{id}" "$(call DELETE "/billing/payment-methods/$PM")"
 
 say "PATCH /users/me" "$(call PATCH /users/me '{"timezone":"Europe/Moscow"}')"
 

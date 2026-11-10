@@ -1,6 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, ChevronDown, ChevronRight, Download, Info, Sparkles } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Download, Info } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import type { MatrixDto, MatrixRowDto } from '@/api/types'
@@ -13,7 +12,6 @@ import {
   toBarSegments,
 } from '@/api/mappers'
 import { useApiQuery } from '@/hooks/useApi'
-import { useEntitlements } from '@/hooks/useEntitlements'
 import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
 import { Amount, TrendBadge } from '@/components/data/Amount'
@@ -152,7 +150,6 @@ function buildReportSection(
 export function AnalyticsPage() {
   const { t, locale } = useI18n()
   const { isDark } = useTheme()
-  const navigate = useNavigate()
   const baseCurrency = useFinanceStore((state) => state.baseCurrency)
   const categories = useFinanceStore((state) => state.categories)
 
@@ -213,9 +210,6 @@ export function AnalyticsPage() {
     startDate,
     endDate,
   ])
-
-  /* Расширенная аналитика (только для подписки) */
-  const isPremium = useEntitlements().data?.advanced_analytics === true
 
   const report = useMemo(() => {
     const source = expenseMatrix.data ?? incomeMatrix.data
@@ -647,35 +641,7 @@ export function AnalyticsPage() {
 
       {tab === 'advanced' && (
         <div className="space-y-4">
-          {!isPremium && (
-            <Card className="p-6 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-accent/20 to-accent/40">
-                <Sparkles className="h-8 w-8 text-accent" />
-              </div>
-              <h2 className="text-title font-semibold text-fg-primary">{t('analytics.premiumTitle')}</h2>
-              <p className="mt-2 text-label text-fg-secondary">{t('analytics.premiumDescription')}</p>
-              <ul className="mx-auto mt-4 max-w-md space-y-2 text-left text-caption text-fg-secondary">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-positive" />
-                  {t('analytics.premiumFeature1')}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-positive" />
-                  {t('analytics.premiumFeature2')}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-positive" />
-                  {t('analytics.premiumFeature3')}
-                </li>
-              </ul>
-              <Button className="mt-6" onClick={() => navigate('/settings/payments')}>
-                {t('analytics.premiumCta')}
-              </Button>
-            </Card>
-          )}
-
-          {isPremium && (
-            <>
+          <>
               {/* Сравнение с предыдущим периодом */}
               <Card className="p-4">
                 <CardHeader title={t('dashboard.periodComparison')} subtitle={t('dashboard.vsPrevious')} />
@@ -808,7 +774,6 @@ export function AnalyticsPage() {
                 </Card>
               </div>
             </>
-          )}
         </div>
       )}
     </AppShell>

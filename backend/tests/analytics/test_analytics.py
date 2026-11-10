@@ -50,7 +50,9 @@ async def _make_transaction(
 
 
 @pytest.mark.asyncio
-async def test_summary_counts_income_and_expense(user, account, expense_category, income_category, session_maker):
+async def test_summary_counts_income_and_expense(
+    user, account, expense_category, income_category, session_maker
+):
     await _make_transaction(
         account,
         income_category,
@@ -84,7 +86,9 @@ async def test_summary_counts_income_and_expense(user, account, expense_category
 
 
 @pytest.mark.asyncio
-async def test_summary_does_not_count_transfers_as_income_or_expense(user, account, second_account, session_maker):
+async def test_summary_does_not_count_transfers_as_income_or_expense(
+    user, account, second_account, session_maker
+):
     """Transfers move the balance but are neither income nor expense."""
     transfer_category = await CategoryService.create_for_user(
         schema=CategoryCreate(name="Transfer", type=CategoryType.TRANSFER),
@@ -116,7 +120,9 @@ async def test_summary_does_not_count_transfers_as_income_or_expense(user, accou
 
 
 @pytest.mark.asyncio
-async def test_summary_compares_with_previous_period(user, account, income_category, session_maker):
+async def test_summary_compares_with_previous_period(
+    user, account, income_category, session_maker
+):
     # Previous period (September): income 500
     await _make_transaction(
         account,
@@ -152,7 +158,9 @@ async def test_summary_compares_with_previous_period(user, account, income_categ
 
 
 @pytest.mark.asyncio
-async def test_summary_without_compare_has_no_previous(user, account, income_category, session_maker):
+async def test_summary_without_compare_has_no_previous(
+    user, account, income_category, session_maker
+):
     await _make_transaction(
         account,
         income_category,
@@ -176,10 +184,12 @@ async def test_summary_without_compare_has_no_previous(user, account, income_cat
 
 
 @pytest.mark.asyncio
-async def test_summary_converts_currency_to_base(user, session_maker, currencies, premium_entitlements):
+async def test_summary_converts_currency_to_base(user, session_maker, currencies):
     """Totals are aggregated in the base currency: 100 EUR at rate 1.1 is 110 USD."""
     euro_account = await AccountService.create_for_user(
-        schema=AccountCreate(name="Euro", type=AccountType.CASH, currency_id="EUR", balance=0.0),
+        schema=AccountCreate(
+            name="Euro", type=AccountType.CASH, currency_id="EUR", balance=0.0
+        ),
         user_id=user.id,
         session_maker=session_maker,
     )
@@ -210,11 +220,15 @@ async def test_summary_converts_currency_to_base(user, session_maker, currencies
 
 
 @pytest.mark.asyncio
-async def test_summary_uses_personal_currency_rate(user, session_maker, currencies, premium_entitlements):
+async def test_summary_uses_personal_currency_rate(user, session_maker, currencies):
     """The user's personal rate takes precedence over the catalog rate: 100 EUR at 2.0 is 200 USD."""
-    await CurrencyService.set_user_rate(code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker)
+    await CurrencyService.set_user_rate(
+        code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker
+    )
     euro_account = await AccountService.create_for_user(
-        schema=AccountCreate(name="Euro", type=AccountType.CASH, currency_id="EUR", balance=0.0),
+        schema=AccountCreate(
+            name="Euro", type=AccountType.CASH, currency_id="EUR", balance=0.0
+        ),
         user_id=user.id,
         session_maker=session_maker,
     )
@@ -287,7 +301,9 @@ async def test_excluded_account_is_ignored_by_statistics(
 
 
 @pytest.mark.asyncio
-async def test_balance_overview_skips_excluded_accounts(user, account, second_account, session_maker):
+async def test_balance_overview_skips_excluded_accounts(
+    user, account, second_account, session_maker
+):
     await AccountService.set_excluded(
         account_id=second_account.id,
         user_id=user.id,
@@ -295,14 +311,18 @@ async def test_balance_overview_skips_excluded_accounts(user, account, second_ac
         session_maker=session_maker,
     )
 
-    overview = await AccountService.get_balance_overview(user_id=user.id, session_maker=session_maker)
+    overview = await AccountService.get_balance_overview(
+        user_id=user.id, session_maker=session_maker
+    )
 
     assert overview.total == 1000.0
     assert [item.account_id for item in overview.accounts] == [account.id]
 
 
 @pytest.mark.asyncio
-async def test_timeseries_cashflow_by_day(user, account, expense_category, income_category, session_maker):
+async def test_timeseries_cashflow_by_day(
+    user, account, expense_category, income_category, session_maker
+):
     await _make_transaction(
         account,
         income_category,
@@ -432,15 +452,21 @@ async def test_timeseries_balance_ends_at_current_balance(
 @pytest.mark.asyncio
 async def test_timeseries_rejects_unknown_grouping(user, session_maker):
     with pytest.raises(HTTPException) as error:
-        await AnalyticsService.timeseries(user_id=user.id, group_by="year", session_maker=session_maker)
+        await AnalyticsService.timeseries(
+            user_id=user.id, group_by="year", session_maker=session_maker
+        )
 
     assert error.value.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_by_category_shares_and_rollup(user, account, expense_category, session_maker):
+async def test_by_category_shares_and_rollup(
+    user, account, expense_category, session_maker
+):
     child = await CategoryService.create_for_user(
-        schema=CategoryCreate(name="Groceries", type=CategoryType.EXPENSE, parent_id=expense_category.id),
+        schema=CategoryCreate(
+            name="Groceries", type=CategoryType.EXPENSE, parent_id=expense_category.id
+        ),
         user_id=user.id,
         session_maker=session_maker,
     )
@@ -449,8 +475,12 @@ async def test_by_category_shares_and_rollup(user, account, expense_category, se
         user_id=user.id,
         session_maker=session_maker,
     )
-    await _make_transaction(account, child, user, session_maker, 75.0, TransactionType.EXPENSE, PERIOD_START)
-    await _make_transaction(account, other, user, session_maker, 25.0, TransactionType.EXPENSE, PERIOD_START)
+    await _make_transaction(
+        account, child, user, session_maker, 75.0, TransactionType.EXPENSE, PERIOD_START
+    )
+    await _make_transaction(
+        account, other, user, session_maker, 25.0, TransactionType.EXPENSE, PERIOD_START
+    )
 
     breakdown = await AnalyticsService.by_category(
         user_id=user.id,
@@ -478,9 +508,13 @@ async def test_by_category_shares_and_rollup(user, account, expense_category, se
 
 
 @pytest.mark.asyncio
-async def test_by_category_drill_down_into_children(user, account, expense_category, session_maker):
+async def test_by_category_drill_down_into_children(
+    user, account, expense_category, session_maker
+):
     child = await CategoryService.create_for_user(
-        schema=CategoryCreate(name="Cafe", type=CategoryType.EXPENSE, parent_id=expense_category.id),
+        schema=CategoryCreate(
+            name="Cafe", type=CategoryType.EXPENSE, parent_id=expense_category.id
+        ),
         user_id=user.id,
         session_maker=session_maker,
     )
@@ -493,7 +527,9 @@ async def test_by_category_drill_down_into_children(user, account, expense_categ
         TransactionType.EXPENSE,
         PERIOD_START,
     )
-    await _make_transaction(account, child, user, session_maker, 60.0, TransactionType.EXPENSE, PERIOD_START)
+    await _make_transaction(
+        account, child, user, session_maker, 60.0, TransactionType.EXPENSE, PERIOD_START
+    )
 
     drill = await AnalyticsService.by_category(
         user_id=user.id,
@@ -510,7 +546,9 @@ async def test_by_category_drill_down_into_children(user, account, expense_categ
 
 
 @pytest.mark.asyncio
-async def test_by_category_is_isolated_between_users(user, other_user, account, expense_category, session_maker):
+async def test_by_category_is_isolated_between_users(
+    user, other_user, account, expense_category, session_maker
+):
     await _make_transaction(
         account,
         expense_category,
@@ -534,7 +572,9 @@ async def test_by_category_is_isolated_between_users(user, other_user, account, 
 
 
 @pytest.mark.asyncio
-async def test_by_account_reports_turnover(user, account, second_account, expense_category, session_maker):
+async def test_by_account_reports_turnover(
+    user, account, second_account, expense_category, session_maker
+):
     await _make_transaction(
         account,
         expense_category,
@@ -568,7 +608,9 @@ async def test_by_account_reports_turnover(user, account, second_account, expens
 
 
 @pytest.mark.asyncio
-async def test_matrix_has_months_and_rows(user, account, expense_category, session_maker):
+async def test_matrix_has_months_and_rows(
+    user, account, expense_category, session_maker
+):
     await _make_transaction(
         account,
         expense_category,
@@ -606,7 +648,9 @@ async def test_matrix_has_months_and_rows(user, account, expense_category, sessi
 @pytest.mark.asyncio
 async def test_matrix_rejects_bad_month_count(user, session_maker):
     with pytest.raises(HTTPException) as error:
-        await AnalyticsService.matrix(user_id=user.id, months=0, session_maker=session_maker)
+        await AnalyticsService.matrix(
+            user_id=user.id, months=0, session_maker=session_maker
+        )
 
     assert error.value.status_code == 400
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { CircleHelp, Coins, CreditCard, Shield, SlidersHorizontal, Tag, Tags, User } from 'lucide-react'
+import { CircleHelp, Coins, Shield, SlidersHorizontal, Tag, Tags, User } from 'lucide-react'
 import { cn } from '@/__shared__/utils/cn'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { AppShell } from '@/components/layout/AppShell'
@@ -30,7 +30,6 @@ const GROUPS: Array<{
     title: 'settings.group.general',
     items: [
       { to: '/settings', labelKey: 'settings.general', icon: User },
-      { to: '/settings/payments', labelKey: 'settings.payments', icon: CreditCard },
       { to: '/settings/privacy', labelKey: 'settings.privacy', icon: Shield },
       {
         to: '/settings/help',

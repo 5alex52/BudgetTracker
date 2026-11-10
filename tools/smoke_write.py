@@ -174,17 +174,6 @@ def main() -> int:
     call("GET", "/finance/transactions/export?format=csv")
     call("GET", "/finance/transactions/export?format=json")
 
-    # --- биллинг: подписка (mock), способ оплаты
-    call("POST", "/billing/subscription", {"plan_code": "monthly", "provider": "mock"})
-    call("GET", "/billing/subscription")
-    method = call(
-        "POST",
-        "/billing/payment-methods",
-        {"kind": "card", "provider": "mock", "token": "tok_4242", "make_default": True},
-    )
-    if isinstance(method, dict) and method.get("id"):
-        call("DELETE", f"/billing/payment-methods/{method['id']}")
-
     # --- профиль
     call("PATCH", "/users/me", {"timezone": "Europe/Moscow"})
 

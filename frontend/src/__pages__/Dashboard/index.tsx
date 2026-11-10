@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Eye, LayoutGrid, MoreHorizontal, Plus, Sparkles } from 'lucide-react'
+import { LayoutGrid, MoreHorizontal, Plus, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
 import { accountsApi, analyticsApi } from '@/api'
 import { toBalancePoints, toCashflowPoints, toDonutSegments } from '@/api/mappers'
 import { useApiQuery } from '@/hooks/useApi'
-import { useEntitlements } from '@/hooks/useEntitlements'
 import { useAuthStore } from '@/store/auth'
 import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
@@ -19,7 +18,6 @@ import { Button } from '@/components/ui/button'
 import { BarChart, DonutChart, LineChart } from '@/components/charts/charts'
 import { SegmentedControl } from '@/components/ui/toggles'
 import { AccountDialog } from '@/components/accounts/AccountDialog'
-import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,7 +75,6 @@ export function DashboardPage() {
   const [range, setRange] = useState<import('react-day-picker').DateRange | undefined>(undefined)
   const [monthOffset, setMonthOffset] = useState(0)
   const [accountDialogOpen, setAccountDialogOpen] = useState(false)
-  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [comparison, setComparison] = useState<'cashflow' | 'expense' | 'income'>('cashflow')
   /** Какие KPI показывать: меню «Настроить» действительно переключает плитки */
   const [hiddenKpi, setHiddenKpi] = useState<Array<'balance' | 'cashflow' | 'expenses'>>([])
@@ -160,16 +157,9 @@ export function DashboardPage() {
   )
   const totalBalance = balanceOverview.data?.total ?? 0
 
-  /* Тариф: от него зависит, показывать премиум-виджет или кнопку апгрейда */
-  const entitlementsQuery = useEntitlements()
-  const entitlements = entitlementsQuery.data
-  const isPremium = entitlements?.advanced_analytics === true
-  const maxAccounts = entitlements?.max_accounts ?? null
-  const usedSlots = accounts.filter((account) => !account.archived).length
-  const atAccountLimit = maxAccounts !== null && usedSlots >= maxAccounts
 
   /** «Характер расходов»: главная категория, средний день и самый затратный день */
-  const premiumStats = useMemo(() => {
+  const spendingStats = useMemo(() => {
     const top = segments[0]
     const expenseTotal = totals?.expense ?? 0
     const topShare = top && expenseTotal > 0 ? (Math.abs(top.value) / expenseTotal) * 100 : null
@@ -247,8 +237,6 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={() => setAccountDialogOpen(true)}
-            disabled={atAccountLimit}
-            title={atAccountLimit ? t('accounts.limitReached', { max: maxAccounts ?? 0 }) : undefined}
             className="flex h-[50px] items-center justify-center gap-1.5 rounded-md border border-dashed border-stroke-strong text-caption text-fg-tertiary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45 xl:hidden"
           >
             <Plus className="size-3.5" aria-hidden="true" />
@@ -259,8 +247,6 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={() => setAccountDialogOpen(true)}
-            disabled={atAccountLimit}
-            title={atAccountLimit ? t('accounts.limitReached', { max: maxAccounts ?? 0 }) : undefined}
             className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-stroke-strong py-3 text-caption text-fg-tertiary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45"
           >
             <Plus className="size-3.5" aria-hidden="true" />
@@ -291,8 +277,6 @@ export function DashboardPage() {
           pill
           className="gap-1.5"
           onClick={() => setAccountDialogOpen(true)}
-          disabled={atAccountLimit}
-          title={atAccountLimit ? t('accounts.limitReached', { max: maxAccounts ?? 0 }) : undefined}
         >
           <Plus className="size-4" aria-hidden="true" />
           {t('dashboard.addCard')}
@@ -356,10 +340,6 @@ export function DashboardPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => navigate('/records')}>
                       {t('nav.records')}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setUpgradeOpen(true)}>
-                      {t('dashboard.upgrade')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -539,74 +519,56 @@ export function DashboardPage() {
               <h2 className="text-headline font-semibold text-fg-primary">
                 {t('dashboard.spendingCharacter')}
               </h2>
-              <p className="text-caption text-fg-secondary">
-                {isPremium
-                  ? `${t('dashboard.premiumPlan')}: ${entitlements?.plan_name ?? ''}`
-                  : `${t('dashboard.upgradePremium')} — ${t('dashboard.upgradeHint')}`}
-              </p>
             </div>
-            {!isPremium && (
-              <Button
-                variant="primary"
-                size="sm"
-                pill
-                className="ml-auto gap-1.5"
-                onClick={() => setUpgradeOpen(true)}
-              >
-                <Eye className="size-4" aria-hidden="true" />
-                {t('dashboard.upgrade')}
-              </Button>
-            )}
           </div>
 
-          {isPremium && (
             <div className="mt-4 space-y-5">
               {/* Метрики */}
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="flex flex-col gap-1">
                   <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.topCategory')}</span>
                   <span className="truncate text-label font-medium text-fg-primary">
-                    {premiumStats.topCategory ?? '—'}
+                    {spendingStats.topCategory ?? '—'}
                   </span>
                   <span className="text-caption text-fg-tertiary">
-                    {premiumStats.topShare === null ? '—' : `${premiumStats.topShare.toFixed(0)}%`}
+                    {spendingStats.topShare === null ? '—' : `${spendingStats.topShare.toFixed(0)}%`}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.avgPerDay')}</span>
-                  <Amount value={premiumStats.avgPerDay} currency={baseCurrency} size="sm" tone="neutral" />
+                  <Amount value={spendingStats.avgPerDay} currency={baseCurrency} size="sm" tone="neutral" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.busiestDay')}</span>
                   <span className="truncate text-label font-medium text-fg-primary">
-                    {premiumStats.busiestDay ?? '—'}
+                    {spendingStats.busiestDay ?? '—'}
                   </span>
-                  <Amount value={premiumStats.busiestDayValue} currency={baseCurrency} size="sm" tone="negative" />
+                  <Amount value={spendingStats.busiestDayValue} currency={baseCurrency} size="sm" tone="negative" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.totalTransactions')}</span>
                   <span className="text-label font-medium text-fg-primary">
-                    {premiumStats.totalTransactions}
+                    {spendingStats.totalTransactions}
                   </span>
                   <span className="text-caption text-fg-tertiary">
-                    {t('dashboard.avgTx')}: {premiumStats.avgTransaction > 0 ? premiumStats.avgTransaction.toFixed(2) : '—'} {baseCurrency}
+                    {t('dashboard.avgTx')}: {spendingStats.avgTransaction > 0 ? spendingStats.avgTransaction.toFixed(2) : '—'} {baseCurrency}
                   </span>
                 </div>
               </div>
 
               {/* Разбивка по категориям */}
-              {premiumStats.topCategories.length > 0 && (
+              {spendingStats.topCategories.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-caption font-medium text-fg-secondary">
                       {t('dashboard.categoryBreakdown')}
                     </span>
                     <span className="text-caption text-fg-tertiary">
-                      {premiumStats.categoryCount} {t('dashboard.categories')}
+                      {spendingStats.categoryCount} {t('dashboard.categories')}
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {premiumStats.topCategories.map((cat, idx) => (
+                    {spendingStats.topCategories.map((cat, idx) => (
                       <div key={cat.name} className="space-y-1">
                         <div className="flex items-center gap-2 text-caption">
                           <span className="min-w-0 flex-1 truncate text-fg-secondary">
@@ -635,42 +597,11 @@ export function DashboardPage() {
                 </div>
               )}
             </div>
-          )}
         </Card>
       </div>
 
       <AccountDialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen} account={null} />
 
-      <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
-        <DialogContent
-          title={t('dashboard.upgrade')}
-          description={t('dashboard.upgradeHint')}
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button variant="subtle" onClick={() => setUpgradeOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={() => {
-                  setUpgradeOpen(false)
-                  navigate('/settings/payments')
-                }}
-              >
-                {t('payments.changePlan')}
-              </Button>
-            </div>
-          }
-        >
-          <ul className="space-y-2 text-label text-fg-secondary">
-            {[t('payments.feature1'), t('payments.feature2'), t('payments.feature3')].map((feature) => (
-              <li key={feature} className="flex items-center gap-2">
-                <Sparkles className="size-3.5 text-accent" aria-hidden="true" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   )
 }

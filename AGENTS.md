@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**BudgetTracker** is a personal finance management system with multi-currency support, subscription billing, and advanced analytics. Built with a modern stack: FastAPI backend, React frontend, PostgreSQL, and Redis.
+**BudgetTracker** is a free and open-source personal finance management system with multi-currency support and advanced analytics. Built with a modern stack: FastAPI backend, React frontend, PostgreSQL, and Redis.
 
 ## Architecture
 
@@ -41,15 +41,14 @@ Each domain module follows a consistent layered pattern:
 1. **`src/users/`** — Authentication, user management, email verification
 2. **`src/finance/`** — Core financial operations (accounts, categories, transactions)
 3. **`src/analytics/`** — Reporting and analytics (read-only, aggregates data)
-4. **`src/billing/`** — Subscriptions, payment processing, entitlements
-5. **`src/notifications/`** — Email/SMS notifications (extensible)
+4. **`src/notifications/`** — Email/SMS notifications (extensible)
 
 ### Key Design Decisions
 
 - **Isolation by ownership**: All financial data filtered by `user_id` — cross-user access returns 404
 - **Base currency normalization**: All analytics calculated in user's base currency with personal exchange rates
 - **Cache strategy**: Redis caching with scope-based invalidation (analytics, categories)
-- **Free tier enforcement**: Server-side HTTP 402 with frontend lock/limit UI
+- **Fully free**: no paid tiers or limits, all features available to every user
 - **JWT in httpOnly cookies**: No localStorage tokens, automatic session restoration
 
 ## Frontend Structure
@@ -70,14 +69,8 @@ frontend/src/
 - **Finance store**: Accounts, categories, transactions (cached, invalidated on mutations)
 - **Query hooks**: `useApiQuery` for reactive data fetching
 
-## Features & Subscription Tiers
+## Features
 
-### Free Tier
-- Up to 2 active accounts
-- Base currency only (no multi-currency)
-- Basic analytics (summary, balance, cashflow)
-
-### Premium Tier (`advanced_analytics: true`)
 - Unlimited accounts
 - Multi-currency support with personal rates
 - Extended analytics:
@@ -107,12 +100,6 @@ frontend/src/
 - `GET /api/analytics/by-category` — Category breakdowns
 - `GET /api/analytics/by-account` — Account activity
 - `GET /api/analytics/matrix` — Category × month report
-
-### Billing
-- `GET /api/billing/plans` — Available subscription plans
-- `GET /api/billing/subscription` — Current subscription status
-- `POST /api/billing/subscription` — Change plan
-- `GET /api/billing/entitlements` — Feature flags for current tier
 
 ## Development Workflow
 
@@ -197,13 +184,6 @@ Transfers excluded from:
 But included in:
 - Balance calculations
 - Balance series
-
-### Free Plan Limits
-
-Enforced server-side with HTTP 402:
-- Max 2 non-archived accounts
-- Base currency only for new accounts
-- Read-only locks on excess/foreign accounts
 
 ## Deployment
 

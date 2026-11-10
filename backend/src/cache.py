@@ -110,7 +110,9 @@ class Cache:
         try:
             cursor = 0
             while True:
-                cursor, found = await cls._client.scan(cursor=cursor, match=pattern, count=200)
+                cursor, found = await cls._client.scan(
+                    cursor=cursor, match=pattern, count=200
+                )
                 if found:
                     await cls._client.delete(*found)
                 if cursor == 0:

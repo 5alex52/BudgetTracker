@@ -60,18 +60,6 @@ class Settings(BaseSettings):
     CORS_HEADERS: List[str]
     CORS_METHODS: List[str]
 
-    #: Default payment provider: mock | stripe | crypto
-    #: To switch to a real acquirer, change the environment variable; billing code remains unchanged
-    BILLING_PROVIDER: str = "mock"
-    BILLING_CURRENCY: str = "USD"
-    #: Provider keys: empty values mean 'provider not configured'
-    STRIPE_SECRET_KEY: str = ""
-    STRIPE_WEBHOOK_SECRET: str = ""
-    CRYPTO_API_KEY: str = ""
-    CRYPTO_WEBHOOK_SECRET: str = ""
-    #: Frontend URL where the provider will redirect the user after payment
-    BILLING_RETURN_URL: str = "http://localhost:5173/settings/payments"
-
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
 

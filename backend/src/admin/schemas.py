@@ -1,4 +1,4 @@
-"""Admin panel schemas: users and subscription statistics."""
+"""Admin panel schemas: users and user statistics."""
 
 import uuid
 from datetime import datetime
@@ -8,11 +8,9 @@ from typing import Optional
 from pydantic import BaseModel
 from pydantic import Field
 
-from ..billing.models import SubscriptionStatus
-
 
 class AdminUser(BaseModel):
-    """User in the admin list with their current subscription."""
+    """User in the admin list."""
 
     id: uuid.UUID
     fullname: str
@@ -22,11 +20,6 @@ class AdminUser(BaseModel):
     is_superuser: bool
     created_at: datetime
     last_login_at: Optional[datetime] = None
-    plan_code: str
-    plan_name: str
-    subscription_status: SubscriptionStatus
-    current_period_end: Optional[datetime] = None
-    is_premium: bool
 
 
 class AdminUserPage(BaseModel):
@@ -46,37 +39,6 @@ class AdminUserUpdate(BaseModel):
     is_verified: Optional[bool] = None
 
 
-class AdminPlanStat(BaseModel):
-    code: str
-    name: str
-    count: int
-
-
 class AdminStats(BaseModel):
     users_total: int
     users_new_30d: int
-    premium_total: int
-    free_total: int
-    expiring_soon: int
-    revenue_30d: float
-    plans: List[AdminPlanStat] = Field(default_factory=list)
-
-
-class AdminSubscriptionPoint(BaseModel):
-    """Subscription counts for a specific date."""
-
-    date: str
-    premium: int
-    free: int
-
-
-class AdminSubscriptionTimeline(BaseModel):
-    """Historical subscription counts over the last 30 days."""
-
-    points: List[AdminSubscriptionPoint] = Field(default_factory=list)
-
-
-class AdminGrantRequest(BaseModel):
-    """Grant a subscription without payment."""
-
-    plan_code: str = Field(..., min_length=1, max_length=32)

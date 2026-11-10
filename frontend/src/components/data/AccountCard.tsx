@@ -1,5 +1,4 @@
 import { memo } from 'react'
-import { Lock } from 'lucide-react'
 import type { Account } from '@/__shared__/types/models'
 import { cn } from '@/__shared__/utils/cn'
 import { Amount } from './Amount'
@@ -39,7 +38,6 @@ function AccountCardImpl({
       />
       <span className="flex items-center gap-1.5">
         <span className="truncate text-caption text-fg-secondary">{account.name}</span>
-        {account.locked && <Lock className="size-3 shrink-0 text-fg-tertiary" aria-hidden="true" />}
       </span>
       <Amount value={account.balance} currency={account.currency} tone="neutral" size="sm" className="mt-0.5" />
     </button>

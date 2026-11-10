@@ -86,9 +86,6 @@ class AccountResponse(AccountBase):
     user_id: uuid.UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
-    #: Account is read-only: limit or currency requires a subscription
-    is_locked: bool = False
-    lock_reason: Optional[str] = None
 
 
 class AccountInline(BaseModel):
@@ -99,8 +96,6 @@ class AccountInline(BaseModel):
     balance: float
     is_archived: bool
     is_excluded: bool = False
-    is_locked: bool = False
-    lock_reason: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -228,7 +223,9 @@ class TransactionWithDetails(TransactionResponse):
             category_icon=transaction.category.icon,
             currency_symbol=transaction.currency.symbol,
             transfer_account_name=(
-                transaction.transfer_account.name if transaction.transfer_account is not None else None
+                transaction.transfer_account.name
+                if transaction.transfer_account is not None
+                else None
             ),
         )
 
@@ -260,8 +257,6 @@ class BalanceOverviewAccount(BaseModel):
     balance_base: float
     is_archived: bool = False
     is_excluded: bool = False
-    is_locked: bool = False
-    lock_reason: Optional[str] = None
 
 
 class BalanceOverview(BaseModel):
@@ -342,8 +337,6 @@ class AccountSummary(BaseModel):
     balance: float
     is_archived: bool = False
     is_excluded: bool = False
-    is_locked: bool = False
-    lock_reason: Optional[str] = None
     income: float
     expense: float
     net: float

@@ -52,7 +52,9 @@ currencies = sa.table(
 
 def upgrade() -> None:
     connection = op.get_bind()
-    existing = {code for (code,) in connection.execute(sa.text("SELECT code FROM currencies"))}
+    existing = {
+        code for (code,) in connection.execute(sa.text("SELECT code FROM currencies"))
+    }
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     rows = [

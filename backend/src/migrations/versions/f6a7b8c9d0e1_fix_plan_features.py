@@ -21,11 +21,17 @@ depends_on = None
 def upgrade() -> None:
     # JSON string → array: `#>> '{}'` extracts the text, cast yields json
     op.execute(
-        sa.text("UPDATE plans SET features = (features #>> '{}')::json " "WHERE json_typeof(features) = 'string'")
+        sa.text(
+            "UPDATE plans SET features = (features #>> '{}')::json "
+            "WHERE json_typeof(features) = 'string'"
+        )
     )
 
 
 def downgrade() -> None:
     op.execute(
-        sa.text("UPDATE plans SET features = to_json(features::text)::json " "WHERE json_typeof(features) = 'array'")
+        sa.text(
+            "UPDATE plans SET features = to_json(features::text)::json "
+            "WHERE json_typeof(features) = 'array'"
+        )
     )

@@ -92,8 +92,6 @@ export function toAccount(dto: AccountDto): Account {
     tint: accountTint(dto.id),
     excluded: dto.is_excluded,
     archived: dto.is_archived,
-    locked: Boolean(dto.is_locked),
-    lockReason: dto.lock_reason ?? null,
   }
 }
 

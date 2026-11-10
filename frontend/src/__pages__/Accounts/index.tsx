@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Archive, Eye, Lock, MoreHorizontal, Plus, Sparkles } from 'lucide-react'
+import { Archive, Eye, MoreHorizontal, Plus } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import { useNavigate } from 'react-router-dom'
 import type { Account, AccountKind } from '@/__shared__/types/models'
-import { useEntitlements } from '@/hooks/useEntitlements'
 import { useFinanceStore } from '@/store/finance'
 import { chipColors } from '@/__shared__/utils/contrast'
 import { AccountDialog } from '@/components/accounts/AccountDialog'
@@ -43,8 +42,6 @@ export function AccountsPage() {
   const baseCurrency = useFinanceStore((state) => state.baseCurrency)
   const rates = useFinanceStore((state) => state.rates)
   const loading = useFinanceStore((state) => state.loading)
-  const entitlements = useEntitlements().data
-  const maxAccounts = entitlements?.max_accounts ?? null
   const [showArchived, setShowArchived] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
@@ -59,11 +56,6 @@ export function AccountsPage() {
     const rate = ratesByCode.get(account.currency)
     return rate && rate > 0 ? account.balance / rate : 0
   }
-
-  // Лимит тарифа считает все незаархивированные счета, как и сервер:
-  // заблокированные счета в другой валюте не освобождают слот.
-  const usedSlots = accounts.filter((account) => !account.archived).length
-  const atLimit = maxAccounts !== null && usedSlots >= maxAccounts
 
   const openCreate = () => {
     setEditing(null)
@@ -89,8 +81,6 @@ export function AccountsPage() {
             size="sm"
             className="gap-1.5"
             onClick={openCreate}
-            disabled={atLimit}
-            title={atLimit ? t('accounts.limitReached', { max: maxAccounts ?? 0 }) : undefined}
           >
             <Plus className="size-4" aria-hidden="true" />
             {t('accounts.add')}
@@ -102,21 +92,6 @@ export function AccountsPage() {
         <Switch checked={showArchived} onCheckedChange={setShowArchived} label={t('accounts.showArchived')} />
       </div>
 
-      {atLimit && (
-        <Card className="mb-3 border-l-2 border-l-[var(--accent)]">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="grid size-8 place-items-center rounded-md bg-accent-soft text-accent-on-soft">
-              <Sparkles className="size-4" aria-hidden="true" />
-            </span>
-            <p className="min-w-0 flex-1 text-caption text-fg-secondary">
-              {t('accounts.limitReached', { max: maxAccounts ?? 0 })}
-            </p>
-            <Button variant="subtle" size="sm" onClick={() => navigate('/settings/payments')}>
-              {t('accounts.limitCta')}
-            </Button>
-          </div>
-        </Card>
-      )}
 
       {loading && accounts.length === 0 && (
         <p className="text-label text-fg-tertiary" role="status">
@@ -127,7 +102,7 @@ export function AccountsPage() {
       {!loading && groups.length === 0 && (
         <Card>
           <p className="text-label text-fg-secondary">{t('state.empty')}</p>
-          <Button size="sm" className="mt-3 gap-1.5" onClick={openCreate} disabled={atLimit}>
+          <Button size="sm" className="mt-3 gap-1.5" onClick={openCreate}>
             <Plus className="size-4" aria-hidden="true" />
             {t('accounts.add')}
           </Button>
@@ -185,19 +160,6 @@ export function AccountsPage() {
                             <span className="inline-flex items-center gap-1 rounded-xs bg-surface-2 px-1.5 py-0.5">
                               <Archive className="size-3" aria-hidden="true" />
                               {t('accounts.archived')}
-                            </span>
-                          )}
-                          {account.locked && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-xs bg-accent-soft px-1.5 py-0.5 text-accent-on-soft"
-                              title={
-                                account.lockReason === 'subscription_required_currency'
-                                  ? t('accounts.lockedCurrency')
-                                  : t('accounts.lockedLimit')
-                              }
-                            >
-                              <Lock className="size-3" aria-hidden="true" />
-                              {t('accounts.locked')}
                             </span>
                           )}
                         </p>

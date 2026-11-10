@@ -97,21 +97,13 @@ export function AddRecordDialog({
     ])
   }, [availableCategories])
 
-  // На бесплатном тарифе часть счетов заблокирована: новые записи на них
-  // создать нельзя. При редактировании показываем все счета, чтобы запись
-  // можно было перенести на доступный.
-  const selectableAccounts = useMemo(
-    () => accounts.filter((item) => !item.archived && !item.locked),
-    [accounts],
-  )
   const formAccounts = useMemo(
-    () => (editing && record ? accounts : selectableAccounts),
-    [accounts, editing, record, selectableAccounts],
+    () => accounts.filter((item) => !item.archived),
+    [accounts],
   )
 
   const account = accounts.find((item) => item.id === accountId)
   const currency = account?.currency ?? 'BYN'
-  const lockedAccount = Boolean(account?.locked)
 
   useEffect(() => {
     if (!open) return
@@ -132,7 +124,7 @@ export function AddRecordDialog({
 
     setType('expense')
     setAmount('')
-    setAccountId(selectableAccounts[0]?.id ?? '')
+    setAccountId(formAccounts[0]?.id ?? '')
     setToAccountId('')
     setCategoryId('')
     setNote('')
@@ -197,8 +189,7 @@ export function AddRecordDialog({
 
   const submit = async () => {
     setTouched(true)
-    const destinationLocked = isTransfer && Boolean(toAccount?.locked)
-    if (amountValue === null || !accountId || lockedAccount || destinationLocked) return
+    if (amountValue === null || !accountId) return
     if (isTransfer ? !toAccountId || toAccountId === accountId : !categoryId) return
     setPending(true)
     try {
@@ -261,7 +252,7 @@ export function AddRecordDialog({
             </Button>
             <Button
               onClick={() => void submit()}
-              disabled={pending || lockedAccount || (isTransfer && Boolean(toAccount?.locked))}
+              disabled={pending}
             >
               {pending ? t('state.saving') : editing ? t('common.save') : t('common.add')}
             </Button>
@@ -304,7 +295,6 @@ export function AddRecordDialog({
             <Field
               label={isTransfer ? t('recordForm.fromAccount') : t('recordForm.account')}
               error={accountInvalid ? t('recordForm.required') : undefined}
-              hint={lockedAccount ? t('accounts.lockedHint') : undefined}
               required
             >
               <FilterSelect

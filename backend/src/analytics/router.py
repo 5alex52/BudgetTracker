@@ -24,13 +24,17 @@ from .viewsets import AnalyticsViewSet
 analytics_router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 
 
-@analytics_router.get("/summary", status_code=status.HTTP_200_OK, response_model=AnalyticsSummary)
+@analytics_router.get(
+    "/summary", status_code=status.HTTP_200_OK, response_model=AnalyticsSummary
+)
 async def get_analytics_summary(
     request: Request,
     user: CurrentUser,
     start_date: Optional[datetime] = Query(None, description="Period start"),
     end_date: Optional[datetime] = Query(None, description="Period end"),
-    compare: bool = Query(True, description="Compare with the previous period of the same length"),
+    compare: bool = Query(
+        True, description="Compare with the previous period of the same length"
+    ),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> AnalyticsSummary:
     """Income, expense and net for the period in the base currency."""
@@ -44,12 +48,18 @@ async def get_analytics_summary(
     )
 
 
-@analytics_router.get("/timeseries", status_code=status.HTTP_200_OK, response_model=TimeseriesResponse)
+@analytics_router.get(
+    "/timeseries", status_code=status.HTTP_200_OK, response_model=TimeseriesResponse
+)
 async def get_analytics_timeseries(
     request: Request,
     user: CurrentUser,
-    metric: str = Query("cashflow", pattern="^(cashflow|balance)$", description="cashflow or balance"),
-    group_by: str = Query("day", pattern="^(day|week|month)$", description="Grouping step"),
+    metric: str = Query(
+        "cashflow", pattern="^(cashflow|balance)$", description="cashflow or balance"
+    ),
+    group_by: str = Query(
+        "day", pattern="^(day|week|month)$", description="Grouping step"
+    ),
     start_date: Optional[datetime] = Query(None, description="Period start"),
     end_date: Optional[datetime] = Query(None, description="Period end"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
@@ -66,14 +76,22 @@ async def get_analytics_timeseries(
     )
 
 
-@analytics_router.get("/by-category", status_code=status.HTTP_200_OK, response_model=CategoryShareResponse)
+@analytics_router.get(
+    "/by-category", status_code=status.HTTP_200_OK, response_model=CategoryShareResponse
+)
 async def get_analytics_by_category(
     request: Request,
     user: CurrentUser,
-    transaction_type: Optional[TransactionType] = Query(None, description="Record type"),
-    parent_id: Optional[int] = Query(None, description="Drill into subcategories of this category"),
+    transaction_type: Optional[TransactionType] = Query(
+        None, description="Record type"
+    ),
+    parent_id: Optional[int] = Query(
+        None, description="Drill into subcategories of this category"
+    ),
     include_children: bool = Query(True, description="Include subcategories"),
-    rollup: bool = Query(False, description="Roll up subcategories into parent categories"),
+    rollup: bool = Query(
+        False, description="Roll up subcategories into parent categories"
+    ),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
@@ -82,7 +100,9 @@ async def get_analytics_by_category(
     return await AnalyticsViewSet.by_category(
         request=request,
         user=user,
-        category_type=(CategoryType(transaction_type.value) if transaction_type else None),
+        category_type=(
+            CategoryType(transaction_type.value) if transaction_type else None
+        ),
         parent_id=parent_id,
         include_children=include_children,
         rollup=rollup,
@@ -92,7 +112,9 @@ async def get_analytics_by_category(
     )
 
 
-@analytics_router.get("/by-account", status_code=status.HTTP_200_OK, response_model=AccountShareResponse)
+@analytics_router.get(
+    "/by-account", status_code=status.HTTP_200_OK, response_model=AccountShareResponse
+)
 async def get_analytics_by_account(
     request: Request,
     user: CurrentUser,
@@ -110,13 +132,19 @@ async def get_analytics_by_account(
     )
 
 
-@analytics_router.get("/matrix", status_code=status.HTTP_200_OK, response_model=MatrixResponse)
+@analytics_router.get(
+    "/matrix", status_code=status.HTTP_200_OK, response_model=MatrixResponse
+)
 async def get_analytics_matrix(
     request: Request,
     user: CurrentUser,
     months: int = Query(6, ge=1, le=36, description="How many months to show"),
-    transaction_type: Optional[TransactionType] = Query(None, description="Record type"),
-    rollup: bool = Query(True, description="Roll up subcategories into parent categories"),
+    transaction_type: Optional[TransactionType] = Query(
+        None, description="Record type"
+    ),
+    rollup: bool = Query(
+        True, description="Roll up subcategories into parent categories"
+    ),
     end_date: Optional[datetime] = Query(None, description="Last day of the report"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> MatrixResponse:
@@ -125,7 +153,9 @@ async def get_analytics_matrix(
         request=request,
         user=user,
         months=months,
-        category_type=(CategoryType(transaction_type.value) if transaction_type else None),
+        category_type=(
+            CategoryType(transaction_type.value) if transaction_type else None
+        ),
         rollup=rollup,
         end_date=end_date,
         session_maker=session_maker,

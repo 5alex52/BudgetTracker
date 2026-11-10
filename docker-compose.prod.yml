@@ -38,15 +38,6 @@ x-backend-env: &backend-env
   CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173"]}'
   CORS_HEADERS: '["Content-Type","Set-Cookie","Access-Control-Allow-Headers","Access-Control-Allow-Origin","Authorization"]'
   CORS_METHODS: '["GET","POST","PUT","PATCH","DELETE","OPTIONS"]'
-  # биллинг: по умолчанию mock — платёж подтверждается сразу, ключи не нужны.
-  # stripe / crypto без ключей отвечают 503, тихого отката на mock нет.
-  BILLING_PROVIDER: ${BILLING_PROVIDER:-mock}
-  BILLING_CURRENCY: ${BILLING_CURRENCY:-USD}
-  BILLING_RETURN_URL: ${BILLING_RETURN_URL:-http://localhost:5173/settings/payments}
-  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
-  CRYPTO_API_KEY: ${CRYPTO_API_KEY:-}
-  CRYPTO_WEBHOOK_SECRET: ${CRYPTO_WEBHOOK_SECRET:-}
   # OAuth и адрес фронтенда для писем/редиректов (провайдеры пока заглушки)
   OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
   OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
