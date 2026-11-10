@@ -99,9 +99,7 @@ class AnalyticsService:
         if hit is not None:
             return AnalyticsSummary(**hit)
 
-        result = await cls._summary(
-            user_id, start_date, end_date, compare, session_maker
-        )
+        result = await cls._summary(user_id, start_date, end_date, compare, session_maker)
         await Cache.set(key, result.model_dump(), ttl=60)
         return result
 
@@ -118,24 +116,18 @@ class AnalyticsService:
         start_date, end_date = normalize_period(start_date, end_date)
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            rows = await AnalyticsDAO.totals_by_type(
-                session, user_id, start_date=start_date, end_date=end_date
-            )
+            rows = await AnalyticsDAO.totals_by_type(session, user_id, start_date=start_date, end_date=end_date)
             income, expense, count = cls._totals(rows)
 
             previous = None
             change = None
             # Comparison only makes sense when the period is explicit: otherwise there's nothing to compare with
             if compare and start_date is not None and end_date is not None:
-                previous_start, previous_end = cls._previous_period(
-                    start_date, end_date
-                )
+                previous_start, previous_end = cls._previous_period(start_date, end_date)
                 previous_rows = await AnalyticsDAO.totals_by_type(
                     session, user_id, start_date=previous_start, end_date=previous_end
                 )
-                previous_income, previous_expense, previous_count = cls._totals(
-                    previous_rows
-                )
+                previous_income, previous_expense, previous_count = cls._totals(previous_rows)
                 previous = PeriodTotals(
                     start_date=previous_start,
                     end_date=previous_end,
@@ -147,9 +139,7 @@ class AnalyticsService:
                 change = PeriodChange(
                     income=cls._percent(income, previous_income),
                     expense=cls._percent(expense, previous_expense),
-                    net=cls._percent(
-                        income - expense, previous_income - previous_expense
-                    ),
+                    net=cls._percent(income - expense, previous_income - previous_expense),
                 )
 
         return AnalyticsSummary(
@@ -164,13 +154,9 @@ class AnalyticsService:
         )
 
     @classmethod
-    def _bucket_bounds(
-        cls, group_by: str, start_date: datetime, end_date: datetime
-    ) -> List[datetime]:
+    def _bucket_bounds(cls, group_by: str, start_date: datetime, end_date: datetime) -> List[datetime]:
         """Bucket boundaries between the start and end of the period."""
-        step = {"day": timedelta(days=1), "week": timedelta(weeks=1), "month": None}[
-            group_by
-        ]
+        step = {"day": timedelta(days=1), "week": timedelta(weeks=1), "month": None}[group_by]
         bounds: List[datetime] = []
         cursor = start_date
         while cursor <= end_date:
@@ -205,9 +191,7 @@ class AnalyticsService:
         if hit is not None:
             return TimeseriesResponse(**hit)
 
-        result = await cls._timeseries(
-            user_id, metric, group_by, start_date, end_date, session_maker
-        )
+        result = await cls._timeseries(user_id, metric, group_by, start_date, end_date, session_maker)
         await Cache.set(key, result.model_dump(), ttl=60)
         return result
 
@@ -241,9 +225,7 @@ class AnalyticsService:
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             if metric == "balance":
-                return await cls._balance_series(
-                    session, user_id, group_by, start_date, end_date
-                )
+                return await cls._balance_series(session, user_id, group_by, start_date, end_date)
 
             rows = await AnalyticsDAO.series_by_bucket(
                 session, user_id, group_by, start_date=start_date, end_date=end_date
@@ -264,14 +246,10 @@ class AnalyticsService:
             return TimeseriesResponse(group_by=group_by, metric=metric, points=ordered)
 
     @classmethod
-    async def _balance_series(
-        cls, session, user_id, group_by, start_date, end_date
-    ) -> TimeseriesResponse:
+    async def _balance_series(cls, session, user_id, group_by, start_date, end_date) -> TimeseriesResponse:
         """Balance at the end of the interval: current balance minus everything that happened after."""
         current_total = await AnalyticsDAO.total_balance_base(session, user_id)
-        rows = await AnalyticsDAO.balances_by_bucket(
-            session, user_id, group_by, start_date, end_date
-        )
+        rows = await AnalyticsDAO.balances_by_bucket(session, user_id, group_by, start_date, end_date)
         after = await AnalyticsDAO.signed_total_after(session, user_id, end_date)
 
         deltas = {row.bucket: float(row.total) for row in rows}
@@ -354,9 +332,7 @@ class AnalyticsService:
                     )
                 allowed_ids = [parent_id]
                 if include_children:
-                    allowed_ids += [
-                        item.id for item in categories if item.parent_id == parent_id
-                    ]
+                    allowed_ids += [item.id for item in categories if item.parent_id == parent_id]
 
             rows = await AnalyticsDAO.totals_by_category(
                 session,
@@ -405,9 +381,7 @@ class AnalyticsService:
         start_date, end_date = normalize_period(start_date, end_date)
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
-            rows = await AnalyticsDAO.totals_by_account(
-                session, user_id, start_date=start_date, end_date=end_date
-            )
+            rows = await AnalyticsDAO.totals_by_account(session, user_id, start_date=start_date, end_date=end_date)
         items = [
             AccountShare(
                 account_id=row.account_id,
@@ -420,9 +394,7 @@ class AnalyticsService:
             )
             for row in rows
         ]
-        return AccountShareResponse(
-            items=items, total=round(sum(item.net for item in items), 2)
-        )
+        return AccountShareResponse(items=items, total=round(sum(item.net for item in items), 2))
 
     @classmethod
     async def matrix(

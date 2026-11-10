@@ -55,9 +55,7 @@ class AdminService:
             )
 
         async with maker() as session:
-            total = await session.scalar(
-                select(func.count()).select_from(UserModel).where(*conditions)
-            )
+            total = await session.scalar(select(func.count()).select_from(UserModel).where(*conditions))
             stmt = (
                 select(UserModel)
                 .where(*conditions)
@@ -116,9 +114,7 @@ class AdminService:
             # Check email uniqueness if it's being changed
             if "email" in changes and changes["email"] != user.email:
                 existing = await session.scalar(
-                    select(UserModel).where(
-                        UserModel.email == changes["email"], UserModel.id != user_id
-                    )
+                    select(UserModel).where(UserModel.email == changes["email"], UserModel.id != user_id)
                 )
                 if existing:
                     raise HTTPException(
@@ -153,21 +149,15 @@ class AdminService:
     # ------------------------------------------------------------------ #
 
     @classmethod
-    async def get_stats(
-        cls, session_maker: Optional[async_sessionmaker] = None
-    ) -> AdminStats:
+    async def get_stats(cls, session_maker: Optional[async_sessionmaker] = None) -> AdminStats:
         maker = cls._maker(session_maker)
         now = datetime.now()
 
         async with maker() as session:
-            users_total = int(
-                await session.scalar(select(func.count()).select_from(UserModel)) or 0
-            )
+            users_total = int(await session.scalar(select(func.count()).select_from(UserModel)) or 0)
             users_new = int(
                 await session.scalar(
-                    select(func.count())
-                    .select_from(UserModel)
-                    .where(UserModel.created_at >= now - timedelta(days=30))
+                    select(func.count()).select_from(UserModel).where(UserModel.created_at >= now - timedelta(days=30))
                 )
                 or 0
             )

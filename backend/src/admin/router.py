@@ -32,9 +32,7 @@ async def get_stats(
     return await AdminService.get_stats(session_maker=session_maker)
 
 
-@admin_router.get(
-    "/users", status_code=status.HTTP_200_OK, response_model=AdminUserPage
-)
+@admin_router.get("/users", status_code=status.HTTP_200_OK, response_model=AdminUserPage)
 async def list_users(
     search: Optional[str] = Query(None, max_length=255),
     offset: int = Query(0, ge=0),
@@ -50,9 +48,7 @@ async def list_users(
     )
 
 
-@admin_router.patch(
-    "/users/{user_id}", status_code=status.HTTP_200_OK, response_model=AdminUser
-)
+@admin_router.patch("/users/{user_id}", status_code=status.HTTP_200_OK, response_model=AdminUser)
 async def update_user(
     user_id: uuid.UUID,
     payload: AdminUserUpdate,

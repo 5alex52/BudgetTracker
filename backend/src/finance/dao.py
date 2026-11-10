@@ -39,9 +39,7 @@ class CurrencyDAO(BaseDAO[CurrencyModel, CurrencyCreate, CurrencyUpdate]):
     model = CurrencyModel
 
     @classmethod
-    async def find_all_ordered(
-        cls, session: AsyncSession, offset: int = 0, limit: int = 100
-    ) -> List[CurrencyModel]:
+    async def find_all_ordered(cls, session: AsyncSession, offset: int = 0, limit: int = 100) -> List[CurrencyModel]:
         stmt = select(cls.model).order_by(cls.model.code).offset(offset).limit(limit)
         result = await session.execute(stmt)
         return list(result.scalars().all())
@@ -79,19 +77,13 @@ class AccountDAO(BaseDAO[AccountModel, AccountCreate, AccountUpdate]):
         )
 
     @classmethod
-    async def find_one_by_user(
-        cls, session: AsyncSession, account_id: int, user_id
-    ) -> Optional[AccountModel]:
-        stmt = select(cls.model).where(
-            cls.model.id == account_id, cls.model.user_id == user_id
-        )
+    async def find_one_by_user(cls, session: AsyncSession, account_id: int, user_id) -> Optional[AccountModel]:
+        stmt = select(cls.model).where(cls.model.id == account_id, cls.model.user_id == user_id)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
     @classmethod
-    async def count_by_user(
-        cls, session: AsyncSession, user_id, include_archived: bool = False
-    ) -> int:
+    async def count_by_user(cls, session: AsyncSession, user_id, include_archived: bool = False) -> int:
         """How many non-archived accounts the user has."""
         stmt = select(func.count(cls.model.id)).where(cls.model.user_id == user_id)
         if not include_archived:
@@ -123,9 +115,7 @@ class CategoryDAO(BaseDAO[CategoryModel, CategoryCreate, CategoryUpdate]):
         return list(result.scalars().all())
 
     @classmethod
-    async def with_descendants(
-        cls, session: AsyncSession, user_id, category_ids: Sequence[int]
-    ) -> List[int]:
+    async def with_descendants(cls, session: AsyncSession, user_id, category_ids: Sequence[int]) -> List[int]:
         """Selected categories together with all nested ones.
 
         The "Food" filter must show "Groceries" and "Cafes" too: the user picks
@@ -135,29 +125,21 @@ class CategoryDAO(BaseDAO[CategoryModel, CategoryCreate, CategoryUpdate]):
         known = {int(identifier) for identifier in category_ids}
         frontier = set(known)
         while frontier:
-            stmt = select(cls.model.id).where(
-                cls.model.user_id == user_id, cls.model.parent_id.in_(list(frontier))
-            )
+            stmt = select(cls.model.id).where(cls.model.user_id == user_id, cls.model.parent_id.in_(list(frontier)))
             result = await session.execute(stmt)
             frontier = set(result.scalars().all()) - known
             known |= frontier
         return sorted(known)
 
     @classmethod
-    async def find_one_by_user(
-        cls, session: AsyncSession, category_id: int, user_id
-    ) -> Optional[CategoryModel]:
-        stmt = select(cls.model).where(
-            cls.model.id == category_id, cls.model.user_id == user_id
-        )
+    async def find_one_by_user(cls, session: AsyncSession, category_id: int, user_id) -> Optional[CategoryModel]:
+        stmt = select(cls.model).where(cls.model.id == category_id, cls.model.user_id == user_id)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
     @classmethod
     async def count_children(cls, session: AsyncSession, category_id: int) -> int:
-        stmt = select(func.count(cls.model.id)).where(
-            cls.model.parent_id == category_id
-        )
+        stmt = select(func.count(cls.model.id)).where(cls.model.parent_id == category_id)
         result = await session.execute(stmt)
         return int(result.scalar() or 0)
 
@@ -202,9 +184,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             .scalar_subquery()
         )
         tx_rate = func.coalesce(tx_override, CurrencyModel.exchange_rate_to_base)
-        account_rate = func.coalesce(
-            account_override, account_currency.exchange_rate_to_base
-        )
+        account_rate = func.coalesce(account_override, account_currency.exchange_rate_to_base)
         rate_ratio = tx_rate / func.nullif(account_rate, 0.0)
         stmt = (
             select(
@@ -262,9 +242,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             select(
                 TransactionModel.transfer_account_id,
                 func.coalesce(
-                    func.sum(
-                        TransactionModel.amount * tx_rate / func.nullif(dest_rate, 0.0)
-                    ),
+                    func.sum(TransactionModel.amount * tx_rate / func.nullif(dest_rate, 0.0)),
                     0.0,
                 ).label("total"),
             )
@@ -281,14 +259,10 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             )
         )
         if account_ids is not None:
-            stmt = stmt.where(
-                TransactionModel.transfer_account_id.in_(list(account_ids))
-            )
+            stmt = stmt.where(TransactionModel.transfer_account_id.in_(list(account_ids)))
         stmt = stmt.group_by(TransactionModel.transfer_account_id)
         result = await session.execute(stmt)
-        return {
-            row.transfer_account_id: round(float(row.total), 2) for row in result.all()
-        }
+        return {row.transfer_account_id: round(float(row.total), 2) for row in result.all()}
 
     @classmethod
     def _filtered_stmt(
@@ -356,16 +330,12 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             # "Records with at least one of the selected tags" — that is how the filter chips work
             stmt = stmt.where(
                 cls.model.id.in_(
-                    select(transaction_tags.c.transaction_id).where(
-                        transaction_tags.c.tag_id.in_(list(tag_ids))
-                    )
+                    select(transaction_tags.c.transaction_id).where(transaction_tags.c.tag_id.in_(list(tag_ids)))
                 )
             )
         if query:
             needle = f"%{query.strip().lower()}%"
-            stmt = stmt.outerjoin(
-                CategoryModel, cls.model.category_id == CategoryModel.id
-            ).where(
+            stmt = stmt.outerjoin(CategoryModel, cls.model.category_id == CategoryModel.id).where(
                 or_(
                     func.lower(func.coalesce(cls.model.note, "")).like(needle),
                     func.lower(CategoryModel.name).like(needle),
@@ -383,9 +353,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
     }
 
     @classmethod
-    async def _expand_categories(
-        cls, session: AsyncSession, user_id, filters: dict
-    ) -> dict:
+    async def _expand_categories(cls, session: AsyncSession, user_id, filters: dict) -> dict:
         """Replaces selected categories with the list including nested ones.
 
         Without this, the "Food" filter would not find "Groceries": the record
@@ -441,9 +409,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
     @classmethod
     async def count_filtered(cls, session: AsyncSession, user_id, **filters) -> int:
         filters = await cls._expand_categories(session, user_id, filters)
-        subquery = (
-            cls._filtered_stmt(user_id=user_id, **filters).order_by(None).subquery()
-        )
+        subquery = cls._filtered_stmt(user_id=user_id, **filters).order_by(None).subquery()
         stmt = select(func.count()).select_from(subquery)
         result = await session.execute(stmt)
         return int(result.scalar() or 0)
@@ -451,9 +417,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
     @classmethod
     async def sum_filtered(cls, session: AsyncSession, user_id, **filters) -> float:
         filters = await cls._expand_categories(session, user_id, filters)
-        subquery = (
-            cls._filtered_stmt(user_id=user_id, **filters).order_by(None).subquery()
-        )
+        subquery = cls._filtered_stmt(user_id=user_id, **filters).order_by(None).subquery()
         stmt = select(func.coalesce(func.sum(subquery.c.amount), 0.0))
         result = await session.execute(stmt)
         return float(result.scalar() or 0.0)
@@ -497,9 +461,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         return result.all()
 
     @classmethod
-    async def find_one_by_user(
-        cls, session: AsyncSession, transaction_id: int, user_id
-    ) -> Optional[TransactionModel]:
+    async def find_one_by_user(cls, session: AsyncSession, transaction_id: int, user_id) -> Optional[TransactionModel]:
         stmt = (
             select(cls.model)
             .join(AccountModel, cls.model.account_id == AccountModel.id)
@@ -516,19 +478,13 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
 
     @classmethod
     async def count_by_category(cls, session: AsyncSession, category_id: int) -> int:
-        stmt = select(func.count(cls.model.id)).where(
-            cls.model.category_id == category_id
-        )
+        stmt = select(func.count(cls.model.id)).where(cls.model.category_id == category_id)
         result = await session.execute(stmt)
         return int(result.scalar() or 0)
 
     @classmethod
-    async def find_related_subscription(
-        cls, session: AsyncSession, transaction_id: int
-    ) -> Optional[SubscriptionModel]:
-        stmt = select(SubscriptionModel).where(
-            SubscriptionModel.transaction_id == transaction_id
-        )
+    async def find_related_subscription(cls, session: AsyncSession, transaction_id: int) -> Optional[SubscriptionModel]:
+        stmt = select(SubscriptionModel).where(SubscriptionModel.transaction_id == transaction_id)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
@@ -604,9 +560,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
             )
         )
         if only_statistics:
-            stmt = stmt.where(
-                AccountModel.is_excluded.is_(False), cls.model.is_excluded.is_(False)
-            )
+            stmt = stmt.where(AccountModel.is_excluded.is_(False), cls.model.is_excluded.is_(False))
         if start_date is not None:
             stmt = stmt.where(cls.model.date >= start_date)
         if end_date is not None:
@@ -660,9 +614,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
                 expense.label("expense"),
                 func.count(scope.c.id).label("count"),
             )
-            .group_by(
-                scope.c.account_id, scope.c.account_name, scope.c.account_currency_id
-            )
+            .group_by(scope.c.account_id, scope.c.account_name, scope.c.account_currency_id)
             .order_by(func.sum(scope.c.amount_base).desc())
         )
         result = await session.execute(stmt)
@@ -714,9 +666,7 @@ class TransactionDAO(BaseDAO[TransactionModel, TransactionCreate, TransactionUpd
         return list(result.all())
 
     @classmethod
-    async def find_many_by_user(
-        cls, session: AsyncSession, user_id, ids: Sequence[int]
-    ) -> List[TransactionModel]:
+    async def find_many_by_user(cls, session: AsyncSession, user_id, ids: Sequence[int]) -> List[TransactionModel]:
         """User records by a list of ids (for bulk operations)."""
         stmt = cls._filtered_stmt(user_id=user_id).where(cls.model.id.in_(list(ids)))
         result = await session.execute(stmt)
@@ -729,27 +679,19 @@ class UserCurrencyRateDAO(BaseDAO[UserCurrencyRateModel, dict, dict]):
     model = UserCurrencyRateModel
 
     @classmethod
-    async def find_all_by_user(
-        cls, session: AsyncSession, user_id
-    ) -> List[UserCurrencyRateModel]:
+    async def find_all_by_user(cls, session: AsyncSession, user_id) -> List[UserCurrencyRateModel]:
         stmt = select(cls.model).where(cls.model.user_id == user_id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     @classmethod
-    async def find_one(
-        cls, session: AsyncSession, user_id, code: str
-    ) -> Optional[UserCurrencyRateModel]:
-        stmt = select(cls.model).where(
-            cls.model.user_id == user_id, cls.model.code == code.upper()
-        )
+    async def find_one(cls, session: AsyncSession, user_id, code: str) -> Optional[UserCurrencyRateModel]:
+        stmt = select(cls.model).where(cls.model.user_id == user_id, cls.model.code == code.upper())
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
 
-class SubscriptionDAO(
-    BaseDAO[SubscriptionModel, SubscriptionCreate, SubscriptionUpdate]
-):
+class SubscriptionDAO(BaseDAO[SubscriptionModel, SubscriptionCreate, SubscriptionUpdate]):
     model = SubscriptionModel
 
     @classmethod
@@ -787,9 +729,7 @@ class SubscriptionDAO(
     async def find_one_by_user(
         cls, session: AsyncSession, subscription_id: int, user_id
     ) -> Optional[SubscriptionModel]:
-        stmt = cls._filtered_stmt(user_id=user_id).where(
-            cls.model.id == subscription_id
-        )
+        stmt = cls._filtered_stmt(user_id=user_id).where(cls.model.id == subscription_id)
         result = await session.execute(stmt)
         return result.scalars().unique().one_or_none()
 

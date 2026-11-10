@@ -111,19 +111,14 @@ async def apply_rules(
             continue
         matched.append(rule.id)
         # A transfer has a service category: a rule must not replace it with an expense
-        if (
-            rule.set_category_id is not None
-            and transaction.type != TransactionType.TRANSFER
-        ):
+        if rule.set_category_id is not None and transaction.type != TransactionType.TRANSFER:
             transaction.category_id = rule.set_category_id
         if rule.exclude_from_statistics:
             transaction.is_excluded = True
         if rule.add_tag_id is not None:
             current = set(await tag_ids_of(session, transaction.id))
             if rule.add_tag_id not in current:
-                await attach_tags(
-                    session, transaction.id, sorted(current | {rule.add_tag_id})
-                )
+                await attach_tags(session, transaction.id, sorted(current | {rule.add_tag_id}))
     if matched:
         await session.flush()
     return matched
@@ -139,29 +134,19 @@ class RuleDAO:
         return select(RuleModel).where(RuleModel.user_id == user_id)
 
     @classmethod
-    async def find_all_by_user(
-        cls, session: AsyncSession, user_id: uuid.UUID
-    ) -> List[RuleModel]:
+    async def find_all_by_user(cls, session: AsyncSession, user_id: uuid.UUID) -> List[RuleModel]:
         stmt = cls._stmt(user_id).order_by(RuleModel.priority, RuleModel.id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     @classmethod
-    async def find_active_by_user(
-        cls, session: AsyncSession, user_id: uuid.UUID
-    ) -> List[RuleModel]:
-        stmt = (
-            cls._stmt(user_id)
-            .where(RuleModel.is_active.is_(True))
-            .order_by(RuleModel.priority, RuleModel.id)
-        )
+    async def find_active_by_user(cls, session: AsyncSession, user_id: uuid.UUID) -> List[RuleModel]:
+        stmt = cls._stmt(user_id).where(RuleModel.is_active.is_(True)).order_by(RuleModel.priority, RuleModel.id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     @classmethod
-    async def find_one_by_user(
-        cls, session: AsyncSession, rule_id: int, user_id: uuid.UUID
-    ) -> Optional[RuleModel]:
+    async def find_one_by_user(cls, session: AsyncSession, rule_id: int, user_id: uuid.UUID) -> Optional[RuleModel]:
         stmt = cls._stmt(user_id).where(RuleModel.id == rule_id)
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
@@ -272,9 +257,7 @@ class RuleService:
     ) -> RuleResponse:
         maker = session_maker or async_session_maker
         async with maker() as session:
-            await cls._validate_links(
-                session, schema.set_category_id, schema.add_tag_id, user_id
-            )
+            await cls._validate_links(session, schema.set_category_id, schema.add_tag_id, user_id)
             rule = RuleModel(user_id=user_id, **schema.model_dump())
             session.add(rule)
             await session.commit()
@@ -347,15 +330,11 @@ class RuleService:
         if category_id is not None:
             category = await session.get(CategoryModel, category_id)
             if category is None or category.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category"
-                )
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category")
         if tag_id is not None:
             tag = await session.get(TagModel, tag_id)
             if tag is None or tag.user_id != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown tag"
-                )
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown tag")
 
     @classmethod
     async def apply_to_existing(
@@ -387,9 +366,7 @@ class RuleViewSet(BaseViewSet[int, RuleCreate, RuleUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[RuleResponse]:
-        return await cls.service.get_list_by_user(
-            user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_list_by_user(user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="retrieve_rule")
@@ -400,9 +377,7 @@ class RuleViewSet(BaseViewSet[int, RuleCreate, RuleUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> RuleResponse:
-        return await cls.service.get_by_user(
-            rule_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_by_user(rule_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="create_rule")
@@ -413,9 +388,7 @@ class RuleViewSet(BaseViewSet[int, RuleCreate, RuleUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> RuleResponse:
-        return await cls.service.create_for_user(
-            schema=obj_data, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_rule")
@@ -443,9 +416,7 @@ class RuleViewSet(BaseViewSet[int, RuleCreate, RuleUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_for_user(
-            rule_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        await cls.service.delete_for_user(rule_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="apply_rules")
@@ -470,23 +441,17 @@ class RuleViewSet(BaseViewSet[int, RuleCreate, RuleUpdate]):
 rules_router = APIRouter(prefix="/api/finance/rules", tags=["Rules"])
 
 
-@rules_router.get(
-    "/", status_code=status.HTTP_200_OK, response_model=List[RuleResponse]
-)
+@rules_router.get("/", status_code=status.HTTP_200_OK, response_model=List[RuleResponse])
 async def list_rules(
     request: Request,
     user: CurrentUser,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> List[RuleResponse]:
     """Auto-categorization rules in priority order."""
-    return await RuleViewSet.list(
-        request=request, user=user, session_maker=session_maker
-    )
+    return await RuleViewSet.list(request=request, user=user, session_maker=session_maker)
 
 
-@rules_router.post(
-    "/", status_code=status.HTTP_201_CREATED, response_model=RuleResponse
-)
+@rules_router.post("/", status_code=status.HTTP_201_CREATED, response_model=RuleResponse)
 async def create_rule(
     request: Request,
     user: CurrentUser,
@@ -494,23 +459,15 @@ async def create_rule(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> RuleResponse:
     """New rule; category and tag must belong to the user."""
-    return await RuleViewSet.create(
-        request=request, user=user, obj_data=payload, session_maker=session_maker
-    )
+    return await RuleViewSet.create(request=request, user=user, obj_data=payload, session_maker=session_maker)
 
 
-@rules_router.post(
-    "/apply", status_code=status.HTTP_200_OK, response_model=RuleApplyResult
-)
+@rules_router.post("/apply", status_code=status.HTTP_200_OK, response_model=RuleApplyResult)
 async def apply_rules_endpoint(
     request: Request,
     user: CurrentUser,
-    start_date: Optional[datetime] = Query(
-        None, description="Start of the application period"
-    ),
-    end_date: Optional[datetime] = Query(
-        None, description="End of the application period"
-    ),
+    start_date: Optional[datetime] = Query(None, description="Start of the application period"),
+    end_date: Optional[datetime] = Query(None, description="End of the application period"),
     dry_run: bool = Query(False, description="Only show what would change"),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> RuleApplyResult:
@@ -525,9 +482,7 @@ async def apply_rules_endpoint(
     )
 
 
-@rules_router.get(
-    "/{rule_id}", status_code=status.HTTP_200_OK, response_model=RuleResponse
-)
+@rules_router.get("/{rule_id}", status_code=status.HTTP_200_OK, response_model=RuleResponse)
 async def get_rule(
     request: Request,
     user: CurrentUser,
@@ -535,14 +490,10 @@ async def get_rule(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> RuleResponse:
     """Rule by ID."""
-    return await RuleViewSet.retrieve(
-        request=request, user=user, obj_id=rule_id, session_maker=session_maker
-    )
+    return await RuleViewSet.retrieve(request=request, user=user, obj_id=rule_id, session_maker=session_maker)
 
 
-@rules_router.patch(
-    "/{rule_id}", status_code=status.HTTP_200_OK, response_model=RuleResponse
-)
+@rules_router.patch("/{rule_id}", status_code=status.HTTP_200_OK, response_model=RuleResponse)
 async def update_rule(
     request: Request,
     user: CurrentUser,
@@ -568,6 +519,4 @@ async def delete_rule(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> None:
     """Delete a rule; already applied changes are not rolled back."""
-    await RuleViewSet.delete(
-        request=request, user=user, obj_id=rule_id, session_maker=session_maker
-    )
+    await RuleViewSet.delete(request=request, user=user, obj_id=rule_id, session_maker=session_maker)

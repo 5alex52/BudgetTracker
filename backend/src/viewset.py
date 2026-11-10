@@ -59,9 +59,7 @@ class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         **kwargs,
     ):
         """Create a new object"""
-        return await cls.service.create(
-            schema=obj_data, session_maker=session_maker, **kwargs
-        )
+        return await cls.service.create(schema=obj_data, session_maker=session_maker, **kwargs)
 
     @classmethod
     async def retrieve(
@@ -82,9 +80,7 @@ class BaseViewSet(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         **kwargs,
     ):
         """Update an object"""
-        return await cls.service.update(
-            id=obj_id, schema=obj_data, session_maker=session_maker
-        )
+        return await cls.service.update(id=obj_id, schema=obj_data, session_maker=session_maker)
 
     @classmethod
     async def delete(

@@ -42,9 +42,7 @@ def get_pagination(
 def get_transaction_filters(
     account_id: Optional[int] = Query(None, description="Filter by account"),
     category_id: Optional[int] = Query(None, description="Filter by category"),
-    transaction_type: Optional[TransactionType] = Query(
-        None, description="Transaction type"
-    ),
+    transaction_type: Optional[TransactionType] = Query(None, description="Transaction type"),
     start_date: Optional[datetime] = Query(None, description="Start of period"),
     end_date: Optional[datetime] = Query(None, description="End of period"),
 ) -> TransactionFilters:

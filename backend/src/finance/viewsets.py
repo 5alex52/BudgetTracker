@@ -75,9 +75,7 @@ class AccountViewSet(BaseViewSet[int, AccountCreate, AccountUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> AccountModel:
-        return await cls.service.get_by_user(
-            account_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_by_user(account_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="create_account")
@@ -88,9 +86,7 @@ class AccountViewSet(BaseViewSet[int, AccountCreate, AccountUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> AccountModel:
-        return await cls.service.create_for_user(
-            schema=obj_data, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_account")
@@ -118,9 +114,7 @@ class AccountViewSet(BaseViewSet[int, AccountCreate, AccountUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_for_user(
-            account_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        await cls.service.delete_for_user(account_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="archive_account")
@@ -264,9 +258,7 @@ class CategoryViewSet(BaseViewSet[int, CategoryCreate, CategoryUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> CategoryModel:
-        return await cls.service.get_by_user(
-            category_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_by_user(category_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="create_category")
@@ -277,9 +269,7 @@ class CategoryViewSet(BaseViewSet[int, CategoryCreate, CategoryUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> CategoryModel:
-        return await cls.service.create_for_user(
-            schema=obj_data, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_category")
@@ -307,9 +297,7 @@ class CategoryViewSet(BaseViewSet[int, CategoryCreate, CategoryUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_for_user(
-            category_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        await cls.service.delete_for_user(category_id=obj_id, user_id=user.id, session_maker=session_maker)
 
 
 class TransactionViewSet(BaseViewSet[int, TransactionCreate, TransactionUpdate]):
@@ -345,10 +333,7 @@ class TransactionViewSet(BaseViewSet[int, TransactionCreate, TransactionUpdate])
             session_maker=session_maker,
             **filters,
         )
-        return [
-            TransactionWithDetails.from_model(transaction)
-            for transaction in transactions
-        ]
+        return [TransactionWithDetails.from_model(transaction) for transaction in transactions]
 
     @classmethod
     @check_permissions(action="count_transactions")
@@ -383,9 +368,7 @@ class TransactionViewSet(BaseViewSet[int, TransactionCreate, TransactionUpdate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> tuple:
-        return await cls.service.bulk_delete(
-            ids=ids, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.bulk_delete(ids=ids, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="retrieve_transaction")
@@ -396,9 +379,7 @@ class TransactionViewSet(BaseViewSet[int, TransactionCreate, TransactionUpdate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> TransactionWithDetails:
-        transaction = await cls.service.get_by_user(
-            transaction_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        transaction = await cls.service.get_by_user(transaction_id=obj_id, user_id=user.id, session_maker=session_maker)
         return TransactionWithDetails.from_model(transaction)
 
     @classmethod
@@ -410,9 +391,7 @@ class TransactionViewSet(BaseViewSet[int, TransactionCreate, TransactionUpdate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> TransactionModel:
-        return await cls.service.create_for_user(
-            schema=obj_data, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_transaction")
@@ -440,9 +419,7 @@ class TransactionViewSet(BaseViewSet[int, TransactionCreate, TransactionUpdate])
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_for_user(
-            transaction_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        await cls.service.delete_for_user(transaction_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="transactions_summary")
@@ -496,9 +473,7 @@ class SubscriptionViewSet(BaseViewSet[int, SubscriptionCreate, SubscriptionUpdat
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> SubscriptionModel:
-        return await cls.service.get_by_user(
-            subscription_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.get_by_user(subscription_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="create_subscription")
@@ -509,9 +484,7 @@ class SubscriptionViewSet(BaseViewSet[int, SubscriptionCreate, SubscriptionUpdat
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> SubscriptionModel:
-        return await cls.service.create_for_user(
-            schema=obj_data, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_subscription")
@@ -539,9 +512,7 @@ class SubscriptionViewSet(BaseViewSet[int, SubscriptionCreate, SubscriptionUpdat
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.delete_for_user(
-            subscription_id=obj_id, user_id=user.id, session_maker=session_maker
-        )
+        await cls.service.delete_for_user(subscription_id=obj_id, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="upcoming_subscriptions")
@@ -552,9 +523,7 @@ class SubscriptionViewSet(BaseViewSet[int, SubscriptionCreate, SubscriptionUpdat
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[SubscriptionModel]:
-        return await cls.service.get_upcoming(
-            user_id=user.id, days=days, session_maker=session_maker
-        )
+        return await cls.service.get_upcoming(user_id=user.id, days=days, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="advance_subscription")
@@ -583,9 +552,7 @@ class CurrencyViewSet(BaseViewSet[str, CurrencyCreate, CurrencyUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> List[CurrencyModel]:
-        return await cls.service.get_list(
-            offset=offset, limit=limit, session_maker=session_maker
-        )
+        return await cls.service.get_list(offset=offset, limit=limit, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="currency_rates")
@@ -597,9 +564,7 @@ class CurrencyViewSet(BaseViewSet[str, CurrencyCreate, CurrencyUpdate]):
         **kwargs,
     ) -> List[CurrencyRate]:
         """Catalog rates; for an authenticated user — with personal rates applied."""
-        return await cls.service.get_rates(
-            base=base, user_id=getattr(user, "id", None), session_maker=session_maker
-        )
+        return await cls.service.get_rates(base=base, user_id=getattr(user, "id", None), session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="set_user_rate")
@@ -611,9 +576,7 @@ class CurrencyViewSet(BaseViewSet[str, CurrencyCreate, CurrencyUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> CurrencyRate:
-        return await cls.service.set_user_rate(
-            code=code, rate=rate, user_id=user.id, session_maker=session_maker
-        )
+        return await cls.service.set_user_rate(code=code, rate=rate, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="reset_user_rate")
@@ -624,9 +587,7 @@ class CurrencyViewSet(BaseViewSet[str, CurrencyCreate, CurrencyUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.reset_user_rate(
-            code=code, user_id=user.id, session_maker=session_maker
-        )
+        await cls.service.reset_user_rate(code=code, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="retrieve_currency")
@@ -657,9 +618,7 @@ class CurrencyViewSet(BaseViewSet[str, CurrencyCreate, CurrencyUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> CurrencyModel:
-        return await cls.service.update(
-            code=obj_id, schema=obj_data, session_maker=session_maker
-        )
+        return await cls.service.update(code=obj_id, schema=obj_data, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="delete_currency")

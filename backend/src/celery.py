@@ -11,9 +11,7 @@ celery_app = Celery(
     backend="rpc://",
 )
 
-redis_client = redis.StrictRedis(
-    host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0
-)
+redis_client = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0)
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],

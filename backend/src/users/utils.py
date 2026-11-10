@@ -54,9 +54,7 @@ def get_device_info(user_agent: str) -> DeviceInfo:
     elif user_agent_parsed.is_pc:
         device_type = "Desktop"
     else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user agent"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user agent")
 
     return DeviceInfo(
         device_name=str(user_agent_parsed),

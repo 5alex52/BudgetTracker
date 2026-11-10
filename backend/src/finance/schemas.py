@@ -223,9 +223,7 @@ class TransactionWithDetails(TransactionResponse):
             category_icon=transaction.category.icon,
             currency_symbol=transaction.currency.symbol,
             transfer_account_name=(
-                transaction.transfer_account.name
-                if transaction.transfer_account is not None
-                else None
+                transaction.transfer_account.name if transaction.transfer_account is not None else None
             ),
         )
 

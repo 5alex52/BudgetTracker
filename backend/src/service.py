@@ -53,9 +53,7 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         if session_maker is None:
             session_maker = async_session_maker
         async with session_maker() as session:
-            db_obj = await cls.dao.update(
-                session, cls.dao.model.id == id, obj_in=schema
-            )
+            db_obj = await cls.dao.update(session, cls.dao.model.id == id, obj_in=schema)
             await session.commit()
         return db_obj
 
@@ -77,9 +75,7 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                     detail="Object deletion conflict",
                 )
             except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Object not found"
-                )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
 
     @classmethod
     async def get(
@@ -92,15 +88,11 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         async with session_maker() as session:
             db_obj = await cls.dao.find_one_or_none(session, id=id)
         if db_obj is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Object not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
         return db_obj
 
     @classmethod
-    async def get_or_create(
-        cls, schema, session_maker: Optional[async_sessionmaker] = None
-    ):
+    async def get_or_create(cls, schema, session_maker: Optional[async_sessionmaker] = None):
         if session_maker is None:
             session_maker = async_session_maker
         async with session_maker() as session:
@@ -120,7 +112,5 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         if session_maker is None:
             session_maker = async_session_maker
         async with session_maker() as session:
-            db_obj = await cls.dao.find_all(
-                session, *filter, offset=offset, limit=limit, **filter_by
-            )
+            db_obj = await cls.dao.find_all(session, *filter, offset=offset, limit=limit, **filter_by)
         return db_obj
