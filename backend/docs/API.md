@@ -400,7 +400,7 @@ $ ENVIRONMENT=TEST pytest tests -q
 
 Тесты требуют PostgreSQL — тот же, что и остальной набор: база создаётся и удаляется фикстурой
 `test_db`. Миграции проверены на отдельной базе: `alembic upgrade head` → `downgrade base` →
-`upgrade head` проходит без ошибок, сид тарифов создаёт три записи.
+`upgrade head` проходит без ошибок.
 
 ---
 
