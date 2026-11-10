@@ -1,4 +1,4 @@
-"""Tests for the service-subscriptions tracker: CRUD, base-currency total, blocked names."""
+"""Tests for the service-subscriptions tracker: CRUD and base-currency total."""
 
 import uuid
 from datetime import datetime
@@ -58,17 +58,3 @@ async def test_unknown_currency_rejected(user, currencies, session_maker):
         await ServiceSubService.create_for_user(_create("AOL", 1.0, "XXX"), user.id, session_maker)
     assert error.value.status_code == 400
     assert "currency" in error.value.detail.lower()
-
-
-@pytest.mark.asyncio
-async def test_blocked_services_cannot_be_tracked(user, currencies, session_maker):
-    for name in ("YouTube", " netflix "):
-        with pytest.raises(HTTPException) as error:
-            await ServiceSubService.create_for_user(_create(name, 9.99, "USD"), user.id, session_maker)
-        assert error.value.status_code == 400
-        assert "blocked" in error.value.detail.lower()
-
-    created = await ServiceSubService.create_for_user(_create("Kinopoisk", 5.0, "USD"), user.id, session_maker)
-    with pytest.raises(HTTPException) as error:
-        await ServiceSubService.update_for_user(created.id, ServiceSubUpdate(name="Netflix"), user.id, session_maker)
-    assert error.value.status_code == 400

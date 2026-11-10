@@ -62,19 +62,6 @@ def _not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
 
 
-#: Services that do not operate for our users (blocked by the provider itself):
-#: paying for them via this tracker is impossible, so we refuse to store them.
-BLOCKED_SERVICE_NAMES = {"youtube", "netflix"}
-
-
-def _check_not_blocked(name: str) -> None:
-    if name.strip().lower() in BLOCKED_SERVICE_NAMES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Subscription to {name.strip()} is blocked: the service does not operate in your region.",
-        )
-
-
 async def _rates(session: AsyncSession, user_id) -> tuple[str, float, dict]:
     """(base code, base rate, currency -> rate to base) with personal overrides."""
     from .dao import CurrencyDAO
@@ -126,7 +113,6 @@ class ServiceSubService:
         from .dao import CurrencyDAO
 
         async with session_maker() as session:
-            _check_not_blocked(schema.name)
             if await CurrencyDAO.find_one_or_none(session, code=schema.currency_id) is None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown currency")
             sub = await cls.dao.create(session, {**schema.model_dump(), "user_id": user_id})
@@ -148,8 +134,6 @@ class ServiceSubService:
             if sub is None:
                 raise _not_found()
             data = schema.model_dump(exclude_unset=True)
-            if "name" in data:
-                _check_not_blocked(data["name"])
             currency = data.get("currency_id", sub.currency_id)
             if await CurrencyDAO.find_one_or_none(session, code=currency) is None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown currency")
