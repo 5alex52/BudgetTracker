@@ -71,9 +71,6 @@ export interface AccountDto {
   balance: number
   is_archived: boolean
   is_excluded: boolean
-  /** Счёт доступен только для чтения: лимит или валюта требуют подписки */
-  is_locked?: boolean
-  lock_reason?: string | null
   created_at: string
   updated_at: string | null
 }
@@ -103,8 +100,6 @@ export interface AccountSummaryDto {
   balance: number
   is_archived: boolean
   is_excluded: boolean
-  is_locked?: boolean
-  lock_reason?: string | null
   income: number
   expense: number
   net: number
@@ -122,8 +117,6 @@ export interface BalanceOverviewAccountDto {
   balance_base: number
   is_archived: boolean
   is_excluded: boolean
-  is_locked?: boolean
-  lock_reason?: string | null
 }
 
 /** Общий баланс приходит уже пересчитанным в базовой валюте пользователя. */

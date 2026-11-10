@@ -223,8 +223,6 @@ export const en: Translations = {
   'templates.created': 'Template created',
 
   'recordForm.payer': 'Payer',
-  'recordForm.paymentType': 'Payment type',
-  'recordForm.paymentStatus': 'Payment status',
   'recordForm.cash': 'Cash',
   'recordForm.acknowledged': 'Acknowledged',
   'recordForm.choose': 'Choose',
@@ -450,55 +448,6 @@ export const en: Translations = {
 
   'design.title': 'Design system',
   'design.subtitle': 'Every component and state of the liquid glass material',
-
-  /* ------------------------------ landing ------------------------------- */
-  'features.eyebrow': 'Personal finance without spreadsheets',
-  'features.headline': 'How BudgetTracker works',
-  'features.subline':
-    'You record spending and income the way it happens — the app sorts entries into categories, merges accounts in different currencies and shows where the money really goes.',
-  'features.signUp': 'Create an account',
-  'features.goToPlans': 'See plans',
-  'features.checkFree': 'Free to start',
-  'features.checkNoCard': 'No card required',
-  'features.checkCancel': 'Cancel in one click',
-  'features.howTitle': 'How it works',
-  'features.step1Title': 'Add accounts',
-  'features.step1Text':
-    'Cash, card, savings. Keep several accounts and choose which ones count towards statistics.',
-  'features.step2Title': 'Record transactions',
-  'features.step2Text':
-    'Default categories are already there. Tags and rules suggest a category and handle recurring payments.',
-  'features.step3Title': 'See the picture',
-  'features.step3Text':
-    'Balance at the end of the period, cash flow, expense structure and period comparison in one overview.',
-  'features.capabilitiesTitle': 'Capabilities',
-  'features.accountsTitle': 'Accounts and balances',
-  'features.accountsText': 'The balance is derived from every transaction, like a bank statement.',
-  'features.categoriesTitle': 'Categories and subcategories',
-  'features.categoriesText': 'A ready-made set for every user: food, housing, transport, income.',
-  'features.currencyTitle': 'Multiple currencies',
-  'features.currencyText': 'Currencies are converted to the base rate, so totals stay one number.',
-  'features.analyticsTitle': 'Analytics',
-  'features.analyticsText': 'Charts by day, week and month, category shares, account turnover.',
-  'features.tagsTitle': 'Tags',
-  'features.tagsText': 'For example “vacation” or “work”: one record can belong to several collections.',
-  'features.rulesTitle': 'Auto-categories',
-  'features.rulesText': 'A rule matching the note fills in the category and tags automatically.',
-  'features.exportTitle': 'Export',
-  'features.exportText': 'Export records to CSV, JSON and an official-looking PDF.',
-  'features.securityTitle': 'Security',
-  'features.securityText': 'Password, email confirmation and GitHub sign-in.',
-  'features.plansTitle': 'Plans',
-  'features.plansSubline':
-    'Start free: two accounts and core reports. A subscription unlocks unlimited accounts, multiple currencies and extended analytics.',
-  'features.bestValue': 'best value',
-  'features.free': 'Free',
-  'features.perMonth': 'month',
-  'features.perYear': 'year',
-  'features.startFree': 'Start free',
-  'features.choosePlan': 'Choose a plan',
-  'features.ctaTitle': 'Ready to sort out your finances?',
-  'features.ctaText': 'Signing up takes a minute and needs no card.',
 
   /* ----------------------------- registration --------------------------- */
   'register.headline': 'Create your budget',
