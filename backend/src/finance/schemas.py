@@ -535,3 +535,41 @@ class TransactionImportResult(BaseModel):
     categories_created: int = 0
     skipped: int = 0
     errors: List[str] = Field(default_factory=list)
+
+
+class ServiceSubCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    icon: Optional[str] = Field(None, max_length=100_000)
+    price: float = Field(..., gt=0)
+    currency_id: str = Field(..., min_length=3, max_length=3)
+    started_at: datetime
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class ServiceSubUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=120)
+    icon: Optional[str] = Field(None, max_length=100_000)
+    price: Optional[float] = Field(None, gt=0)
+    currency_id: Optional[str] = Field(None, min_length=3, max_length=3)
+    started_at: Optional[datetime] = None
+
+
+class ServiceSubResponse(BaseModel):
+    id: int
+    name: str
+    icon: Optional[str] = None
+    price: float
+    #: Price converted to the user's base currency
+    price_base: float
+    currency_id: str
+    started_at: datetime
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class ServiceSubList(BaseModel):
+    items: List[ServiceSubResponse]
+    #: Sum of all prices in the base currency
+    total_base: float
+    base_currency: str

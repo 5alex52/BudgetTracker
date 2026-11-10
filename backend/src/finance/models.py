@@ -316,3 +316,22 @@ class UserCurrencyRateModel(Base):
     code: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), nullable=False)
     rate: Mapped[float] = mapped_column(sa.Float, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+
+
+class ServiceSubscriptionModel(Base):
+    """Paid service subscription: Netflix, Spotify, hosting — anything recurring."""
+
+    __tablename__ = "service_subscriptions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(sa.String(120), nullable=False)
+    #: Key from the popular-services set OR a data: URL of an uploaded icon
+    icon: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
+    price: Mapped[float] = mapped_column(sa.Numeric(12, 2), nullable=False)
+    currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), index=True)
+    started_at: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)

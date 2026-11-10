@@ -11,6 +11,7 @@ import { AccountsPage } from '../__pages__/Accounts'
 import { RecordsPage } from '../__pages__/Records'
 import type { RecordItem } from '@/__shared__/types/models'
 import { AnalyticsPage } from '../__pages__/Analytics'
+import { SubscriptionsPage } from '../__pages__/Subscriptions'
 import { SettingsPage } from '../__pages__/Settings'
 import { SettingsCurrenciesPage } from '../__pages__/SettingsCurrencies'
 import { SettingsCategoriesPage } from '../__pages__/SettingsCategories'
@@ -57,6 +58,7 @@ function App() {
                   <Route path="/accounts/:accountId" element={guarded(<AccountDetailPage />)} />
                   <Route path="/records" element={guarded(<RecordsPage />)} />
                   <Route path="/analytics" element={guarded(<AnalyticsPage />)} />
+                  <Route path="/subscriptions" element={guarded(<SubscriptionsPage />)} />
                   <Route path="/settings" element={guarded(<SettingsPage />)} />
                   <Route path="/settings/currencies" element={guarded(<SettingsCurrenciesPage />)} />
                   <Route path="/settings/categories" element={guarded(<SettingsCategoriesPage />)} />

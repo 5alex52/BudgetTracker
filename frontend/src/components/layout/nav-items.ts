@@ -1,4 +1,4 @@
-import { ArrowLeftRight, LayoutGrid, LineChart, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, LayoutGrid, LineChart, Receipt, Wallet, type LucideIcon } from 'lucide-react'
 import type { TranslationKey } from '@/i18n'
 
 export interface NavItem {
@@ -13,4 +13,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/accounts', labelKey: 'nav.accounts', icon: Wallet },
   { to: '/records', labelKey: 'nav.records', icon: ArrowLeftRight },
   { to: '/analytics', labelKey: 'nav.analytics', icon: LineChart },
+  { to: '/subscriptions', labelKey: 'nav.subscriptions', icon: Receipt },
 ]

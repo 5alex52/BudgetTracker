@@ -461,3 +461,39 @@ export interface AdminUserUpdate {
   is_active?: boolean
   is_verified?: boolean
 }
+
+/* ---------------------------- подписки сервисов -------------------------- */
+
+export interface ServiceSubDto {
+  id: number
+  name: string
+  icon: string | null
+  price: number
+  currency_id: string
+  started_at: string
+  price_base: number
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ServiceSubListDto {
+  items: ServiceSubDto[]
+  total_base: number
+  base_currency: string
+}
+
+export interface ServiceSubCreatePayload {
+  name: string
+  icon?: string | null
+  price: number
+  currency_id: string
+  started_at: string
+}
+
+export interface ServiceSubUpdatePayload {
+  name?: string
+  icon?: string | null
+  price?: number
+  currency_id?: string
+  started_at?: string
+}
