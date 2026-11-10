@@ -169,6 +169,39 @@ function BarChartImpl({
   )
 }
 
+/* ------------------------------ один столбец ------------------------------ */
+
+/** Односерийный столбчатый график (списания подписок): без income/expense. */
+function ValueBarChartImpl({
+  points,
+  height = 160,
+  color = 'var(--negative)',
+  className,
+  ariaLabel,
+}: {
+  points: SeriesPoint[]
+  height?: number
+  color?: string
+  className?: string
+  ariaLabel: string
+}) {
+  return (
+    <figure className={cn('m-0 w-full', className)} role="img" aria-label={ariaLabel}>
+      <div style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsBarChart data={points} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke="var(--border-subtle)" strokeDasharray="3 6" vertical={false} />
+            <XAxis dataKey="label" {...axisProps} minTickGap={10} />
+            <YAxis {...axisProps} width={56} tickFormatter={compact} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--surface-2)', opacity: 0.5 }} />
+            <Bar dataKey="value" name={ariaLabel} fill={color} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+          </RechartsBarChart>
+        </ResponsiveContainer>
+      </div>
+    </figure>
+  )
+}
+
 /* --------------------------------- кольцо --------------------------------- */
 
 /** Активный сегмент чуть выдвигается наружу вместо прямоугольной обводки. */
@@ -247,4 +280,5 @@ function DonutChartImpl({
  */
 export const LineChart = memo(LineChartImpl)
 export const BarChart = memo(BarChartImpl)
+export const ValueBarChart = memo(ValueBarChartImpl)
 export const DonutChart = memo(DonutChartImpl)

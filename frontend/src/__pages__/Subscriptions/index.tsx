@@ -8,7 +8,7 @@ import { useFinanceStore } from '@/store/finance'
 import { ServiceIcon, SERVICE_ICONS } from '@/components/icons/service-icons'
 import { AppShell } from '@/components/layout/AppShell'
 import { Amount } from '@/components/data/Amount'
-import { BarChart } from '@/components/charts/charts'
+import { ValueBarChart } from '@/components/charts/charts'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
@@ -266,8 +266,7 @@ export function SubscriptionsPage() {
     () =>
       (summary.data ?? []).map((point) => ({
         label: formatMonth(point.month, locale),
-        income: 0,
-        expense: point.total,
+        value: point.total,
       })),
     [summary.data, locale],
   )
@@ -337,7 +336,7 @@ export function SubscriptionsPage() {
         {chartPoints.length > 0 && (
           <Card className="p-4">
             <CardHeader title={t('subs.chartTitle')} subtitle={t('subs.chartSubtitle')} />
-            <BarChart className="mt-3" points={chartPoints} ariaLabel={t('subs.chartTitle')} height={140} />
+            <ValueBarChart className="mt-3" points={chartPoints} ariaLabel={t('subs.chargesSeries')} height={140} />
           </Card>
         )}
 

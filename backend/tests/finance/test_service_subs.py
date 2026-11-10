@@ -76,7 +76,7 @@ async def test_attaching_account_schedules_charges(user, currencies, account, se
     )
 
     assert created.account_id == account.id
-    assert created.next_payment_date is not None and created.next_payment_date > datetime.now()
+    assert created.next_payment_date == START  # bills from the start date itself
 
     async with session_maker() as session:
         category = (
@@ -97,15 +97,12 @@ async def test_attaching_account_schedules_charges(user, currencies, account, se
 
 @pytest.mark.asyncio
 async def test_collect_writes_records_and_advances_schedule(user, currencies, account, session_maker):
+    start = datetime.now() - timedelta(days=3)
     created = await ServiceSubService.create_for_user(
-        ServiceSubCreate(name="Spotify", price=10.0, currency_id="USD", started_at=START, account_id=account.id),
+        ServiceSubCreate(name="Spotify", price=10.0, currency_id="USD", started_at=start, account_id=account.id),
         user.id,
         session_maker,
     )
-    async with session_maker() as session:
-        sub = await session.get(ServiceSubscriptionModel, created.id)
-        sub.next_payment_date = datetime.now() - timedelta(days=1)
-        await session.commit()
 
     result = await ServiceSubService.collect_due(user.id, session_maker)
 
@@ -127,21 +124,56 @@ async def test_collect_writes_records_and_advances_schedule(user, currencies, ac
     listing = await ServiceSubService.list_for_user(user.id, session_maker)
     assert listing.items[0].charges[0].id == charge_id
 
+    # rolling the watermark back does not bill the same date twice
+    async with session_maker() as session:
+        sub = await session.get(ServiceSubscriptionModel, created.id)
+        sub.next_payment_date = start
+        await session.commit()
+
+    again = await ServiceSubService.collect_due(user.id, session_maker)
+
+    assert again.created == 0
+
 
 @pytest.mark.asyncio
 async def test_charges_summary_totals_in_base_currency(user, currencies, account, session_maker):
     created = await ServiceSubService.create_for_user(
-        ServiceSubCreate(name="Deezer", price=100.0, currency_id="EUR", started_at=START, account_id=account.id),
+        ServiceSubCreate(
+            name="Deezer",
+            price=100.0,
+            currency_id="EUR",
+            started_at=datetime.now() - timedelta(days=3),
+            account_id=account.id,
+        ),
         user.id,
         session_maker,
     )
-    async with session_maker() as session:
-        sub = await session.get(ServiceSubscriptionModel, created.id)
-        sub.next_payment_date = datetime.now() - timedelta(days=1)
-        await session.commit()
     await ServiceSubService.collect_due(user.id, session_maker)
 
     summary = await ServiceSubService.charges_summary(user.id, 6, session_maker)
 
     assert summary[-1].month == datetime.now().strftime("%Y-%m")
     assert summary[-1].total == pytest.approx(110.0)  # 100 EUR at catalog rate 1.1
+
+
+@pytest.mark.asyncio
+async def test_deleting_subscription_removes_its_auto_rule(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(
+            name="Netflix",
+            price=10.0,
+            currency_id="USD",
+            started_at=datetime.now() - timedelta(days=3),
+            account_id=account.id,
+        ),
+        user.id,
+        session_maker,
+    )
+
+    await ServiceSubService.delete_for_user(created.id, user.id, session_maker)
+    result = await ServiceSubService.collect_due(user.id, session_maker)
+
+    assert result.created == 0
+    async with session_maker() as session:
+        refreshed = await session.get(AccountModel, account.id)
+        assert refreshed.balance == pytest.approx(1000.0)

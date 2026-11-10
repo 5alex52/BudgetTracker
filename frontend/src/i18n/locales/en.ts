@@ -48,6 +48,7 @@ export const en: Translations = {
   'subs.nextCharge': 'Next charge',
   'subs.chartTitle': 'Subscription charges',
   'subs.chartSubtitle': 'Monthly total in base currency',
+  'subs.chargesSeries': 'Charges',
   'subs.saveFailed': 'Could not save',
   'subs.deleted': 'Subscription deleted',
   'subs.deleteFailed': 'Could not delete',

@@ -83,15 +83,6 @@ def _not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
 
 
-def _first_due_date(started_at: datetime) -> datetime:
-    """First monthly charge date strictly after today, anchored on the start date."""
-    due = started_at
-    now = datetime.now()
-    while due <= now:
-        due = calculate_next_payment_date(SubscriptionFrequency.MONTHLY, due)
-    return due
-
-
 async def _rates(session: AsyncSession, user_id) -> tuple[str, float, dict]:
     """(base code, base rate, currency -> rate to base) with personal overrides."""
     from .dao import CurrencyDAO
@@ -212,7 +203,9 @@ class ServiceSubService:
             if schema.account_id is not None:
                 await cls._checked_account(session, schema.account_id, user_id)
                 category_id = await cls._ensure_category(session, schema.name, user_id, session_maker)
-                next_due = _first_due_date(schema.started_at)
+                # Bill from the start date itself: collect() catches up every
+                # passed month, so the first record appears right away.
+                next_due = schema.started_at
             values = {**schema.model_dump(), "user_id": user_id}
             values["category_id"] = category_id
             values["next_payment_date"] = next_due
@@ -250,7 +243,7 @@ class ServiceSubService:
                     if sub.account_id != account_id or sub.category_id is None or "name" in data:
                         data["category_id"] = await cls._ensure_category(session, name, user_id, session_maker)
                     if sub.next_payment_date is None or "started_at" in data:
-                        data["next_payment_date"] = _first_due_date(data.get("started_at", sub.started_at))
+                        data["next_payment_date"] = data.get("started_at", sub.started_at)
             for field, value in data.items():
                 setattr(sub, field, value)
             await session.commit()
@@ -269,39 +262,57 @@ class ServiceSubService:
 
     @classmethod
     async def collect_due(cls, user_id, session_maker: async_sessionmaker) -> ServiceSubCollect:
-        """Write a charge record for every due date that has passed since the last run."""
+        """Write a charge record for every due date that has passed.
+
+        A tracked subscription bills from its start date: a never-charged one
+        catches up from ``started_at``, not from the watermark. Existing
+        (subscription, date) records are skipped, so nothing duplicates.
+        """
         now = datetime.now()
         async with session_maker() as session:
             subs = await cls.dao.find_all_by_user(session, user_id)
-            due = [
-                (s.id, s.name, s.account_id, s.category_id, float(s.price), s.currency_id, s.next_payment_date)
-                for s in subs
-                if s.account_id and s.category_id and s.next_payment_date and s.next_payment_date <= now
-            ]
+            tracked = [s for s in subs if s.account_id and s.category_id]
+            charged: set = set()
+            if tracked:
+                rows = (
+                    await session.execute(
+                        select(TransactionModel.service_sub_id, TransactionModel.date).where(
+                            TransactionModel.service_sub_id.in_([s.id for s in tracked])
+                        )
+                    )
+                ).all()
+                charged = {(row.service_sub_id, row.date) for row in rows}
+        billed = {sub_id for sub_id, _ in charged}
         created = 0
-        for sub_id, name, account_id, category_id, price, currency_id, due_date in due:
-            charge_date = due_date
+        for sub in tracked:
+            charge_date = sub.next_payment_date or sub.started_at
+            if sub.id not in billed and sub.started_at < charge_date:
+                charge_date = sub.started_at
+            if charge_date > now:
+                continue
             while charge_date <= now:
-                await TransactionService.create_for_user(
-                    schema=TransactionCreate(
-                        account_id=account_id,
-                        category_id=category_id,
-                        amount=price,
-                        currency_id=currency_id,
-                        type=TransactionType.EXPENSE,
-                        date=charge_date,
-                        note=name,
-                        service_sub_id=sub_id,
-                    ),
-                    user_id=user_id,
-                    session_maker=session_maker,
-                )
-                created += 1
+                if (sub.id, charge_date) not in charged:
+                    await TransactionService.create_for_user(
+                        schema=TransactionCreate(
+                            account_id=sub.account_id,
+                            category_id=sub.category_id,
+                            amount=float(sub.price),
+                            currency_id=sub.currency_id,
+                            type=TransactionType.EXPENSE,
+                            date=charge_date,
+                            note=sub.name,
+                            service_sub_id=sub.id,
+                        ),
+                        user_id=user_id,
+                        session_maker=session_maker,
+                    )
+                    charged.add((sub.id, charge_date))
+                    created += 1
                 charge_date = calculate_next_payment_date(SubscriptionFrequency.MONTHLY, charge_date)
             async with session_maker() as session:
-                sub = await session.get(ServiceSubscriptionModel, sub_id)
-                if sub is not None:
-                    sub.next_payment_date = charge_date
+                stored = await session.get(ServiceSubscriptionModel, sub.id)
+                if stored is not None:
+                    stored.next_payment_date = charge_date
                     await session.commit()
         return ServiceSubCollect(created=created)
 

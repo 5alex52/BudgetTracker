@@ -51,6 +51,7 @@ export const ru = {
   'subs.nextCharge': 'Следующее списание',
   'subs.chartTitle': 'Списания по подпискам',
   'subs.chartSubtitle': 'Итог по месяцам в базовой валюте',
+  'subs.chargesSeries': 'Списания',
   'subs.saveFailed': 'Не удалось сохранить',
   'subs.deleted': 'Подписка удалена',
   'subs.deleteFailed': 'Не удалось удалить',
