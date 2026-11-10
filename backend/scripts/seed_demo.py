@@ -30,7 +30,6 @@ from typing import Tuple
 
 from sqlalchemy import delete
 from sqlalchemy import select
-from src.billing import models as _billing_models  # noqa: F401
 from src.database import async_session_maker
 from src.finance.models import AccountModel
 from src.finance.models import CategoryModel
@@ -190,9 +189,7 @@ RULES: List[Tuple[str, str, RuleField, RuleOperator, str]] = [
 
 
 async def _get_or_create_user(session) -> UserModel:
-    user = (
-        await session.execute(select(UserModel).where(UserModel.email == DEMO_EMAIL))
-    ).scalar_one_or_none()
+    user = (await session.execute(select(UserModel).where(UserModel.email == DEMO_EMAIL))).scalar_one_or_none()
     if user is not None:
         print(f"[seed] пользователь уже есть: {DEMO_EMAIL}")
         user.is_verified = True
@@ -227,9 +224,7 @@ async def _reset_user_data(session, user: UserModel) -> None:
     поэтому удаляются после счетов (каскад) — здесь важно только их не забыть.
     """
     account_ids = select(AccountModel.id).where(AccountModel.user_id == user.id)
-    await session.execute(
-        delete(TransactionModel).where(TransactionModel.account_id.in_(account_ids))
-    )
+    await session.execute(delete(TransactionModel).where(TransactionModel.account_id.in_(account_ids)))
     for model in (
         TemplateModel,
         RuleModel,
@@ -326,9 +321,7 @@ async def _seed_transactions(
 ) -> None:
     """Полгода записей: будни — продукты и транспорт, раз в месяц — зарплата и аренда."""
     random.seed(20251009)
-    start = datetime.now().replace(
-        hour=12, minute=0, second=0, microsecond=0
-    ) - timedelta(days=180)
+    start = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0) - timedelta(days=180)
     account_names = ["Alfa", "Наличные", "Alfa Сейф", "Alfa RUB"]
     tagged_notes = {
         "работа": "работа",
@@ -400,9 +393,7 @@ async def _seed_transactions(
                 amount=amount,
                 currency_id=account.currency_id,
                 type=TransactionType.EXPENSE,
-                date=moment.replace(
-                    hour=random.randint(8, 22), minute=random.randint(0, 59)
-                ),
+                date=moment.replace(hour=random.randint(8, 22), minute=random.randint(0, 59)),
                 note=note or None,
             )
             rows.append(transaction)
@@ -490,9 +481,7 @@ async def seed(reset: bool = False) -> None:
             await _reset_user_data(session, user)
 
         existing = (
-            await session.execute(
-                select(AccountModel).where(AccountModel.user_id == user.id).limit(1)
-            )
+            await session.execute(select(AccountModel).where(AccountModel.user_id == user.id).limit(1))
         ).scalar_one_or_none()
         if existing is not None and not reset:
             print("[seed] данные уже есть — повторно не создаю (используйте --reset)")

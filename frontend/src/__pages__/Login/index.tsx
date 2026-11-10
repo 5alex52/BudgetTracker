@@ -41,10 +41,10 @@ export function LoginPage() {
 
   /**
    * Внешний вход: уводим браузер на backend, тот редиректит к провайдеру.
-   * Ключи ещё не выданы — сервер ответит 503, поэтому проверяем доступность
-   * пробным запросом и показываем понятный тост вместо «битой» страницы.
+   * Если ключи на сервере не заданы — ответит 503, показываем понятный тост
+   * вместо «битой» страницы.
    */
-  const startOAuth = async (provider: 'google' | 'yandex' | 'github') => {
+  const startOAuth = async (provider: 'github') => {
     try {
       const response = await fetch(oauthStartUrl(provider), { redirect: 'manual' })
       if (response.status === 503) {
@@ -117,30 +117,8 @@ export function LoginPage() {
             <GlassSurface level="lg" className="p-6">
               <h2 className="text-title font-semibold text-fg-primary">{t('login.title')}</h2>
 
-              {/* Вход через сервисы: Google, Yandex, GitHub */}
+              {/* Вход через сервисы: GitHub */}
               <div className="mt-4 space-y-2">
-                <Button
-                  variant="subtle"
-                  block
-                  className="justify-start gap-2"
-                  onClick={() => void startOAuth('google')}
-                >
-                  <span className="grid size-5 place-items-center rounded-pill bg-surface-3 text-caption font-semibold">
-                    G
-                  </span>
-                  {t('login.viaGoogle')}
-                </Button>
-                <Button
-                  variant="subtle"
-                  block
-                  className="justify-start gap-2"
-                  onClick={() => void startOAuth('yandex')}
-                >
-                  <span className="grid size-5 place-items-center rounded-pill bg-[#fc3f1d] text-caption font-semibold text-white">
-                    Я
-                  </span>
-                  {t('login.viaYandex')}
-                </Button>
                 <Button
                   variant="subtle"
                   block

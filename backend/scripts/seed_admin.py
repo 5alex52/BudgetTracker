@@ -28,7 +28,6 @@ from typing import List
 from typing import Optional
 
 from sqlalchemy import select
-from src.billing import models as _billing_models  # noqa: F401
 from src.database import async_session_maker
 from src.finance import models as _finance_models  # noqa: F401
 from src.users.models import UserModel
@@ -46,11 +45,7 @@ ADMIN_NAME = ("Администратор", "BudgetTracker")
 
 async def seed_admin(keep_password: bool = False) -> None:
     async with async_session_maker() as session:
-        user = (
-            await session.execute(
-                select(UserModel).where(UserModel.email == ADMIN_EMAIL)
-            )
-        ).scalar_one_or_none()
+        user = (await session.execute(select(UserModel).where(UserModel.email == ADMIN_EMAIL))).scalar_one_or_none()
 
         if user is None:
             user = UserModel(
@@ -84,16 +79,11 @@ async def seed_admin(keep_password: bool = False) -> None:
             print(f"[admin] обновлён суперпользователь {ADMIN_EMAIL}")
 
     print("[admin] готово")
-    print(
-        f"[admin] вход: {ADMIN_EMAIL} / "
-        + ("пароль не менялся" if keep_password else ADMIN_PASSWORD)
-    )
+    print(f"[admin] вход: {ADMIN_EMAIL} / " + ("пароль не менялся" if keep_password else ADMIN_PASSWORD))
 
 
 def main(argv: Optional[List[str]] = None) -> None:
-    parser = argparse.ArgumentParser(
-        description="Администратор BudgetTracker со стандартными доступами"
-    )
+    parser = argparse.ArgumentParser(description="Администратор BudgetTracker со стандартными доступами")
     parser.add_argument(
         "--keep-password",
         action="store_true",

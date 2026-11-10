@@ -65,10 +65,6 @@ class Settings(BaseSettings):
 
     #: Sign-in via external services. Empty values mean the provider is not configured:
     #: the UI button is shown, but the server returns a clear error until the keys are issued.
-    OAUTH_GOOGLE_CLIENT_ID: str = ""
-    OAUTH_GOOGLE_CLIENT_SECRET: str = ""
-    OAUTH_YANDEX_CLIENT_ID: str = ""
-    OAUTH_YANDEX_CLIENT_SECRET: str = ""
     OAUTH_GITHUB_CLIENT_ID: str = ""
     OAUTH_GITHUB_CLIENT_SECRET: str = ""
     #: Where the provider redirects the user; the frontend retrieves the token from there

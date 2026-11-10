@@ -68,6 +68,33 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
         return await cls.get(new_user.id, session_maker)
 
     @classmethod
+    async def create_from_oauth(
+        cls,
+        email: str,
+        name: Optional[str],
+        git_username: str,
+        session_maker: async_sessionmaker,
+    ) -> UserModel:
+        """User from an OAuth provider: email confirmed by GitHub, no verification email."""
+        parts = (name or "").strip().split(maxsplit=1)
+        schema = UserCreate(
+            firstname=parts[0] if parts else git_username,
+            lastname=parts[1] if len(parts) > 1 else git_username,
+            email=email,
+            password=str(uuid.uuid4()),
+            git_username=git_username,
+        )
+        schema.password = get_password_hash(schema.password)
+        new_user = await super(UserService, cls).create(schema, session_maker)
+        from src.finance.service import CategoryService
+
+        await CategoryService.create_defaults_for_user(new_user.id, session_maker=session_maker)
+        async with session_maker() as session:
+            await cls.dao.update(session, UserModel.id == new_user.id, obj_in={"is_verified": True})
+            await session.commit()
+        return await cls.get(new_user.id, session_maker)
+
+    @classmethod
     async def get_by_email(cls, email: str, session_maker: async_sessionmaker = None) -> Optional[UserModel]:
         """Returns a user by email or None"""
         if session_maker is None:

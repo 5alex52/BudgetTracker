@@ -37,10 +37,6 @@ x-backend-env: &backend-env
   CORS_HEADERS: '["Content-Type","Set-Cookie","Access-Control-Allow-Headers","Access-Control-Allow-Origin","Authorization"]'
   CORS_METHODS: '["GET","POST","PUT","PATCH","DELETE","OPTIONS"]'
   # OAuth и адрес фронтенда для писем/редиректов (провайдеры пока заглушки)
-  OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
-  OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
-  OAUTH_YANDEX_CLIENT_ID: ${OAUTH_YANDEX_CLIENT_ID:-}
-  OAUTH_YANDEX_CLIENT_SECRET: ${OAUTH_YANDEX_CLIENT_SECRET:-}
   OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
   OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
   OAUTH_RETURN_URL: ${OAUTH_RETURN_URL:-http://localhost:5173/}

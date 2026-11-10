@@ -1,5 +1,7 @@
 import logging
 import uuid
+from datetime import datetime
+from datetime import timezone
 from typing import List
 from typing import Optional
 from urllib.parse import urlencode
@@ -20,6 +22,7 @@ from .dependencies import get_current_superuser
 from .schemas import AccountDeleteConfirmation
 from .schemas import PasswordChange
 from .schemas import SessionInfo
+from .schemas import DeviceInfo
 from .schemas import Token
 from .schemas import User
 from .schemas import UserCreate
@@ -32,16 +35,6 @@ from .viewsets import UserViewSet
 
 #: OAuth providers: client IDs and authorization URLs. Keys come from settings.
 OAUTH_PROVIDERS = {
-    "google": {
-        "authorize": "https://accounts.google.com/o/oauth2/v2/auth",
-        "scope": "openid email profile",
-        "id_setting": "OAUTH_GOOGLE_CLIENT_ID",
-    },
-    "yandex": {
-        "authorize": "https://oauth.yandex.ru/authorize",
-        "scope": "login:email login:info",
-        "id_setting": "OAUTH_YANDEX_CLIENT_ID",
-    },
     "github": {
         "authorize": "https://github.com/login/oauth/authorize",
         "scope": "read:user user:email",
@@ -155,20 +148,93 @@ async def oauth_start(provider: str, request: Request):
 
 
 @auth_router.get("/oauth/{provider}/callback")
-async def oauth_callback(provider: str, code: Optional[str] = None):
-    """Exchange code for profile and sign-in.
-
-    Handler is a placeholder: once keys are available, this will exchange
-    ``code`` for a provider token and find/create the user.
-    """
+async def oauth_callback(
+    provider: str,
+    request: Request,
+    code: Optional[str] = None,
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+):
+    """GitHub sign-in: exchange the code, find or create the user, set cookies."""
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail="Unknown OAuth provider")
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code is missing")
-    raise HTTPException(
-        status_code=503,
-        detail=f"{provider.capitalize()} sign-in is not configured yet",
+
+    import httpx
+    from fastapi.responses import RedirectResponse
+
+    from src.config import settings
+    from .service import AuthService
+    from .service import UserService
+
+    client_id = settings.OAUTH_GITHUB_CLIENT_ID
+    client_secret = settings.OAUTH_GITHUB_CLIENT_SECRET
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=503, detail="GitHub sign-in is not configured yet")
+
+    # redirect_uri is not required by GitHub's token exchange, but sending a
+    # wrong one is rejected — we do not send it, the code alone identifies it.
+    async with httpx.AsyncClient(timeout=15) as client:
+        token_response = await client.post(
+            "https://github.com/login/oauth/access_token",
+            params={"client_id": client_id, "client_secret": client_secret, "code": code},
+            headers={"Accept": "application/json"},
+        )
+        github_token = (token_response.json() or {}).get("access_token")
+        if token_response.status_code != 200 or not github_token:
+            raise HTTPException(status_code=401, detail="GitHub rejected the authorization code")
+
+        gh_headers = {"Authorization": f"Bearer {github_token}", "Accept": "application/vnd.github+json"}
+        profile = (await client.get("https://api.github.com/user", headers=gh_headers)).json()
+        emails = (await client.get("https://api.github.com/user/emails", headers=gh_headers)).json()
+
+    login = profile.get("login") if isinstance(profile, dict) else None
+    if not login:
+        raise HTTPException(status_code=401, detail="Could not read the GitHub profile")
+    email = next(
+        (
+            (e["email"] for e in emails if isinstance(e, dict) and e.get("primary") and e.get("verified"))
+            if isinstance(emails, list)
+            else []
+        ),
+        None,
     )
+    if not email:
+        raise HTTPException(status_code=400, detail="GitHub account has no verified primary email")
+
+    user = await UserService.get_by_email(email, session_maker=session_maker)
+    if user is None:
+        user = await UserService.create_from_oauth(
+            email=email, name=profile.get("name"), git_username=login, session_maker=session_maker
+        )
+
+    user_agent = request.headers.get("User-Agent")
+    try:
+        device_info = get_device_info(user_agent) if user_agent else None
+    except HTTPException:
+        device_info = None
+    if device_info is None:
+        device_info = DeviceInfo(
+            device_name=user_agent or "Unknown device",
+            device_type="Desktop",
+            last_login=datetime.now(timezone.utc),
+        )
+
+    token = await AuthService._create_token(user.id, device_info, session_maker)
+    redirect = RedirectResponse(url=settings.OAUTH_RETURN_URL)
+    for cookie_name, cookie_value, max_age in (
+        ("access_token", token.access_token, settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60),
+        ("refresh_token", str(token.refresh_token), settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60),
+    ):
+        redirect.set_cookie(
+            cookie_name,
+            cookie_value,
+            max_age=max_age,
+            httponly=True,
+            secure=settings.ENVIRONMENT != "LOCAL",
+            samesite="strict",
+        )
+    return redirect
 
 
 @auth_router.post("/send-verification-email")

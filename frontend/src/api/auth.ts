@@ -65,8 +65,8 @@ export function resendVerification(email: string): Promise<{ message: string }> 
   })
 }
 
-/** Вход через внешний сервис: ссылка на провайдера (google, yandex, github). */
-export function oauthStartUrl(provider: 'google' | 'yandex' | 'github'): string {
+/** Вход через внешний сервис: ссылка на провайдера (github). */
+export function oauthStartUrl(provider: 'github'): string {
   const base = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
   return `${base.replace(/\/$/, '')}/auth/oauth/${provider}`
 }
