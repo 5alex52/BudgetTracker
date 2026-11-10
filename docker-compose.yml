@@ -53,7 +53,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      # наружу только 5555 (dev): 5432 остаётся за локальным Postgres/PgAdmin
+      - "${POSTGRES_HOST_PORT:-5555}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

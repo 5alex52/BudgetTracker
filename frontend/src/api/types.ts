@@ -464,6 +464,13 @@ export interface AdminUserUpdate {
 
 /* ---------------------------- подписки сервисов -------------------------- */
 
+export interface ServiceSubChargeDto {
+  id: number
+  date: string
+  amount: number
+  currency_id: string
+}
+
 export interface ServiceSubDto {
   id: number
   name: string
@@ -472,8 +479,16 @@ export interface ServiceSubDto {
   currency_id: string
   started_at: string
   price_base: number
+  account_id: number | null
+  next_payment_date: string | null
+  charges: ServiceSubChargeDto[]
   created_at: string
   updated_at: string | null
+}
+
+export interface ServiceSubMonthTotalDto {
+  month: string
+  total: number
 }
 
 export interface ServiceSubListDto {
@@ -488,6 +503,7 @@ export interface ServiceSubCreatePayload {
   price: number
   currency_id: string
   started_at: string
+  account_id?: number | null
 }
 
 export interface ServiceSubUpdatePayload {
@@ -496,4 +512,5 @@ export interface ServiceSubUpdatePayload {
   price?: number
   currency_id?: string
   started_at?: string
+  account_id?: number | null
 }

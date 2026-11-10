@@ -1,10 +1,17 @@
-"""Tests for the service-subscriptions tracker: CRUD and base-currency total."""
+"""Tests for the service-subscriptions tracker: CRUD, totals and auto charges."""
 
 import uuid
 from datetime import datetime
+from datetime import timedelta
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
+from src.finance.models import AccountModel
+from src.finance.models import CategoryModel
+from src.finance.models import ServiceSubscriptionModel
+from src.finance.models import TransactionModel
+from src.finance.schemas import CategoryType
 from src.finance.schemas import ServiceSubCreate
 from src.finance.schemas import ServiceSubUpdate
 from src.finance.service_subs import ServiceSubService
@@ -58,3 +65,83 @@ async def test_unknown_currency_rejected(user, currencies, session_maker):
         await ServiceSubService.create_for_user(_create("AOL", 1.0, "XXX"), user.id, session_maker)
     assert error.value.status_code == 400
     assert "currency" in error.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_attaching_account_schedules_charges(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(name="Netflix", price=10.0, currency_id="USD", started_at=START, account_id=account.id),
+        user.id,
+        session_maker,
+    )
+
+    assert created.account_id == account.id
+    assert created.next_payment_date is not None and created.next_payment_date > datetime.now()
+
+    async with session_maker() as session:
+        category = (
+            (
+                await session.execute(
+                    select(CategoryModel).where(
+                        CategoryModel.user_id == user.id,
+                        CategoryModel.name == "Netflix",
+                        CategoryModel.type == CategoryType.EXPENSE,
+                    )
+                )
+            )
+            .scalars()
+            .one()
+        )
+        assert category is not None
+
+
+@pytest.mark.asyncio
+async def test_collect_writes_records_and_advances_schedule(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(name="Spotify", price=10.0, currency_id="USD", started_at=START, account_id=account.id),
+        user.id,
+        session_maker,
+    )
+    async with session_maker() as session:
+        sub = await session.get(ServiceSubscriptionModel, created.id)
+        sub.next_payment_date = datetime.now() - timedelta(days=1)
+        await session.commit()
+
+    result = await ServiceSubService.collect_due(user.id, session_maker)
+
+    assert result.created == 1
+    async with session_maker() as session:
+        row = (
+            (await session.execute(select(TransactionModel).where(TransactionModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        charge_id = row.id
+        assert row.note == "Spotify"
+        assert row.amount == pytest.approx(10.0)
+        refreshed = await session.get(AccountModel, account.id)
+        assert refreshed.balance == pytest.approx(990.0)
+        sub = await session.get(ServiceSubscriptionModel, created.id)
+        assert sub.next_payment_date > datetime.now()
+
+    listing = await ServiceSubService.list_for_user(user.id, session_maker)
+    assert listing.items[0].charges[0].id == charge_id
+
+
+@pytest.mark.asyncio
+async def test_charges_summary_totals_in_base_currency(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(name="Deezer", price=100.0, currency_id="EUR", started_at=START, account_id=account.id),
+        user.id,
+        session_maker,
+    )
+    async with session_maker() as session:
+        sub = await session.get(ServiceSubscriptionModel, created.id)
+        sub.next_payment_date = datetime.now() - timedelta(days=1)
+        await session.commit()
+    await ServiceSubService.collect_due(user.id, session_maker)
+
+    summary = await ServiceSubService.charges_summary(user.id, 6, session_maker)
+
+    assert summary[-1].month == datetime.now().strftime("%Y-%m")
+    assert summary[-1].total == pytest.approx(110.0)  # 100 EUR at catalog rate 1.1

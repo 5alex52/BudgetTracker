@@ -124,6 +124,13 @@ class TransactionModel(Base):
     #: Hidden from statistics by an auto-categorization rule (the record itself stays in lists)
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     receipt_url: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
+    #: Set on records created by a tracked service subscription's auto rule
+    service_sub_id: Mapped[Optional[int]] = mapped_column(
+        sa.Integer,
+        sa.ForeignKey("service_subscriptions.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
 
     account: Mapped["AccountModel"] = relationship(
@@ -333,5 +340,13 @@ class ServiceSubscriptionModel(Base):
     price: Mapped[float] = mapped_column(sa.Numeric(12, 2), nullable=False)
     currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), index=True)
     started_at: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False)
+    #: Auto-charge wiring: account to bill, the service's expense category, next due date
+    account_id: Mapped[Optional[int]] = mapped_column(
+        sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+    category_id: Mapped[Optional[int]] = mapped_column(
+        sa.Integer, sa.ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
+    next_payment_date: Mapped[Optional[datetime]] = mapped_column(sa.DateTime, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)

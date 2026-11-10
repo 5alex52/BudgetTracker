@@ -8,13 +8,13 @@ import { useFinanceStore } from '@/store/finance'
 import { ServiceIcon, SERVICE_ICONS } from '@/components/icons/service-icons'
 import { AppShell } from '@/components/layout/AppShell'
 import { Amount } from '@/components/data/Amount'
+import { BarChart } from '@/components/charts/charts'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { Field, Input } from '@/components/ui/field'
 import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
-import { BLOCKED_SUBSCRIPTIONS } from './blocked'
 
 const MAX_ICON_BYTES = 48 * 1024
 
@@ -26,6 +26,12 @@ function formatDate(iso: string, locale: 'ru' | 'en') {
   }).format(new Date(iso))
 }
 
+function formatMonth(month: string, locale: 'ru' | 'en') {
+  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { month: 'short' }).format(
+    new Date(`${month}-01T00:00:00`),
+  )
+}
+
 function toPayload(draft: SubDraft): ServiceSubCreatePayload {
   return {
     name: draft.name.trim(),
@@ -33,6 +39,7 @@ function toPayload(draft: SubDraft): ServiceSubCreatePayload {
     price: Number(draft.price.replace(',', '.')),
     currency_id: draft.currency,
     started_at: `${draft.date}T00:00:00`,
+    account_id: draft.account === '' ? null : Number(draft.account),
   }
 }
 
@@ -42,9 +49,10 @@ interface SubDraft {
   currency: string
   date: string
   icon: string
+  account: string
 }
 
-const EMPTY_DRAFT: SubDraft = { name: '', price: '', currency: '', date: '', icon: '' }
+const EMPTY_DRAFT: SubDraft = { name: '', price: '', currency: '', date: '', icon: '', account: '' }
 
 function draftFromSub(sub: ServiceSubDto): SubDraft {
   return {
@@ -53,6 +61,7 @@ function draftFromSub(sub: ServiceSubDto): SubDraft {
     currency: sub.currency_id,
     date: sub.started_at.slice(0, 10),
     icon: sub.icon ?? '',
+    account: sub.account_id === null ? '' : String(sub.account_id),
   }
 }
 
@@ -71,6 +80,7 @@ function SubDialog({
   const { t } = useI18n()
   const { toast } = useToast()
   const currencyCodes = useFinanceStore((state) => state.currencyCodes)
+  const accounts = useFinanceStore((state) => state.accounts)
   const fileInput = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState<SubDraft>(EMPTY_DRAFT)
   const [pending, setPending] = useState(false)
@@ -211,6 +221,20 @@ function SubDialog({
               />
             </Field>
           </div>
+
+          <Field label={t('subs.account')} hint={t('subs.accountHint')}>
+            <FilterSelect
+              ariaLabel={t('subs.account')}
+              value={draft.account}
+              onValueChange={(value) => setDraft((prev) => ({ ...prev, account: value }))}
+              options={[
+                { value: '', label: t('subs.accountNone') },
+                ...accounts
+                  .filter((account) => !account.archived)
+                  .map((account) => ({ value: String(account.id), label: account.name })),
+              ]}
+            />
+          </Field>
         </div>
       </DialogContent>
     </Dialog>
@@ -219,20 +243,38 @@ function SubDialog({
 
 /**
  * Учёт платных подписок: цена в своей валюте, итог — в базовой.
- * Отдельно показываем сервисы, заблокированные в регионе.
+ * Подписка с привязанным счётом списывает себя автоматически: при открытии
+ * страницы создаются пропущенные записи-списания, а график показывает суммы.
  */
 export function SubscriptionsPage() {
   const { t, locale } = useI18n()
   const { toast } = useToast()
-  const list = useApiQuery(() => serviceSubsApi.listServiceSubs(), [])
+  /* При каждой загрузке сначала доводим расписание: наступившие даты списания
+     превращаются в записи, затем берём свежий список. */
+  const list = useApiQuery(async () => {
+    await serviceSubsApi.collectServiceSubs().catch(() => undefined)
+    return serviceSubsApi.listServiceSubs()
+  }, [])
+  const summary = useApiQuery(() => serviceSubsApi.getChargesSummary(6), [list.data])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<ServiceSubDto | null>(null)
   const [removing, setRemoving] = useState<ServiceSubDto | null>(null)
   const [busy, setBusy] = useState(false)
 
   const items = useMemo(() => list.data?.items ?? [], [list.data])
+  const chartPoints = useMemo(
+    () =>
+      (summary.data ?? []).map((point) => ({
+        label: formatMonth(point.month, locale),
+        income: 0,
+        expense: point.total,
+      })),
+    [summary.data, locale],
+  )
 
-  const refresh = () => list.reload()
+  const refresh = () => {
+    list.reload()
+  }
 
   const openCreate = () => {
     setEditing(null)
@@ -291,33 +333,13 @@ export function SubscriptionsPage() {
           <p className="text-caption text-fg-tertiary">{t('subs.count', { count: items.length })}</p>
         </Card>
 
-        {/* Заблокированные сервисы: оплатить нельзя, но знать полезно */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          {BLOCKED_SUBSCRIPTIONS.map((blocked) => (
-            <Card key={blocked.name} className="flex items-center gap-3 border-l-2 border-l-[var(--negative)] p-4">
-              <span className="grid size-10 shrink-0 place-items-center rounded-md bg-negative-soft text-negative">
-                <ServiceIcon name={blocked.icon} size={24} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-label font-medium text-fg-primary">{blocked.name}</p>
-                <p className="text-caption text-fg-tertiary">{t(blocked.taglineKey)}</p>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <span className="rounded-pill bg-negative-soft px-2 py-0.5 text-caption font-medium text-negative">
-                  {t('subs.blocked')}
-                </span>
-                <a
-                  href={blocked.actionUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-caption text-accent underline-offset-2 hover:underline"
-                >
-                  {t('subs.blockedSite')}
-                </a>
-              </div>
-            </Card>
-          ))}
-        </div>
+        {/* График списаний по подпискам */}
+        {chartPoints.length > 0 && (
+          <Card className="p-4">
+            <CardHeader title={t('subs.chartTitle')} subtitle={t('subs.chartSubtitle')} />
+            <BarChart className="mt-3" points={chartPoints} ariaLabel={t('subs.chartTitle')} height={140} />
+          </Card>
+        )}
 
         {/* Мои подписки */}
         {list.error ? (
@@ -378,6 +400,21 @@ export function SubscriptionsPage() {
                     </span>
                   )}
                 </div>
+                {(sub.next_payment_date !== null || sub.charges.length > 0) && (
+                  <div className="mt-2 space-y-1 border-t border-stroke-subtle pt-2 text-caption text-fg-tertiary">
+                    {sub.next_payment_date && (
+                      <p>
+                        {t('subs.nextCharge')}: {formatDate(sub.next_payment_date, locale)}
+                      </p>
+                    )}
+                    {sub.charges.slice(0, 3).map((charge) => (
+                      <p key={charge.id} className="flex items-center justify-between gap-2">
+                        <span>{formatDate(charge.date, locale)}</span>
+                        <Amount value={charge.amount} currency={charge.currency_id} size="xs" tone="negative" />
+                      </p>
+                    ))}
+                  </div>
+                )}
               </Card>
             ))}
           </div>

@@ -164,6 +164,8 @@ class TransactionBase(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
     is_subscription: bool = False
     receipt_url: Optional[str] = Field(None, max_length=255)
+    #: Set for records created by a service subscription's auto rule
+    service_sub_id: Optional[int] = None
     #: Tags to attach to the record
     tag_ids: List[int] = Field(default_factory=list)
 
@@ -543,6 +545,8 @@ class ServiceSubCreate(BaseModel):
     price: float = Field(..., gt=0)
     currency_id: str = Field(..., min_length=3, max_length=3)
     started_at: datetime
+    #: Account to bill on charge dates; its expense category is created on demand
+    account_id: Optional[int] = None
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -553,6 +557,27 @@ class ServiceSubUpdate(BaseModel):
     price: Optional[float] = Field(None, gt=0)
     currency_id: Optional[str] = Field(None, min_length=3, max_length=3)
     started_at: Optional[datetime] = None
+    account_id: Optional[int] = None
+
+
+class ServiceSubCharge(BaseModel):
+    """A record written by the subscription's auto rule."""
+
+    id: int
+    date: datetime
+    amount: float
+    currency_id: str
+
+
+class ServiceSubMonthTotal(BaseModel):
+    month: str
+    total: float
+
+
+class ServiceSubCollect(BaseModel):
+    """How many charge records the collect run created."""
+
+    created: int = 0
 
 
 class ServiceSubResponse(BaseModel):
@@ -564,6 +589,9 @@ class ServiceSubResponse(BaseModel):
     price_base: float
     currency_id: str
     started_at: datetime
+    account_id: Optional[int] = None
+    next_payment_date: Optional[datetime] = None
+    charges: List[ServiceSubCharge] = Field(default_factory=list)
     created_at: datetime
     updated_at: Optional[datetime] = None
 
