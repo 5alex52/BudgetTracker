@@ -461,10 +461,6 @@ export interface AdminUserPageDto {
   limit: number
 }
 
-export interface AdminStatsDto {
-  users_total: number
-  users_new_30d: number
-}
 export interface AdminUserUpdate {
   firstname?: string
   lastname?: string

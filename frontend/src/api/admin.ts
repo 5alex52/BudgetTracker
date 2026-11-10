@@ -1,15 +1,6 @@
-/** Админ-панель: пользователи и статистика. */
+/** Админ-панель: пользователи. */
 import { request } from './client'
-import type {
-  AdminStatsDto,
-  AdminUserDto,
-  AdminUserPageDto,
-  AdminUserUpdate,
-} from './types'
-
-export function getAdminStats(): Promise<AdminStatsDto> {
-  return request<AdminStatsDto>('/admin/stats')
-}
+import type { AdminUserDto, AdminUserPageDto, AdminUserUpdate } from './types'
 
 export function listAdminUsers(params: {
   search?: string
