@@ -8,9 +8,7 @@ async def test_logout(verified_user_client):
     async_client, _, refresh_token = verified_user_client
 
     # Test logout
-    response = await async_client.post(
-        "/api/auth/logout", data={"refresh_token": refresh_token}
-    )
+    response = await async_client.post("/api/auth/logout", data={"refresh_token": refresh_token})
     assert response.status_code == 200
 
 
@@ -44,14 +42,10 @@ async def test_abort_all_sessions(verified_user_client):
 
 
 @pytest.mark.asyncio
-async def test_send_verification_email(
-    async_client: AsyncClient, user_info: UserCreate
-):
+async def test_send_verification_email(async_client: AsyncClient, user_info: UserCreate):
     # First register a user
     await async_client.post("/api/auth/register", json=user_info.model_dump())
-    response = await async_client.post(
-        "/api/auth/send-verification-email", params={"user_email": user_info.email}
-    )
+    response = await async_client.post("/api/auth/send-verification-email", params={"user_email": user_info.email})
     print(response.json())
     assert response.status_code == 200
     assert response.json()["message"] == "Verification email sent"

@@ -37,15 +37,11 @@ fake = Faker()
 async def currencies(session_maker) -> dict:
     """Base currency catalog: needed by both finance and profile (export, base currency)"""
     await CurrencyService.create(
-        CurrencyCreate(
-            code="USD", name="US Dollar", symbol="$", exchange_rate_to_base=1.0
-        ),
+        CurrencyCreate(code="USD", name="US Dollar", symbol="$", exchange_rate_to_base=1.0),
         session_maker=session_maker,
     )
     await CurrencyService.create(
-        CurrencyCreate(
-            code="EUR", name="Euro", symbol="EUR", exchange_rate_to_base=1.1
-        ),
+        CurrencyCreate(code="EUR", name="Euro", symbol="EUR", exchange_rate_to_base=1.1),
         session_maker=session_maker,
     )
     return {"USD": 1.0, "EUR": 1.1}
@@ -147,9 +143,7 @@ async def async_client(test_app: FastAPI):
     """
     Creates an async client for testing endpoints
     """
-    async with AsyncClient(
-        transport=ASGITransport(test_app), base_url="http://test"
-    ) as ac:
+    async with AsyncClient(transport=ASGITransport(test_app), base_url="http://test") as ac:
         yield ac
 
 
@@ -159,9 +153,7 @@ async def verified_user_client(
 ) -> tuple[AsyncClient, uuid.UUID, str]:
     """Fixture creates a verified user and returns a client with a token"""
     # Create a user
-    response = await async_client.post(
-        "/api/auth/register", json=user_info.model_dump()
-    )
+    response = await async_client.post("/api/auth/register", json=user_info.model_dump())
     assert response.status_code == 201
     user_id = response.json()["id"]
 
@@ -174,9 +166,7 @@ async def verified_user_client(
             break
 
     # Verify email
-    response = await async_client.post(
-        "/api/auth/verify-email", params={"token": token}
-    )
+    response = await async_client.post("/api/auth/verify-email", params={"token": token})
     assert response.status_code == 200
 
     # Log in
@@ -221,17 +211,13 @@ async def create_user(session_maker) -> UserModel:
         telegram_id=fake.random_int(min=10_000_000, max=99_999_999),
         timezone="Europe/Minsk",
     )
-    return await UserService.create(
-        user_info, base_url=BASE_TEST_URL, session_maker=session_maker
-    )
+    return await UserService.create(user_info, base_url=BASE_TEST_URL, session_maker=session_maker)
 
 
 @pytest_asyncio.fixture
 async def user(user_info: UserCreate, session_maker) -> UserModel:
     """User who owns the financial data in tests"""
-    return await UserService.create(
-        user_info, base_url=BASE_TEST_URL, session_maker=session_maker
-    )
+    return await UserService.create(user_info, base_url=BASE_TEST_URL, session_maker=session_maker)
 
 
 @pytest_asyncio.fixture
@@ -244,9 +230,7 @@ async def other_user(session_maker) -> UserModel:
 async def account(user, currencies, session_maker):
     """USD account with an initial balance"""
     return await AccountService.create_for_user(
-        schema=AccountCreate(
-            name="Cash", type=AccountType.CASH, currency_id="USD", balance=1000.0
-        ),
+        schema=AccountCreate(name="Cash", type=AccountType.CASH, currency_id="USD", balance=1000.0),
         user_id=user.id,
         session_maker=session_maker,
     )
@@ -256,9 +240,7 @@ async def account(user, currencies, session_maker):
 async def second_account(user, currencies, session_maker):
     """Second user account, used in transfer tests"""
     return await AccountService.create_for_user(
-        schema=AccountCreate(
-            name="Savings", type=AccountType.SAVINGS, currency_id="USD", balance=500.0
-        ),
+        schema=AccountCreate(name="Savings", type=AccountType.SAVINGS, currency_id="USD", balance=500.0),
         user_id=user.id,
         session_maker=session_maker,
     )

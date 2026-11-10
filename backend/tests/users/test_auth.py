@@ -20,13 +20,9 @@ BASE_TEST_URL = "http://localhost:8000"
 
 async def create_and_login_user(user_info: UserCreate, session_maker):
     password = user_info.password
-    device_info = DeviceInfo(
-        device_name="test", device_type="test", last_login=datetime.now(timezone.utc)
-    )
+    device_info = DeviceInfo(device_name="test", device_type="test", last_login=datetime.now(timezone.utc))
 
-    user = await UserService.create(
-        user_info, base_url=BASE_TEST_URL, session_maker=session_maker
-    )
+    user = await UserService.create(user_info, base_url=BASE_TEST_URL, session_maker=session_maker)
 
     token = await AuthService.login(
         OAuth2PasswordRequestForm(username=user.email, password=password),
@@ -38,9 +34,7 @@ async def create_and_login_user(user_info: UserCreate, session_maker):
 
 @pytest.mark.asyncio
 async def test_login(user_info: UserCreate, session_maker):
-    device_info = DeviceInfo(
-        device_name="test", device_type="test", last_login=datetime.now(timezone.utc)
-    )
+    device_info = DeviceInfo(device_name="test", device_type="test", last_login=datetime.now(timezone.utc))
     with pytest.raises(HTTPException):
         await AuthService.login(
             OAuth2PasswordRequestForm(username=user_info.email, password=1234),

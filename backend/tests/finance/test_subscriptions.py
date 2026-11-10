@@ -32,12 +32,8 @@ async def create_expense_transaction(
 
 
 @pytest.mark.asyncio
-async def test_create_subscription_marks_transaction(
-    account, expense_category, user, session_maker
-):
-    transaction = await create_expense_transaction(
-        session_maker, user.id, account.id, expense_category.id
-    )
+async def test_create_subscription_marks_transaction(account, expense_category, user, session_maker):
+    transaction = await create_expense_transaction(session_maker, user.id, account.id, expense_category.id)
 
     subscription = await SubscriptionService.create_for_user(
         schema=SubscriptionCreate(
@@ -54,40 +50,28 @@ async def test_create_subscription_marks_transaction(
     assert subscription.frequency == SubscriptionFrequency.MONTHLY
     assert subscription.is_active is True
 
-    updated_transaction = await TransactionService.get_by_user(
-        transaction.id, user.id, session_maker=session_maker
-    )
+    updated_transaction = await TransactionService.get_by_user(transaction.id, user.id, session_maker=session_maker)
     assert updated_transaction.is_subscription is True
 
 
 @pytest.mark.asyncio
-async def test_duplicate_subscription_is_rejected(
-    account, expense_category, user, session_maker
-):
-    transaction = await create_expense_transaction(
-        session_maker, user.id, account.id, expense_category.id
-    )
+async def test_duplicate_subscription_is_rejected(account, expense_category, user, session_maker):
+    transaction = await create_expense_transaction(session_maker, user.id, account.id, expense_category.id)
     schema = SubscriptionCreate(
         transaction_id=transaction.id,
         frequency=SubscriptionFrequency.MONTHLY,
         next_payment_date="2024-06-15T12:00:00",
     )
-    await SubscriptionService.create_for_user(
-        schema=schema, user_id=user.id, session_maker=session_maker
-    )
+    await SubscriptionService.create_for_user(schema=schema, user_id=user.id, session_maker=session_maker)
 
     with pytest.raises(HTTPException) as error:
-        await SubscriptionService.create_for_user(
-            schema=schema, user_id=user.id, session_maker=session_maker
-        )
+        await SubscriptionService.create_for_user(schema=schema, user_id=user.id, session_maker=session_maker)
 
     assert error.value.status_code == 409
 
 
 @pytest.mark.asyncio
-async def test_income_transaction_cannot_be_subscription(
-    account, income_category, user, session_maker
-):
+async def test_income_transaction_cannot_be_subscription(account, income_category, user, session_maker):
     transaction = await TransactionService.create_for_user(
         schema=TransactionCreate(
             account_id=account.id,
@@ -116,9 +100,7 @@ async def test_income_transaction_cannot_be_subscription(
 
 
 @pytest.mark.asyncio
-async def test_next_payment_date_cannot_be_in_the_past(
-    account, expense_category, user, session_maker
-):
+async def test_next_payment_date_cannot_be_in_the_past(account, expense_category, user, session_maker):
     transaction = await create_expense_transaction(
         session_maker,
         user.id,
@@ -142,12 +124,8 @@ async def test_next_payment_date_cannot_be_in_the_past(
 
 
 @pytest.mark.asyncio
-async def test_advance_next_payment_date(
-    account, expense_category, user, session_maker
-):
-    transaction = await create_expense_transaction(
-        session_maker, user.id, account.id, expense_category.id
-    )
+async def test_advance_next_payment_date(account, expense_category, user, session_maker):
+    transaction = await create_expense_transaction(session_maker, user.id, account.id, expense_category.id)
     subscription = await SubscriptionService.create_for_user(
         schema=SubscriptionCreate(
             transaction_id=transaction.id,
@@ -158,21 +136,15 @@ async def test_advance_next_payment_date(
         session_maker=session_maker,
     )
 
-    advanced = await SubscriptionService.advance_next_payment(
-        subscription.id, user.id, session_maker=session_maker
-    )
+    advanced = await SubscriptionService.advance_next_payment(subscription.id, user.id, session_maker=session_maker)
 
     assert advanced.next_payment_date.month == 7
     assert advanced.next_payment_date.day == 15
 
 
 @pytest.mark.asyncio
-async def test_deactivate_and_delete_subscription(
-    account, expense_category, user, session_maker
-):
-    transaction = await create_expense_transaction(
-        session_maker, user.id, account.id, expense_category.id
-    )
+async def test_deactivate_and_delete_subscription(account, expense_category, user, session_maker):
+    transaction = await create_expense_transaction(session_maker, user.id, account.id, expense_category.id)
     subscription = await SubscriptionService.create_for_user(
         schema=SubscriptionCreate(
             transaction_id=transaction.id,
@@ -190,37 +162,22 @@ async def test_deactivate_and_delete_subscription(
         session_maker=session_maker,
     )
     assert paused.is_active is False
-    assert (
-        await SubscriptionService.get_list_by_user(
-            user.id, is_active=True, session_maker=session_maker
-        )
-        == []
-    )
+    assert await SubscriptionService.get_list_by_user(user.id, is_active=True, session_maker=session_maker) == []
 
-    await SubscriptionService.delete_for_user(
-        subscription.id, user.id, session_maker=session_maker
-    )
+    await SubscriptionService.delete_for_user(subscription.id, user.id, session_maker=session_maker)
 
     with pytest.raises(HTTPException) as error:
-        await SubscriptionService.get_by_user(
-            subscription.id, user.id, session_maker=session_maker
-        )
+        await SubscriptionService.get_by_user(subscription.id, user.id, session_maker=session_maker)
 
     assert error.value.status_code == 404
 
-    updated_transaction = await TransactionService.get_by_user(
-        transaction.id, user.id, session_maker=session_maker
-    )
+    updated_transaction = await TransactionService.get_by_user(transaction.id, user.id, session_maker=session_maker)
     assert updated_transaction.is_subscription is False
 
 
 @pytest.mark.asyncio
-async def test_subscriptions_are_isolated_between_users(
-    account, expense_category, other_user, user, session_maker
-):
-    transaction = await create_expense_transaction(
-        session_maker, user.id, account.id, expense_category.id
-    )
+async def test_subscriptions_are_isolated_between_users(account, expense_category, other_user, user, session_maker):
+    transaction = await create_expense_transaction(session_maker, user.id, account.id, expense_category.id)
     subscription = await SubscriptionService.create_for_user(
         schema=SubscriptionCreate(
             transaction_id=transaction.id,
@@ -232,8 +189,6 @@ async def test_subscriptions_are_isolated_between_users(
     )
 
     with pytest.raises(HTTPException) as error:
-        await SubscriptionService.get_by_user(
-            subscription.id, other_user.id, session_maker=session_maker
-        )
+        await SubscriptionService.get_by_user(subscription.id, other_user.id, session_maker=session_maker)
 
     assert error.value.status_code == 404

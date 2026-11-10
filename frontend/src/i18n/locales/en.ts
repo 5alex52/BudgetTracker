@@ -392,6 +392,10 @@ export const en: Translations = {
   'records.transferUnavailable': 'Transfers between accounts are coming later',
   'records.excluded': 'not in statistics',
   'records.tagFilterHint': 'Filter by tags',
+  'records.import': 'Import',
+  'records.importDone': 'Imported {count} records',
+  'records.importSkipped': 'Skipped {count} rows',
+  'records.importFailed': 'Import failed',
 
   // ----------------------------- templates (API) ---------------------------
   'templates.apply': 'Create record',

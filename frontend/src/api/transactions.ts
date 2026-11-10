@@ -1,4 +1,4 @@
-/** Записи: список с фильтрами и пагинацией, CRUD, массовое удаление, выгрузка. */
+/** Записи: список с фильтрами и пагинацией, CRUD, массовое удаление, выгрузка и загрузка. */
 import { API_BASE, request, requestWithHeaders } from './client'
 import type {
   BulkDeleteResultDto,
@@ -9,6 +9,14 @@ import type {
   TransactionWithDetailsDto,
   TransactionUpdate,
 } from './types'
+
+export interface TransactionImportResultDto {
+  created: number
+  accounts_created: number
+  categories_created: number
+  skipped: number
+  errors: string[]
+}
 
 export interface TransactionListResult {
   items: TransactionWithDetailsDto[]
@@ -101,4 +109,15 @@ export function exportTransactionsUrl(
   if (filters.end_date) params.set('end_date', filters.end_date)
   const query = params.toString()
   return `${API_BASE}/finance/transactions/export${query ? `?${query}` : ''}`
+}
+
+/** Импорт файла выгрузки: отсутствующие счета и категории будут созданы. */
+export function importTransactions(
+  format: 'csv' | 'json',
+  content: string,
+): Promise<TransactionImportResultDto> {
+  return request<TransactionImportResultDto>('/finance/transactions/import', {
+    method: 'POST',
+    body: { format, content },
+  })
 }

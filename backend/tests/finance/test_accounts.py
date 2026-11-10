@@ -12,9 +12,7 @@ from src.finance.service import CurrencyService
 @pytest.mark.asyncio
 async def test_create_account(user, currencies, session_maker):
     account = await AccountService.create_for_user(
-        schema=AccountCreate(
-            name="Wallet", type=AccountType.CASH, currency_id="USD", balance=100.0
-        ),
+        schema=AccountCreate(name="Wallet", type=AccountType.CASH, currency_id="USD", balance=100.0),
         user_id=user.id,
         session_maker=session_maker,
     )
@@ -32,9 +30,7 @@ async def test_create_account(user, currencies, session_maker):
 async def test_create_account_with_unknown_currency(user, currencies, session_maker):
     with pytest.raises(HTTPException) as error:
         await AccountService.create_for_user(
-            schema=AccountCreate(
-                name="Wallet", type=AccountType.CASH, currency_id="GBP"
-            ),
+            schema=AccountCreate(name="Wallet", type=AccountType.CASH, currency_id="GBP"),
             user_id=user.id,
             session_maker=session_maker,
         )
@@ -44,9 +40,7 @@ async def test_create_account_with_unknown_currency(user, currencies, session_ma
 
 @pytest.mark.asyncio
 async def test_get_account_by_user(account, user, session_maker):
-    retrieved = await AccountService.get_by_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    retrieved = await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
 
     assert retrieved.id == account.id
     assert retrieved.name == account.name
@@ -55,17 +49,10 @@ async def test_get_account_by_user(account, user, session_maker):
 @pytest.mark.asyncio
 async def test_accounts_are_isolated_between_users(account, other_user, session_maker):
     with pytest.raises(HTTPException) as error:
-        await AccountService.get_by_user(
-            account.id, other_user.id, session_maker=session_maker
-        )
+        await AccountService.get_by_user(account.id, other_user.id, session_maker=session_maker)
 
     assert error.value.status_code == 404
-    assert (
-        await AccountService.get_list_by_user(
-            other_user.id, session_maker=session_maker
-        )
-        == []
-    )
+    assert await AccountService.get_list_by_user(other_user.id, session_maker=session_maker) == []
 
 
 @pytest.mark.asyncio
@@ -84,32 +71,21 @@ async def test_update_account(account, user, session_maker):
 
 @pytest.mark.asyncio
 async def test_archive_account_hides_it_from_the_list(account, user, session_maker):
-    await AccountService.set_archived(
-        account.id, user.id, True, session_maker=session_maker
-    )
+    await AccountService.set_archived(account.id, user.id, True, session_maker=session_maker)
 
-    assert (
-        await AccountService.get_list_by_user(user.id, session_maker=session_maker)
-        == []
-    )
+    assert await AccountService.get_list_by_user(user.id, session_maker=session_maker) == []
 
-    archived = await AccountService.get_list_by_user(
-        user.id, include_archived=True, session_maker=session_maker
-    )
+    archived = await AccountService.get_list_by_user(user.id, include_archived=True, session_maker=session_maker)
     assert len(archived) == 1
     assert archived[0].is_archived is True
 
 
 @pytest.mark.asyncio
 async def test_delete_account(account, user, session_maker):
-    await AccountService.delete_for_user(
-        account.id, user.id, session_maker=session_maker
-    )
+    await AccountService.delete_for_user(account.id, user.id, session_maker=session_maker)
 
     with pytest.raises(HTTPException) as error:
-        await AccountService.get_by_user(
-            account.id, user.id, session_maker=session_maker
-        )
+        await AccountService.get_by_user(account.id, user.id, session_maker=session_maker)
 
     assert error.value.status_code == 404
 
@@ -137,9 +113,7 @@ async def test_balance_overview_uses_base_currency(user, currencies, session_mak
         session_maker=session_maker,
     )
 
-    overview = await AccountService.get_balance_overview(
-        user.id, session_maker=session_maker
-    )
+    overview = await AccountService.get_balance_overview(user.id, session_maker=session_maker)
 
     assert overview.total == 1110.0
     assert len(overview.accounts) == 2
@@ -147,13 +121,9 @@ async def test_balance_overview_uses_base_currency(user, currencies, session_mak
 
 
 @pytest.mark.asyncio
-async def test_balance_overview_uses_personal_currency_rate(
-    user, currencies, session_maker
-):
+async def test_balance_overview_uses_personal_currency_rate(user, currencies, session_maker):
     """Personal rate 1 EUR = 2 USD gives 200 USD for an account with 100 EUR balance."""
-    await CurrencyService.set_user_rate(
-        code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker
-    )
+    await CurrencyService.set_user_rate(code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker)
     await AccountService.create_for_user(
         schema=AccountCreate(
             name="EUR account",
@@ -165,9 +135,7 @@ async def test_balance_overview_uses_personal_currency_rate(
         session_maker=session_maker,
     )
 
-    overview = await AccountService.get_balance_overview(
-        user.id, session_maker=session_maker
-    )
+    overview = await AccountService.get_balance_overview(user.id, session_maker=session_maker)
 
     assert overview.total == 200.0
     assert overview.accounts[0].balance == 100.0

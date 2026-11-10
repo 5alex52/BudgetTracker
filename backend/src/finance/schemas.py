@@ -518,3 +518,20 @@ class TransactionDetails(TransactionWithDetails):
 
 TransactionResponse.model_rebuild()
 TemplateResponse.model_rebuild()
+
+
+class TransactionImportRequest(BaseModel):
+    """Import payload: an exported file as text — CSV (the export header) or JSON."""
+
+    format: str = Field("csv", pattern="^(csv|json)$")
+    content: str = Field(..., min_length=1, max_length=5_000_000)
+
+
+class TransactionImportResult(BaseModel):
+    """What the import did: counters plus the first row errors."""
+
+    created: int = 0
+    accounts_created: int = 0
+    categories_created: int = 0
+    skipped: int = 0
+    errors: List[str] = Field(default_factory=list)

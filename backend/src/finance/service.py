@@ -1,3 +1,6 @@
+import csv
+import io
+import json
 import logging
 from datetime import datetime
 from datetime import timedelta
@@ -27,6 +30,7 @@ from .models import UserCurrencyRateModel
 from .rules import apply_rules
 from .schemas import AccountCreate
 from .schemas import AccountSummary
+from .schemas import AccountType
 from .schemas import AccountUpdate
 from .schemas import BalanceOverview
 from .schemas import BalanceOverviewAccount
@@ -42,6 +46,8 @@ from .schemas import CurrencyUpdate
 from .schemas import SubscriptionCreate
 from .schemas import SubscriptionUpdate
 from .schemas import TransactionCreate
+from .schemas import TransactionImportRequest
+from .schemas import TransactionImportResult
 from .schemas import TransactionSummary
 from .schemas import TransactionType
 from .schemas import TransactionUpdate
@@ -1330,6 +1336,196 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
             start_date=start_date,
             end_date=end_date,
         )
+
+    # ------------------------------------------------------------------ #
+    #  Import of records from an exported file
+    # ------------------------------------------------------------------ #
+
+    IMPORT_LIMIT = 5000
+    IMPORT_HEADER = ["date", "type", "account", "category", "amount", "currency", "note"]
+
+    @classmethod
+    def _parse_import_rows(cls, payload: TransactionImportRequest) -> List[dict]:
+        """Rows as dicts from an exported CSV (the export header) or JSON."""
+        if payload.format == "json":
+            try:
+                data = json.loads(payload.content)
+            except json.JSONDecodeError as error:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON: {error}")
+            if not isinstance(data, list):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="JSON must be an array of exported records",
+                )
+            return [
+                {
+                    "date": item.get("date"),
+                    "type": item.get("type"),
+                    "account": item.get("account_name"),
+                    "category": item.get("category_name"),
+                    "amount": item.get("amount"),
+                    "currency": item.get("currency_id"),
+                    "note": item.get("note"),
+                }
+                for item in data
+                if isinstance(item, dict)
+            ]
+        reader = csv.DictReader(io.StringIO(payload.content))
+        header = {(name or "").strip().lower() for name in (reader.fieldnames or [])}
+        if not {"date", "type", "account", "amount"}.issubset(header):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="CSV header must match the export: " + ",".join(cls.IMPORT_HEADER),
+            )
+        return [
+            {(k or "").strip().lower(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items() if k}
+            for raw in reader
+        ]
+
+    @staticmethod
+    def _parse_import_date(value: object) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            return value
+        text = str(value or "").strip()
+        if not text:
+            return None
+        for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(text, fmt)
+            except ValueError:
+                pass
+        try:
+            return datetime.fromisoformat(text)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _skip_import_row(result: TransactionImportResult, message: str) -> None:
+        result.skipped += 1
+        if len(result.errors) < 20:
+            result.errors.append(message)
+
+    @classmethod
+    async def _import_row(
+        cls,
+        row: dict,
+        number: int,
+        user_id,
+        accounts: dict,
+        categories: dict,
+        result: TransactionImportResult,
+        session_maker: Optional[async_sessionmaker],
+    ) -> None:
+        raw_type = str(row.get("type") or "").strip().lower()
+        account_name = str(row.get("account") or "").strip()
+        category_name = str(row.get("category") or "").strip()
+        currency = str(row.get("currency") or "").strip().upper()
+        date = cls._parse_import_date(row.get("date"))
+        try:
+            amount = float(str(row.get("amount") or "").replace(",", "."))
+        except ValueError:
+            amount = None
+
+        if raw_type == "transfer":
+            cls._skip_import_row(
+                result, f"Row {number}: transfers are not imported (the export lacks the destination account)"
+            )
+            return
+        if raw_type not in ("income", "expense"):
+            cls._skip_import_row(result, f"Row {number}: type must be income, expense or transfer")
+            return
+        if not account_name:
+            cls._skip_import_row(result, f"Row {number}: account name is required")
+            return
+        if not category_name:
+            cls._skip_import_row(result, f"Row {number}: category name is required")
+            return
+        if len(currency) != 3:
+            cls._skip_import_row(result, f"Row {number}: currency must be a 3-letter code")
+            return
+        if amount is None or amount <= 0:
+            cls._skip_import_row(result, f"Row {number}: amount must be a positive number")
+            return
+        if date is None:
+            cls._skip_import_row(result, f"Row {number}: unrecognized date, expected YYYY-MM-DD HH:MM")
+            return
+
+        try:
+            account_id = accounts.get(account_name)
+            if account_id is None:
+                account = await AccountService.create_for_user(
+                    schema=AccountCreate(
+                        name=account_name,
+                        type=AccountType.CHECKING,
+                        currency_id=currency,
+                        balance=0.0,
+                    ),
+                    user_id=user_id,
+                    session_maker=session_maker,
+                )
+                account_id = account.id
+                accounts[account_name] = account_id
+                result.accounts_created += 1
+            category_id = categories.get((category_name, raw_type))
+            if category_id is None:
+                category = await CategoryService.create_for_user(
+                    schema=CategoryCreate(name=category_name, type=CategoryType(raw_type)),
+                    user_id=user_id,
+                    session_maker=session_maker,
+                )
+                category_id = category.id
+                categories[(category_name, raw_type)] = category_id
+                result.categories_created += 1
+            await cls.create_for_user(
+                schema=TransactionCreate(
+                    account_id=account_id,
+                    category_id=category_id,
+                    amount=amount,
+                    currency_id=currency,
+                    type=TransactionType(raw_type),
+                    date=date,
+                    note=(str(row.get("note") or "").strip() or None),
+                ),
+                user_id=user_id,
+                session_maker=session_maker,
+            )
+            result.created += 1
+        except HTTPException as error:
+            cls._skip_import_row(result, f"Row {number}: {error.detail}")
+
+    @classmethod
+    async def import_from_text(
+        cls,
+        payload: TransactionImportRequest,
+        user_id,
+        session_maker: Optional[async_sessionmaker] = None,
+    ) -> TransactionImportResult:
+        """Import records from an exported file (CSV or JSON of the export endpoint).
+
+        Accounts and categories are matched by name; missing ones are created
+        for the user: a checking account in the record currency and a category
+        of the record type. Bad rows are skipped with a reason, not aborted.
+        """
+        rows = cls._parse_import_rows(payload)
+        result = TransactionImportResult()
+        maker = _resolve_session_maker(session_maker)
+        async with maker() as session:
+            accounts = {
+                account.name: account.id
+                for account in await AccountDAO.find_all_by_user(session, user_id, include_archived=True, limit=500)
+            }
+            categories = {
+                (category.name, category.type.value): category.id
+                for category in await CategoryDAO.find_all_by_user(session, user_id, limit=1000)
+            }
+        if len(rows) > cls.IMPORT_LIMIT:
+            cls._skip_import_row(result, f"Only the first {cls.IMPORT_LIMIT} rows are imported")
+            result.skipped += len(rows) - cls.IMPORT_LIMIT
+        for number, row in enumerate(rows[: cls.IMPORT_LIMIT], start=1):
+            await cls._import_row(row, number, user_id, accounts, categories, result, maker)
+        if result.created:
+            await _invalidate_analytics()
+        return result
 
 
 class SubscriptionService(BaseService[SubscriptionModel, SubscriptionCreate, SubscriptionUpdate]):

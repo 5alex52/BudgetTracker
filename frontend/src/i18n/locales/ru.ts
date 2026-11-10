@@ -407,6 +407,10 @@ export const ru = {
   'records.transferUnavailable': 'Переводы между счетами появятся позже',
   'records.excluded': 'не в статистике',
   'records.tagFilterHint': 'Фильтр по меткам',
+  'records.import': 'Импорт',
+  'records.importDone': 'Импортировано записей: {count}',
+  'records.importSkipped': 'Пропущено строк: {count}',
+  'records.importFailed': 'Не удалось импортировать',
 
   // ---------------------------- шаблоны (API) ------------------------------
   'templates.apply': 'Создать запись',

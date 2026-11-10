@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.asyncio
 async def test_create_and_get_user(user_info: UserCreate, session_maker):
-    user = await UserService.create(
-        user_info, base_url="http://localhost:8000", session_maker=session_maker
-    )
+    user = await UserService.create(user_info, base_url="http://localhost:8000", session_maker=session_maker)
 
     assert user_info.firstname == user.firstname
     assert user_info.lastname == user.lastname
@@ -37,18 +35,14 @@ async def test_create_and_get_user(user_info: UserCreate, session_maker):
 
 @pytest.mark.asyncio
 async def test_verify_email(user_info: UserCreate, session_maker):
-    user = await UserService.create(
-        user_info, base_url="http://localhost:8000", session_maker=session_maker
-    )
+    user = await UserService.create(user_info, base_url="http://localhost:8000", session_maker=session_maker)
     verification_token = await UserService._create_verification_token(user.id)
     await UserService.verify_email(verification_token, session_maker)
 
 
 @pytest.mark.asyncio
 async def test_update_user(user_info, session_maker):
-    user = await UserService.create(
-        user_info, base_url="http://localhost:8000", session_maker=session_maker
-    )
+    user = await UserService.create(user_info, base_url="http://localhost:8000", session_maker=session_maker)
     updated_info = {
         "firstname": "TEST",
         "lastname": "TEST",
@@ -87,9 +81,7 @@ async def test_get_or_create_user(user_info, session_maker):
 
 @pytest.mark.asyncio
 async def test_delete_user(user_info, session_maker):
-    user = await UserService.create(
-        user_info, base_url="http://localhost:8000", session_maker=session_maker
-    )
+    user = await UserService.create(user_info, base_url="http://localhost:8000", session_maker=session_maker)
 
     await UserService.delete(user.id, session_maker)
 

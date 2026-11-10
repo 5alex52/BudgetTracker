@@ -11,9 +11,7 @@ from src.finance.service import CurrencyService
 @pytest.mark.asyncio
 async def test_currency_crud(session_maker):
     created = await CurrencyService.create(
-        schema=CurrencyCreate(
-            code="BYN", name="Belarusian Ruble", symbol="Br", exchange_rate_to_base=0.3
-        ),
+        schema=CurrencyCreate(code="BYN", name="Belarusian Ruble", symbol="Br", exchange_rate_to_base=0.3),
         session_maker=session_maker,
     )
     assert created.code == "BYN"
@@ -49,9 +47,7 @@ async def test_currency_used_by_account_cannot_be_deleted(user, account, session
 async def test_account_cannot_use_unknown_currency(user, session_maker):
     with pytest.raises(HTTPException) as error:
         await AccountService.create_for_user(
-            schema=AccountCreate(
-                name="Wallet", type=AccountType.CASH, currency_id="XXX"
-            ),
+            schema=AccountCreate(name="Wallet", type=AccountType.CASH, currency_id="XXX"),
             user_id=user.id,
             session_maker=session_maker,
         )

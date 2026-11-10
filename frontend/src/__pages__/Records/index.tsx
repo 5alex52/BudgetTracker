@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownUp, Filter, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowDownUp, Filter, MoreHorizontal, Plus, Search, Trash2, Upload } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import type { RecordItem } from '@/__shared__/types/models'
 import { useRecordsStore } from '@/store/records'
 import { useFinanceStore } from '@/store/finance'
-import { ApiError } from '@/api'
+import { ApiError, transactionsApi } from '@/api'
 import { useRecordDialog } from '@/components/records/RecordDialogContext'
 import { readableOnTint } from '@/__shared__/utils/contrast'
 import { useTheme } from '@/hooks/useTheme'
@@ -155,6 +155,36 @@ export function RecordsPage() {
     }
   }
 
+  const importInput = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+
+  const runImport = async (file: File) => {
+    setImporting(true)
+    try {
+      const result = await transactionsApi.importTransactions(
+        file.name.endsWith('.json') ? 'json' : 'csv',
+        await file.text(),
+      )
+      toast({
+        title: t('records.importDone', { count: result.created }),
+        description: result.skipped ? t('records.importSkipped', { count: result.skipped }) : undefined,
+        tone: 'success',
+      })
+      // Импорт мог создать счета и категории — обновляем справочники и список.
+      void useFinanceStore.getState().reloadAccounts()
+      void useFinanceStore.getState().reloadCategories()
+      void load(apiFilters)
+    } catch (caught) {
+      toast({
+        title: t('records.importFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <AppShell
       onAddRecord={onAddRecord}
@@ -185,6 +215,28 @@ export function RecordsPage() {
                 />
               </SheetContent>
             </Sheet>
+
+            <input
+              ref={importInput}
+              type="file"
+              accept=".csv,.json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) void runImport(file)
+                event.target.value = ''
+              }}
+            />
+            <Button
+              variant="glass"
+              size="sm"
+              className="gap-1.5"
+              disabled={importing}
+              onClick={() => importInput.current?.click()}
+            >
+              <Upload className="size-4" aria-hidden="true" />
+              {t('records.import')}
+            </Button>
 
             <ExportMenu items={records} serverFilters={apiFilters} />
             <Button size="sm" className="gap-1.5" onClick={onAddRecord}>

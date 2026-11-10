@@ -40,12 +40,15 @@ from .schemas import SubscriptionCreate
 from .schemas import SubscriptionResponse
 from .schemas import SubscriptionUpdate
 from .schemas import TransactionCreate
+from .schemas import TransactionImportRequest
+from .schemas import TransactionImportResult
 from .schemas import TransactionResponse
 from .schemas import TransactionSummary
 from .schemas import TransactionType
 from .schemas import TransactionUpdate
 from .schemas import TransactionWithDetails
 from .schemas import UserCurrencyRateUpdate
+from .service import TransactionService
 from .viewsets import AccountViewSet
 from .viewsets import CategoryViewSet
 from .viewsets import CurrencyViewSet
@@ -527,6 +530,19 @@ async def export_transactions(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="transactions-{stamp}.csv"'},
     )
+
+
+@transactions_router.post("/import", status_code=status.HTTP_200_OK, response_model=TransactionImportResult)
+async def import_transactions(
+    payload: TransactionImportRequest,
+    user: CurrentUser,
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+) -> TransactionImportResult:
+    """Import records from an exported file (CSV or JSON).
+
+    Missing accounts and categories are created for the user automatically.
+    """
+    return await TransactionService.import_from_text(payload=payload, user_id=user.id, session_maker=session_maker)
 
 
 @transactions_router.get("/summary", status_code=status.HTTP_200_OK, response_model=TransactionSummary)

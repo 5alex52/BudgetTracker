@@ -30,9 +30,7 @@ async def test_admin_endpoints_require_superuser(verified_user_client):
 async def test_admin_lists_and_finds_users(superuser_client, other_user):
     async_client, _ = superuser_client
 
-    response = await async_client.get(
-        "/api/admin/users", params={"search": other_user.email}
-    )
+    response = await async_client.get("/api/admin/users", params={"search": other_user.email})
 
     assert response.status_code == 200
     payload = response.json()
@@ -44,9 +42,7 @@ async def test_admin_lists_and_finds_users(superuser_client, other_user):
 async def test_admin_cannot_block_superuser(superuser_client):
     async_client, admin_id = superuser_client
 
-    response = await async_client.patch(
-        f"/api/admin/users/{admin_id}", json={"is_active": False}
-    )
+    response = await async_client.patch(f"/api/admin/users/{admin_id}", json={"is_active": False})
 
     assert response.status_code == 400
 

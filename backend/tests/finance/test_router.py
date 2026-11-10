@@ -65,9 +65,7 @@ async def test_finance_flow(verified_user_client, currencies):
     assert transactions[0]["currency_symbol"] == "$"
 
     # Summary
-    response = await async_client.get(
-        "/api/finance/transactions/summary", params={"transaction_type": "expense"}
-    )
+    response = await async_client.get("/api/finance/transactions/summary", params={"transaction_type": "expense"})
     assert response.status_code == 200
     summary = response.json()
     assert summary["total"] == 40.0
@@ -86,9 +84,7 @@ async def test_finance_flow(verified_user_client, currencies):
     assert response.status_code == 201
     subscription_id = response.json()["id"]
 
-    response = await async_client.get(
-        "/api/finance/subscriptions/upcoming", params={"days": 7}
-    )
+    response = await async_client.get("/api/finance/subscriptions/upcoming", params={"days": 7})
     assert response.status_code == 200
     assert len(response.json()) == 1
 
@@ -109,9 +105,7 @@ async def test_finance_flow(verified_user_client, currencies):
     response = await async_client.get(f"/api/finance/accounts/{account_id}")
     assert response.json()["balance"] == 100.0
 
-    response = await async_client.delete(
-        f"/api/finance/subscriptions/{subscription_id}"
-    )
+    response = await async_client.delete(f"/api/finance/subscriptions/{subscription_id}")
     assert response.status_code == 404
 
 
