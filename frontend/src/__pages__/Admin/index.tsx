@@ -50,7 +50,6 @@ export function AdminPage() {
     setOffset(0)
   }, [debouncedSearch])
 
-  const stats = useApiQuery(() => adminApi.getAdminStats(), [])
   const users = useApiQuery(
     () => adminApi.listAdminUsers({ search: debouncedSearch, offset, limit }),
     [debouncedSearch, offset],
@@ -65,7 +64,6 @@ export function AdminPage() {
   const to = Math.min(offset + limit, total)
 
   const refresh = () => {
-    stats.reload()
     users.reload()
   }
 
@@ -132,7 +130,7 @@ export function AdminPage() {
             <h1 className="text-title font-semibold tracking-snug text-fg-primary">{t('admin.title')}</h1>
             <p className="mt-1 text-label text-fg-secondary">{t('admin.subtitle')}</p>
           </div>
-          <Button variant="subtle" size="sm" className="gap-1.5" onClick={refresh} loading={stats.loading}>
+          <Button variant="subtle" size="sm" className="gap-1.5" onClick={refresh}>
             <RefreshCw className="size-4" aria-hidden="true" />
             {t('state.retry')}
           </Button>
@@ -140,32 +138,18 @@ export function AdminPage() {
       }
     >
       <div className="space-y-4">
-        {/* Сводка */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Card className="p-4">
-            <p className="text-caption text-fg-tertiary">{t('admin.stats.users')}</p>
-            <p className="mt-1 text-title font-semibold text-fg-primary">
-              {stats.data ? number(stats.data.users_total) : '—'}
-            </p>
-            <p className="mt-1 text-caption text-fg-tertiary">
-              {t('admin.stats.usersHint', { count: stats.data?.users_new_30d ?? 0 })}
-            </p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-caption text-fg-tertiary">{t('admin.stats.users')}</p>
-            <p className="mt-1 text-title font-semibold text-fg-primary">
-              {stats.data ? number(stats.data.users_new_30d) : '—'}
-            </p>
-          </Card>
-        </div>
-
         {/* Пользователи */}
         <Card className="p-0">
           <div className="flex flex-col gap-2 border-b border-stroke-subtle p-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="flex items-center gap-1.5 text-label font-semibold text-fg-primary">
               <Users className="size-4" aria-hidden="true" />
               {t('admin.users')}
-            </h2>
+              {users.data && (
+                <span className="text-caption font-normal text-fg-tertiary">
+                  ({number(users.data.total)})
+                </span>
+              )}
+           </h2>
             <Input
               inputSize="sm"
               className="sm:w-72"

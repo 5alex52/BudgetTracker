@@ -1,18 +1,14 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { CircleHelp, Coins, Shield, SlidersHorizontal, Tag, Tags, User } from 'lucide-react'
+import { Coins, Shield, SlidersHorizontal, Tag, Tags, User } from 'lucide-react'
 import { cn } from '@/__shared__/utils/cn'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { AppShell } from '@/components/layout/AppShell'
 
-/** Бот поддержки: адрес задаётся при сборке, чтобы не пересобирать код. */
-const TELEGRAM_SUPPORT_URL =
-  (import.meta.env.VITE_TELEGRAM_SUPPORT_URL as string | undefined) ?? 'https://t.me/budgettracker_bot'
-
 const GROUPS: Array<{
   id: string
   title: TranslationKey
-  items: Array<{ to: string; labelKey: TranslationKey; icon: typeof Coins; external?: string }>
+  items: Array<{ to: string; labelKey: TranslationKey; icon: typeof Coins; }>
 }> = [
   {
     id: 'wallet',
@@ -31,12 +27,6 @@ const GROUPS: Array<{
     items: [
       { to: '/settings', labelKey: 'settings.general', icon: User },
       { to: '/settings/privacy', labelKey: 'settings.privacy', icon: Shield },
-      {
-        to: '/settings/help',
-        labelKey: 'settings.help',
-        icon: CircleHelp,
-        external: TELEGRAM_SUPPORT_URL,
-      },
     ],
   },
 ]
@@ -70,33 +60,21 @@ export function SettingsLayout({
               <ul>
                 {group.items.map((item) => (
                   <li key={item.to}>
-                    {item.external ? (
-                      <a
-                        href={item.external}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-label text-fg-secondary transition-colors duration-fast hover:bg-surface-2 hover:text-fg-primary"
-                      >
-                        <item.icon className="size-4 shrink-0" aria-hidden="true" strokeWidth={1.75} />
-                        <span className="truncate">{t(item.labelKey)}</span>
-                      </a>
-                    ) : (
-                      <NavLink
-                        to={item.to}
-                        end={item.to === '/settings'}
-                        className={({ isActive }) =>
-                          cn(
-                            'flex items-center gap-2 rounded-sm px-2 py-1.5 text-label transition-colors duration-fast',
-                            isActive
-                              ? 'bg-accent/12 font-medium text-accent'
-                              : 'text-fg-secondary hover:bg-surface-2 hover:text-fg-primary',
-                          )
-                        }
-                      >
-                        <item.icon className="size-4 shrink-0" aria-hidden="true" strokeWidth={1.75} />
-                        <span className="truncate">{t(item.labelKey)}</span>
-                      </NavLink>
-                    )}
+                    <NavLink
+                      to={item.to}
+                      end={item.to === '/settings'}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-2 rounded-sm px-2 py-1.5 text-label transition-colors duration-fast',
+                          isActive
+                            ? 'bg-accent/12 font-medium text-accent'
+                            : 'text-fg-secondary hover:bg-surface-2 hover:text-fg-primary',
+                        )
+                      }
+                    >
+                      <item.icon className="size-4 shrink-0" aria-hidden="true" strokeWidth={1.75} />
+                      <span className="truncate">{t(item.labelKey)}</span>
+                    </NavLink>
                   </li>
                 ))}
               </ul>
@@ -125,11 +103,7 @@ export function SettingsLayout({
               <span className="whitespace-nowrap">{t(item.labelKey)}</span>
             </>
           )
-          return item.external ? (
-            <a key={item.to} href={item.external} target="_blank" rel="noreferrer" className={chipClass}>
-              {content}
-            </a>
-          ) : (
+          return (
             <NavLink
               key={item.to}
               to={item.to}
