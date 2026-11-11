@@ -19,7 +19,11 @@ export function MoreSheet({ children }: { children: ReactNode }) {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <button type="button" onClick={() => setOpen(true)} className="contents">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex flex-1 min-w-[4rem] flex-col items-center justify-center gap-1 rounded-md text-[11px] leading-4 text-fg-secondary transition-colors hover:text-fg-primary"
+      >
         {children}
       </button>
       <SheetContent side="bottom" title={t('common.more')}>

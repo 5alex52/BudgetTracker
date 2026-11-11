@@ -277,6 +277,14 @@
 }
 
 @layer components {
+  /* Прокрутка без видимой полосы: мобильный таб-бар и прочие карусели. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Карточка контента: очень лёгкая просвечиваемость фона, БЕЗ backdrop-filter
      (правило «не стекло на стекло» + экономия композиции при скролле). */
   .content-card {

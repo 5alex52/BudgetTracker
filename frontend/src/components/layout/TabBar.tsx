@@ -21,7 +21,7 @@ export function TabBar() {
       level="md"
       variant="regular"
       className={cn(
-        'fixed inset-x-3 bottom-3 z-[var(--z-tabbar)] flex h-[var(--tabbar-h)] items-stretch gap-1 rounded-[22px] px-2 md:hidden',
+        'scrollbar-none fixed inset-x-3 bottom-3 z-[var(--z-tabbar)] flex h-[var(--tabbar-h)] items-stretch gap-1 overflow-x-auto rounded-[22px] px-2 md:hidden',
       )}
       style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
       aria-label={t('nav.menu')}
@@ -33,7 +33,7 @@ export function TabBar() {
           end={item.to === '/'}
           className={({ isActive }) =>
             cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 rounded-md text-[11px] leading-4 transition-colors duration-base ease-out',
+              'flex flex-1 min-w-[4rem] flex-col items-center justify-center gap-1 rounded-md text-[11px] leading-4 transition-colors duration-base ease-out',
               isActive
                 ? 'text-accent'
                 : 'text-fg-secondary hover:text-fg-primary',
@@ -46,13 +46,8 @@ export function TabBar() {
       ))}
 
       <MoreSheet>
-        <button
-          type="button"
-          className="flex flex-1 flex-col items-center justify-center gap-1 rounded-md text-[11px] leading-4 text-fg-secondary transition-colors hover:text-fg-primary"
-        >
-          <MoreHorizontal className="size-5" aria-hidden="true" />
-          <span>{t('common.more')}</span>
-        </button>
+        <MoreHorizontal className="size-5" aria-hidden="true" />
+        <span>{t('common.more')}</span>
       </MoreSheet>
     </GlassSurface>
   )
