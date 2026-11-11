@@ -34,9 +34,10 @@ MAX_TX_PAGES = 3
 TIMEOUT = 15.0
 HEADERS = {"User-Agent": "BudgetTracker/1.0", "Accept": "application/json"}
 
-EVM_RPC = {
-    "ETH": "https://eth.llamarpc.com",
-    "BNB": "https://bsc-dataseed.binance.org",
+#: Public RPCs tried in order — single endpoints (llamarpc) intermittently return 5xx
+EVM_RPCS = {
+    "ETH": ["https://eth.llamarpc.com", "https://ethereum-rpc.publicnode.com", "https://cloudflare-eth.com"],
+    "BNB": ["https://bsc-dataseed.binance.org", "https://bsc-rpc.publicnode.com"],
 }
 
 #: Curated well-known tokens (asset, contract, decimals); None contract = native coin
@@ -49,8 +50,8 @@ EVM_TOKENS = {
     ],
     "BNB": [
         ("BNB", None, 18),
-        ("USDT", "0x55d398326f99085fE4e4686B8F5227aFadAB3126", 18),
-        ("USDC", "0x8AC76a51cc950d9872A0316bDc25e77c04C9eB0", 18),
+        ("USDT", "0x55d398326f99059fF775485246999027B3197955", 18),
+        ("USDC", "0x8AC76a51cc950d9822d68b83fe1aD97b32Cd580d", 18),
         ("DAI", "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3", 18),
     ],
 }
@@ -111,6 +112,14 @@ async def _rpc_batch(client: httpx.AsyncClient, url: str, calls: List[Tuple[str,
     return [(by_id.get(i) or {}).get("result") for i in range(len(calls))]
 
 
+def _balance_quantity(result: Optional[str], decimals: int) -> Decimal:
+    """Parse a hex quantity; empty/`0x` results mean the contract is not on this chain."""
+    try:
+        return Decimal(int(result, 16)) / Decimal(10**decimals)
+    except (TypeError, ValueError):
+        return Decimal(0)
+
+
 async def _fetch_evm_holdings(address: str) -> Holdings:
     holdings: Holdings = []
     calldata = _balance_of_calldata(address)
@@ -122,15 +131,21 @@ async def _fetch_evm_holdings(address: str) -> Holdings:
                 for _, contract, _ in tokens
                 if contract is not None
             ]
-            results = await _rpc_batch(client, EVM_RPC[native], calls)
-            if results[0]:
-                amount = Decimal(int(results[0], 16)) / Decimal(10**18)
-                if amount > 0:
-                    holdings.append((native, amount))
+            results = None
+            last_error: Exception = SyncError(f"No RPC for {native}")
+            for url in EVM_RPCS[native]:
+                try:
+                    results = await _rpc_batch(client, url, calls)
+                    break
+                except (httpx.HTTPError, ValueError) as error:
+                    last_error = error
+            if results is None:
+                raise last_error
+            amount = _balance_quantity(results[0], 18)
+            if amount > 0:
+                holdings.append((native, amount))
             for (asset, _, decimals), result in zip(tokens[1:], results[1:]):
-                if not result:
-                    continue
-                amount = Decimal(int(result, 16)) / Decimal(10**decimals)
+                amount = _balance_quantity(result, decimals)
                 if amount > 0:
                     holdings.append((asset, amount))
     return holdings
@@ -195,7 +210,7 @@ async def _fetch_btc_holdings(address: str) -> Holdings:
         response = await client.get(f"https://mempool.space/api/address/{address}")
         response.raise_for_status()
         stats = response.json()["chain_stats"]
-    sats = stats["funded_txs_sum"] - stats["spent_txs_sum"]
+    sats = stats["funded_txo_sum"] - stats["spent_txo_sum"]
     return [("BTC", Decimal(sats) / Decimal(100_000_000))] if sats > 0 else []
 
 
