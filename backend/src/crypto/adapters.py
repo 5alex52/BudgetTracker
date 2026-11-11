@@ -38,6 +38,7 @@ HEADERS = {"User-Agent": "BudgetTracker/1.0", "Accept": "application/json"}
 EVM_RPCS = {
     "ETH": ["https://eth.llamarpc.com", "https://ethereum-rpc.publicnode.com", "https://cloudflare-eth.com"],
     "BNB": ["https://bsc-dataseed.binance.org", "https://bsc-rpc.publicnode.com"],
+    "AVAX": ["https://api.avax.network/ext/bc/C/rpc", "https://avalanche-rpc.publicnode.com"],
 }
 
 #: Curated well-known tokens (asset, contract, decimals); None contract = native coin
@@ -61,6 +62,16 @@ TRON_TRC20 = {
     "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": ("USDT", 6),
 }
 
+#: Avalanche C-Chain ERC-20s (verified live: eth_getCode + decimals(), 2026-11-11)
+AVAX_TOKENS = [
+    ("USDC", "0xB97EF9Ef8734C71904D8002F8b6bc66DD9c48a6e", 6),
+    ("USDT", "0x9702230A8EA53601F5CD2dC00FDbC13D4Df4A8c7", 6),
+]
+
+#: Solana public RPC and the native USDC mint (CoinGecko-verified id)
+SOLANA_RPC = "https://api.mainnet-beta.solana.com"
+SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+
 TON_JETTON_SYMBOLS = {"USD₮": "USDT"}
 
 _ADDRESS_PATTERNS = {
@@ -68,6 +79,8 @@ _ADDRESS_PATTERNS = {
     Chain.BTC: re.compile(r"^(bc1[a-z0-9]{20,71}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$"),
     Chain.TON: re.compile(r"^(UQ|EQ)[A-Za-z0-9_-]{46}$|^[0-9a-fA-F]{64}$"),
     Chain.TRON: re.compile(r"^T[1-9A-HJ-NP-Za-km-z]{33}$"),
+    Chain.SOLANA: re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$"),
+    Chain.AVALANCHE: re.compile(r"^0x[0-9a-fA-F]{40}$"),
 }
 
 Holdings = List[Tuple[str, Decimal]]
@@ -378,6 +391,88 @@ async def _fetch_tron_history(address: str, days: int) -> DailyHistory:
     return _carry_forward(by_day, start_day, end_day)
 
 
+# --- SOLANA ----------------------------------------------------------------
+
+
+async def _solana_rpc(client: httpx.AsyncClient, method: str, params: list) -> dict:
+    response = await client.post(SOLANA_RPC, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
+    response.raise_for_status()
+    body = response.json()
+    if body.get("error"):
+        raise SyncError(f"Solana RPC {method}: {body['error'].get('message', body['error'])}")
+    return body.get("result") or {}
+
+
+def parse_solana_account(lamports: Optional[int], token_accounts: List[dict]) -> Holdings:
+    """Pure parsing of getBalance + getTokenAccountsByOwner results (unit-tested, no HTTP)."""
+    holdings: Holdings = []
+    sol = Decimal(int(lamports or 0)) / Decimal(10**9)
+    if sol > 0:
+        holdings.append(("SOL", sol))
+    usdc = Decimal(0)
+    for entry in token_accounts:
+        info = ((entry.get("account") or {}).get("data") or {}).get("parsed", {}).get("info", {})
+        amount = (info.get("tokenAmount") or {}).get("uiAmount")
+        if amount is not None:
+            usdc += Decimal(str(amount))
+    if usdc > 0:
+        holdings.append(("USDC", usdc))
+    return holdings
+
+
+async def _fetch_solana_holdings(address: str) -> Holdings:
+    async with _client() as client:
+        balance = await _solana_rpc(client, "getBalance", [address])
+        tokens = await _solana_rpc(
+            client,
+            "getTokenAccountsByOwner",
+            [address, {"mint": SOLANA_USDC_MINT}, {"encoding": "jsonParsed"}],
+        )
+    return parse_solana_account(balance.get("value"), tokens.get("value") or [])
+
+
+async def _fetch_solana_history(address: str, days: int) -> DailyHistory:
+    return {}  # shortcut: current-balance-only history without api keys, same as EVM without Etherscan key
+
+
+# --- AVALANCHE ---------------------------------------------------------------
+
+
+def parse_avalanche_balances(results: list) -> Holdings:
+    """Pure parsing of an eth_getBalance + balanceOf batch (unit-tested, no HTTP)."""
+    holdings: Holdings = []
+    avax = _balance_quantity(results[0], 18)
+    if avax > 0:
+        holdings.append(("AVAX", avax))
+    for (asset, _, decimals), result in zip(AVAX_TOKENS, results[1:]):
+        amount = _balance_quantity(result, decimals)
+        if amount > 0:
+            holdings.append((asset, amount))
+    return holdings
+
+
+async def _fetch_avalanche_holdings(address: str) -> Holdings:
+    calldata = _balance_of_calldata(address)
+    calls = [("eth_getBalance", [address, "latest"])]
+    calls += [("eth_call", [{"to": contract, "data": calldata}, "latest"]) for _, contract, _ in AVAX_TOKENS]
+    async with _client() as client:
+        results = None
+        last_error: Exception = SyncError("No RPC for AVAX")
+        for url in EVM_RPCS["AVAX"]:
+            try:
+                results = await _rpc_batch(client, url, calls)
+                break
+            except (httpx.HTTPError, ValueError) as error:
+                last_error = error
+        if results is None:
+            raise last_error
+    return parse_avalanche_balances(results)
+
+
+async def _fetch_avalanche_history(address: str, days: int) -> DailyHistory:
+    return {}  # shortcut: current-balance-only history without api keys, same as EVM without Etherscan key
+
+
 # --- dispatch ---------------------------------------------------------------
 
 
@@ -386,6 +481,8 @@ _FETCHERS = {
     Chain.BTC: (_fetch_btc_holdings, _fetch_btc_history),
     Chain.TON: (_fetch_ton_holdings, _fetch_ton_history),
     Chain.TRON: (_fetch_tron_holdings, _fetch_tron_history),
+    Chain.SOLANA: (_fetch_solana_holdings, _fetch_solana_history),
+    Chain.AVALANCHE: (_fetch_avalanche_holdings, _fetch_avalanche_history),
 }
 
 
