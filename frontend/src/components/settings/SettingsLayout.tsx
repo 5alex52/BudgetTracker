@@ -18,7 +18,6 @@ const GROUPS: Array<{
       { to: '/settings/categories', labelKey: 'settings.categories', icon: Tag },
       { to: '/settings/templates', labelKey: 'settings.templates', icon: SlidersHorizontal },
       { to: '/settings/tags', labelKey: 'settings.tags', icon: Tags },
-      { to: '/settings/rules', labelKey: 'settings.rules', icon: SlidersHorizontal },
     ],
   },
   {

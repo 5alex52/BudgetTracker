@@ -255,7 +255,7 @@ class TemplateService:
             template.usage_count += 1
             await session.commit()
 
-        # Transaction is created by the same service as a regular one: rules and balances in one place
+        # Transaction is created by the same service as a regular one: balances in one place
         return await TransactionService.create_for_user(schema=transaction_schema, user_id=user_id, session_maker=maker)
 
     @classmethod

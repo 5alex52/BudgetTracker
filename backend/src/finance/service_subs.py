@@ -3,8 +3,9 @@
 A vertical slice like ``templates.py``: DAO -> service -> router in one module.
 Prices are stored as entered; conversion to the user's base currency uses the
 same rates as the rest of the app (personal overrides first, catalog second).
-When an account is attached, the subscription bills itself monthly: ``collect``
-writes expense records for every date that has come and advances the schedule.
+When an account is attached, the subscription bills itself at its frequency:
+``collect`` writes expense records for every date that has come and advances
+the schedule.
 """
 
 import asyncio
@@ -227,15 +228,17 @@ class ServiceSubService:
                 # passed month, so the first record appears right away.
                 next_due = schema.started_at
             values = {**schema.model_dump(), "user_id": user_id}
+            # frequency belongs to the billing rule, not the subscription table
+            values.pop("frequency")
             values["category_id"] = category_id
             values["next_payment_date"] = next_due
             sub = await cls.dao.create(session, values)
             if schema.account_id is not None:
-                # The visible automatic rule: bills monthly from the start date.
+                # The visible automatic rule: bills from the start date.
                 session.add(
                     ServiceSubRuleModel(
                         service_sub_id=sub.id,
-                        frequency=SubscriptionFrequency.MONTHLY,
+                        frequency=schema.frequency,
                         next_payment_date=schema.started_at,
                         is_active=True,
                     )
@@ -268,6 +271,8 @@ class ServiceSubService:
                 raise _not_found()
             data = schema.model_dump(exclude_unset=True)
             rule_active = data.pop("rule_active", None)
+            # frequency belongs to the billing rule, not the subscription table
+            frequency = data.pop("frequency", None)
             currency = data.get("currency_id", sub.currency_id)
             if await CurrencyDAO.find_one_or_none(session, code=currency) is None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown currency")
@@ -306,6 +311,8 @@ class ServiceSubService:
                     session.add(rule)
                 else:
                     rule.next_payment_date = sub.next_payment_date or sub.started_at
+                if frequency is not None:
+                    rule.frequency = frequency
                 if rule_active is not None:
                     rule.is_active = rule_active
             await session.commit()

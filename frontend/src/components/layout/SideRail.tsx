@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { ArrowLeftRight, LayoutGrid, LineChart, Receipt, Settings2, ShieldCheck, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, CalendarClock, LayoutGrid, LineChart, Receipt, Settings2, ShieldCheck, Wallet, type LucideIcon } from 'lucide-react'
 import { cn } from '@/__shared__/utils/cn'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { useAuthStore } from '@/store/auth'
@@ -18,6 +18,7 @@ export const RAIL_ITEMS: RailItem[] = [
   { to: '/records', labelKey: 'nav.records', icon: ArrowLeftRight },
   { to: '/analytics', labelKey: 'nav.analytics', icon: LineChart },
   { to: '/subscriptions', labelKey: 'nav.subscriptions', icon: Receipt },
+  { to: '/auto-rules', labelKey: 'nav.autoRules', icon: CalendarClock },
 ]
 
 /**

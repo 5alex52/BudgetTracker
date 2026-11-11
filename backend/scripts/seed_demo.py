@@ -1,7 +1,7 @@
 """Демонстрационные данные для локальной разработки фронтенда.
 
 Скрипт создаёт проверенного пользователя с наполнением: счета в разных валютах,
-дерево категорий, полгода записей, метки, шаблоны, правила и подписку на
+дерево категорий, полгода записей, метки, шаблоны и подписку на
 бесплатный тариф. Нужен, чтобы интерфейс открывался не на пустых экранах.
 
 Запуск — внутри контейнера backend (из корня проекта)::
@@ -33,15 +33,12 @@ from sqlalchemy import select
 from src.database import async_session_maker
 from src.finance.models import AccountModel
 from src.finance.models import CategoryModel
-from src.finance.models import RuleModel
 from src.finance.models import TagModel
 from src.finance.models import TemplateModel
 from src.finance.models import TransactionModel
 from src.finance.models import UserCurrencyRateModel
 from src.finance.schemas import AccountType
 from src.finance.schemas import CategoryType
-from src.finance.schemas import RuleField
-from src.finance.schemas import RuleOperator
 from src.finance.schemas import TransactionType
 from src.users.models import UserModel
 from src.users.utils import get_password_hash
@@ -174,19 +171,6 @@ TAGS: List[Tuple[str, str]] = [
     ("здоровье", "#3aa76d"),
 ]
 
-#: Заметки-триггеры правил авто-категоризации
-RULES: List[Tuple[str, str, RuleField, RuleOperator, str]] = [
-    (
-        "Пятёрочка → Продукты",
-        "Продукты",
-        RuleField.NOTE,
-        RuleOperator.CONTAINS,
-        "пятёрочка",
-    ),
-    ("Такси → Транспорт", "Такси", RuleField.NOTE, RuleOperator.CONTAINS, "такси"),
-    ("Крупные покупки", "Техника", RuleField.AMOUNT, RuleOperator.GREATER, "1000"),
-]
-
 
 async def _get_or_create_user(session) -> UserModel:
     user = (await session.execute(select(UserModel).where(UserModel.email == DEMO_EMAIL))).scalar_one_or_none()
@@ -227,7 +211,6 @@ async def _reset_user_data(session, user: UserModel) -> None:
     await session.execute(delete(TransactionModel).where(TransactionModel.account_id.in_(account_ids)))
     for model in (
         TemplateModel,
-        RuleModel,
         UserCurrencyRateModel,
         TagModel,
         CategoryModel,
@@ -449,31 +432,6 @@ async def _seed_templates(
     print(f"[seed] шаблонов: {len(TEMPLATES)}")
 
 
-async def _seed_rules(
-    session,
-    user: UserModel,
-    categories: Dict[str, CategoryModel],
-    tags: Dict[str, TagModel],
-) -> None:
-    for index, (name, category_name, field, operator, value) in enumerate(RULES):
-        session.add(
-            RuleModel(
-                user_id=user.id,
-                name=name,
-                is_active=True,
-                priority=10 + index * 10,
-                field=field,
-                operator=operator,
-                value=value,
-                set_category_id=categories[category_name].id,
-                add_tag_id=tags["работа"].id if name.startswith("Такси") else None,
-                exclude_from_statistics=False,
-            )
-        )
-    await session.commit()
-    print(f"[seed] правил: {len(RULES)}")
-
-
 async def seed(reset: bool = False) -> None:
     async with async_session_maker() as session:
         user = await _get_or_create_user(session)
@@ -492,7 +450,6 @@ async def seed(reset: bool = False) -> None:
         tags = await _seed_tags(session, user)
         await _seed_transactions(session, user, accounts, categories, tags)
         await _seed_templates(session, user, accounts, categories, tags)
-        await _seed_rules(session, user, categories, tags)
 
     print("[seed] готово")
     print(f"[seed] вход: {DEMO_EMAIL} / {DEMO_PASSWORD}")

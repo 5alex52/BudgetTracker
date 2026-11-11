@@ -12,7 +12,6 @@ from .config import settings
 from .finance import accounts_router
 from .finance import categories_router
 from .finance import currencies_router
-from .finance import rules_router
 from .finance import subscriptions_router
 from .finance import tags_router
 from .finance import service_subs_router
@@ -115,6 +114,5 @@ app.include_router(currencies_router)
 app.include_router(tags_router)
 app.include_router(templates_router)
 app.include_router(service_subs_router)
-app.include_router(rules_router)
 app.include_router(auth_router)
 app.include_router(users_router)

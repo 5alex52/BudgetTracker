@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Repeat, Trash2, Upload, X } from 'lucide-react'
 import { ApiError, serviceSubsApi } from '@/api'
-import type { ServiceSubCreatePayload, ServiceSubDto, ServiceSubUpdatePayload } from '@/api/types'
+import type { ServiceSubCreatePayload, ServiceSubDto, ServiceSubFrequency, ServiceSubUpdatePayload } from '@/api/types'
 import { useApiQuery } from '@/hooks/useApi'
-import { useI18n } from '@/i18n'
+import { useI18n, type TranslationKey } from '@/i18n'
 import { useFinanceStore } from '@/store/finance'
 import { ServiceIcon, SERVICE_ICONS } from '@/components/icons/service-icons'
 import { AppShell } from '@/components/layout/AppShell'
@@ -18,6 +18,17 @@ import { Switch } from '@/components/ui/toggles'
 import { useToast } from '@/components/ui/toast'
 
 const MAX_ICON_BYTES = 48 * 1024
+
+const FREQUENCIES: Array<{ value: ServiceSubFrequency; labelKey: TranslationKey }> = [
+  { value: 'monthly', labelKey: 'subs.freqMonthly' },
+  { value: 'quarterly', labelKey: 'subs.freqQuarterly' },
+  { value: 'yearly', labelKey: 'subs.freqYearly' },
+]
+
+/** Сервер знает и daily/weekly — UI предлагает только три периода. */
+function normalizeFrequency(value: string): ServiceSubFrequency {
+  return value === 'quarterly' || value === 'yearly' ? value : 'monthly'
+}
 
 function formatDate(iso: string, locale: 'ru' | 'en') {
   return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
@@ -41,6 +52,7 @@ function toPayload(draft: SubDraft): ServiceSubCreatePayload {
     currency_id: draft.currency,
     started_at: `${draft.date}T00:00:00`,
     account_id: draft.account === '' ? null : Number(draft.account),
+    frequency: draft.frequency,
   }
 }
 
@@ -51,9 +63,10 @@ interface SubDraft {
   date: string
   icon: string
   account: string
+  frequency: ServiceSubFrequency
 }
 
-const EMPTY_DRAFT: SubDraft = { name: '', price: '', currency: '', date: '', icon: '', account: '' }
+const EMPTY_DRAFT: SubDraft = { name: '', price: '', currency: '', date: '', icon: '', account: '', frequency: 'monthly' }
 
 function draftFromSub(sub: ServiceSubDto): SubDraft {
   return {
@@ -63,6 +76,7 @@ function draftFromSub(sub: ServiceSubDto): SubDraft {
     date: sub.started_at.slice(0, 10),
     icon: sub.icon ?? '',
     account: sub.account_id === null ? '' : String(sub.account_id),
+    frequency: normalizeFrequency(sub.frequency),
   }
 }
 
@@ -212,6 +226,16 @@ function SubDialog({
                 value={draft.currency}
                 onValueChange={(value) => setDraft((prev) => ({ ...prev, currency: value }))}
                 options={currencyCodes().map((code) => ({ value: code, label: code }))}
+              />
+            </Field>
+            <Field label={t('subs.frequency')}>
+              <FilterSelect
+                ariaLabel={t('subs.frequency')}
+                value={draft.frequency}
+                onValueChange={(value) =>
+                  setDraft((prev) => ({ ...prev, frequency: value as ServiceSubFrequency }))
+                }
+                options={FREQUENCIES.map((entry) => ({ value: entry.value, label: t(entry.labelKey) }))}
               />
             </Field>
             <Field label={t('subs.start')}>
@@ -429,7 +453,7 @@ export function SubscriptionsPage() {
                       <div className="min-w-0">
                         <p className="text-label font-medium text-fg-primary">{t('subs.autoRule')}</p>
                         <p className="truncate text-caption text-fg-tertiary">
-                          {t('subs.ruleMonthly')}
+                          {t(FREQUENCIES.find((entry) => entry.value === sub.frequency)?.labelKey ?? 'subs.freqMonthly')}
                           {sub.next_payment_date &&
                             ` · ${t('subs.nextCharge')}: ${formatDate(sub.next_payment_date, locale)}`}
                         </p>

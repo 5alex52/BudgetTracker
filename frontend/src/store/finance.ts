@@ -3,7 +3,6 @@ import { ApiError } from '@/api'
 import * as accountsApi from '@/api/accounts'
 import * as categoriesApi from '@/api/categories'
 import * as currenciesApi from '@/api/currencies'
-import * as rulesApi from '@/api/rules'
 import * as tagsApi from '@/api/tags'
 import * as templatesApi from '@/api/templates'
 import { saveAccountTint, toAccount, toCategory, toCategoryTree, toCurrencyRate, toSubcategories } from '@/api/mappers'
@@ -12,9 +11,6 @@ import type {
   AccountUpdate,
   CategoryCreate,
   CategoryUpdate,
-  RuleCreate,
-  RuleDto,
-  RuleUpdate,
   TagCreate,
   TagDto,
   TagUpdate,
@@ -25,7 +21,7 @@ import type {
 import type { Account, Category, CurrencyRate, Subcategory } from '@/__shared__/types/models'
 
 /**
- * Справочные данные приложения: счета, категории, метки, шаблоны, правила, курсы.
+ * Справочные данные приложения: счета, категории, метки, шаблоны, курсы.
  *
  * Их читают почти все экраны, поэтому они живут в одном сторе и подгружаются
  * один раз (`loadAll`), а не в каждом компоненте. Мутации сразу правят локальный
@@ -37,7 +33,6 @@ interface FinanceState {
   tree: Category[]
   tags: TagDto[]
   templates: TemplateDto[]
-  rules: RuleDto[]
   rates: CurrencyRate[]
   baseCurrency: string
   loading: boolean
@@ -54,7 +49,6 @@ interface FinanceState {
   reloadCategories: () => Promise<void>
   reloadTags: () => Promise<void>
   reloadTemplates: () => Promise<void>
-  reloadRules: () => Promise<void>
   reloadRates: () => Promise<void>
 
   accountById: (id: string | number) => Account | undefined
@@ -80,10 +74,6 @@ interface FinanceState {
   updateTemplate: (id: number, payload: TemplateUpdate) => Promise<TemplateDto>
   deleteTemplate: (id: number) => Promise<void>
 
-  createRule: (payload: RuleCreate) => Promise<RuleDto>
-  updateRule: (id: number, payload: RuleUpdate) => Promise<RuleDto>
-  deleteRule: (id: number) => Promise<void>
-
   setUserRate: (code: string, rate: number) => Promise<void>
   resetUserRate: (code: string) => Promise<void>
 }
@@ -94,7 +84,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   tree: [],
   tags: [],
   templates: [],
-  rules: [],
   rates: [],
   baseCurrency: 'BYN',
   loading: false,
@@ -110,7 +99,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       tree: [],
       tags: [],
       templates: [],
-      rules: [],
       rates: [],
       baseCurrency: 'BYN',
       loading: false,
@@ -124,12 +112,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     if (get().ready && !options?.force) return
     set({ loading: true, error: null })
     try {
-      const [accountList, tree, tagList, templateList, ruleList, rates] = await Promise.all([
+      const [accountList, tree, tagList, templateList, rates] = await Promise.all([
         accountsApi.listAccounts({ includeArchived: true, includeExcluded: true }),
         categoriesApi.getCategoryTree(),
         tagsApi.listTags(),
         templatesApi.listTemplates(),
-        rulesApi.listRules(),
         currenciesApi.getRates(),
       ])
       const flatCategories = flattenCategories(tree)
@@ -139,7 +126,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         categories: flatCategories,
         tags: tagList,
         templates: templateList,
-        rules: ruleList,
         rates: rates.map(toCurrencyRate),
         baseCurrency: rates.find((rate) => rate.is_base)?.code ?? get().baseCurrency,
         ready: true,
@@ -173,10 +159,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   reloadTemplates: async () => {
     set({ templates: await templatesApi.listTemplates() })
-  },
-
-  reloadRules: async () => {
-    set({ rules: await rulesApi.listRules() })
   },
 
   reloadRates: async () => {
@@ -278,25 +260,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   deleteTemplate: async (id) => {
     await templatesApi.deleteTemplate(id)
     set((state) => ({ templates: state.templates.filter((item) => item.id !== id) }))
-  },
-
-  createRule: async (payload) => {
-    const rule = await rulesApi.createRule(payload)
-    set((state) => ({ rules: [...state.rules, rule] }))
-    return rule
-  },
-
-  updateRule: async (id, payload) => {
-    const rule = await rulesApi.updateRule(id, payload)
-    set((state) => ({
-      rules: state.rules.map((item) => (item.id === id ? rule : item)),
-    }))
-    return rule
-  },
-
-  deleteRule: async (id) => {
-    await rulesApi.deleteRule(id)
-    set((state) => ({ rules: state.rules.filter((item) => item.id !== id) }))
   },
 
   setUserRate: async (code, rate) => {

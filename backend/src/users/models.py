@@ -53,7 +53,6 @@ class UserModel(Base):
     templates: Mapped[List["TemplateModel"]] = relationship(
         "TemplateModel", back_populates="user", cascade="all, delete-orphan"
     )
-    rules: Mapped[List["RuleModel"]] = relationship("RuleModel", back_populates="user", cascade="all, delete-orphan")
     fullname = sa.orm.column_property(firstname + " " + lastname)
 
 

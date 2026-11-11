@@ -15,8 +15,10 @@ from src.finance.models import TransactionModel
 from src.finance.schemas import CategoryType
 from src.finance.schemas import ServiceSubCreate
 from src.finance.schemas import ServiceSubUpdate
+from src.finance.schemas import SubscriptionFrequency
 from src.finance.service_subs import ServiceSubService
 from src.finance.service_subs import run_due_rules_once
+from src.finance.utils import calculate_next_payment_date
 
 START = datetime(2026, 1, 15, 12, 0)
 
@@ -330,3 +332,73 @@ async def test_run_due_rules_once_bills_due(user, currencies, account, session_m
     created_count = await run_due_rules_once(session_maker)
 
     assert created_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_quarterly_frequency_creates_rule_and_bills_every_three_months(user, currencies, account, session_maker):
+    # Month-end clamping: Jan 31 + 3 months lands on Apr 30
+    assert calculate_next_payment_date(SubscriptionFrequency.QUARTERLY, datetime(2026, 1, 31)) == datetime(2026, 4, 30)
+
+    start = datetime.now() + timedelta(days=10)
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(
+            name="Quarterly",
+            price=30.0,
+            currency_id="USD",
+            started_at=start,
+            account_id=account.id,
+            frequency=SubscriptionFrequency.QUARTERLY,
+        ),
+        user.id,
+        session_maker,
+    )
+
+    assert created.frequency == "quarterly"
+    due = datetime.now() - timedelta(days=3)
+    async with session_maker() as session:
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        assert rule.frequency == SubscriptionFrequency.QUARTERLY
+        rule.next_payment_date = due
+        sub = await session.get(ServiceSubscriptionModel, created.id)
+        sub.next_payment_date = due
+        await session.commit()
+
+    result = await ServiceSubService.collect_due(user.id, session_maker)
+
+    assert result.created == 1
+    async with session_maker() as session:
+        sub = await session.get(ServiceSubscriptionModel, created.id)
+        assert sub.next_payment_date == calculate_next_payment_date(SubscriptionFrequency.QUARTERLY, due)
+
+
+@pytest.mark.asyncio
+async def test_update_frequency_to_yearly(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(
+            name="Yearly",
+            price=60.0,
+            currency_id="USD",
+            started_at=datetime.now() + timedelta(days=10),
+            account_id=account.id,
+        ),
+        user.id,
+        session_maker,
+    )
+    assert created.frequency == "monthly"
+
+    updated = await ServiceSubService.update_for_user(
+        created.id, ServiceSubUpdate(frequency=SubscriptionFrequency.YEARLY), user.id, session_maker
+    )
+
+    assert updated.frequency == "yearly"
+    async with session_maker() as session:
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        assert rule.frequency == SubscriptionFrequency.YEARLY

@@ -7,8 +7,6 @@
 export type TransactionTypeValue = 'income' | 'expense' | 'transfer'
 export type CategoryTypeValue = 'income' | 'expense' | 'transfer'
 export type AccountTypeValue = 'cash' | 'checking' | 'credit_card' | 'savings' | 'investment'
-export type RuleFieldValue = 'note' | 'amount'
-export type RuleOperatorValue = 'contains' | 'equals' | 'greater' | 'less'
 
 /* ------------------------------- профиль -------------------------------- */
 
@@ -353,7 +351,7 @@ export interface MatrixDto {
   rows: MatrixRowDto[]
 }
 
-/* ------------------------ метки, шаблоны, правила ----------------------- */
+/* --------------------------- метки, шаблоны ----------------------------- */
 
 export interface TagDto {
   id: number
@@ -396,43 +394,6 @@ export interface TemplateCreate {
 }
 
 export type TemplateUpdate = Partial<TemplateCreate>
-
-export interface RuleDto {
-  id: number
-  name: string
-  is_active: boolean
-  priority: number
-  field: RuleFieldValue
-  operator: RuleOperatorValue
-  value: string
-  set_category_id: number | null
-  add_tag_id: number | null
-  exclude_from_statistics: boolean
-  category_name: string | null
-  tag_name: string | null
-}
-
-export interface RuleCreate {
-  name: string
-  is_active?: boolean
-  priority?: number
-  field: RuleFieldValue
-  operator: RuleOperatorValue
-  value: string
-  set_category_id?: number | null
-  add_tag_id?: number | null
-  exclude_from_statistics?: boolean
-}
-
-export type RuleUpdate = Partial<RuleCreate>
-
-export interface RuleApplyResultDto {
-  matched_rules: number[]
-  updated_transactions: number
-  dry_run: boolean
-}
-
-/* ------------------------------- админка -------------------------------- */
 
 /* ------------------------------- админка -------------------------------- */
 
@@ -499,6 +460,9 @@ export interface ServiceSubListDto {
   base_currency: string
 }
 
+/** Периодичность списания, которую предлагает UI (сервер знает и daily/weekly). */
+export type ServiceSubFrequency = 'monthly' | 'quarterly' | 'yearly'
+
 export interface ServiceSubCreatePayload {
   name: string
   icon?: string | null
@@ -506,6 +470,7 @@ export interface ServiceSubCreatePayload {
   currency_id: string
   started_at: string
   account_id?: number | null
+  frequency?: ServiceSubFrequency
 }
 
 export interface ServiceSubUpdatePayload {
@@ -516,4 +481,5 @@ export interface ServiceSubUpdatePayload {
   started_at?: string
   account_id?: number | null
   rule_active?: boolean
+  frequency?: ServiceSubFrequency
 }

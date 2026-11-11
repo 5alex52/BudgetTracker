@@ -3,9 +3,7 @@ from .router import categories_router
 from .router import currencies_router
 from .router import subscriptions_router
 from .router import transactions_router
-from .rules import rules_router
 from .service_subs import service_subs_router
-from .rules import RuleViewSet
 from .tags import tags_router
 from .tags import TagViewSet
 from .templates import templates_router
@@ -24,7 +22,6 @@ __all__ = [
     "transactions_router",
     "tags_router",
     "templates_router",
-    "rules_router",
     "service_subs_router",
     "AccountViewSet",
     "CategoryViewSet",
@@ -33,5 +30,4 @@ __all__ = [
     "TransactionViewSet",
     "TagViewSet",
     "TemplateViewSet",
-    "RuleViewSet",
 ]

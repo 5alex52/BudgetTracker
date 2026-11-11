@@ -27,7 +27,6 @@ from .models import CurrencyModel
 from .models import SubscriptionModel
 from .models import TransactionModel
 from .models import UserCurrencyRateModel
-from .rules import apply_rules
 from .schemas import AccountCreate
 from .schemas import AccountSummary
 from .schemas import AccountType
@@ -1113,8 +1112,6 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
 
             if tag_ids:
                 await attach_tags(session, transaction.id, tag_ids)
-            # Rules are applied after saving: they need the record id to link tags
-            await apply_rules(session, transaction, user_id)
 
             transaction_rate = await _effective_currency_rate(session, user_id, currency.code)
             account.balance = round(

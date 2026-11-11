@@ -14,8 +14,6 @@ from ..database import Base
 from ..users.models import UserModel
 from .schemas import AccountType
 from .schemas import CategoryType
-from .schemas import RuleField
-from .schemas import RuleOperator
 from .schemas import SubscriptionFrequency
 from .schemas import TransactionType
 
@@ -121,7 +119,7 @@ class TransactionModel(Base):
     date: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False, index=True)
     note: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
     is_subscription: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
-    #: Hidden from statistics by an auto-categorization rule (the record itself stays in lists)
+    #: Hidden from statistics (the record itself stays in lists)
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     receipt_url: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     #: Set on records created by a tracked service subscription's auto rule
@@ -273,41 +271,6 @@ class TemplateModel(Base):
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="templates")
     tags: Mapped[List["TagModel"]] = relationship("TagModel", secondary=template_tags)
-
-
-class RuleModel(Base):
-    """Auto-categorization rule: a condition on a record and actions on match."""
-
-    __tablename__ = "rules"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
-    #: Lower is earlier; rules are applied in ascending priority order
-    priority: Mapped[int] = mapped_column(sa.Integer, default=100, nullable=False)
-    field: Mapped[RuleField] = mapped_column(
-        sa.Enum(RuleField, name="rule_field", values_callable=_enum_values),
-        nullable=False,
-    )
-    operator: Mapped[RuleOperator] = mapped_column(
-        sa.Enum(RuleOperator, name="rule_operator", values_callable=_enum_values),
-        nullable=False,
-    )
-    value: Mapped[str] = mapped_column(sa.String(255), nullable=False)
-    set_category_id: Mapped[Optional[int]] = mapped_column(
-        sa.Integer, sa.ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
-    )
-    add_tag_id: Mapped[Optional[int]] = mapped_column(
-        sa.Integer, sa.ForeignKey("tags.id", ondelete="SET NULL"), nullable=True
-    )
-    exclude_from_statistics: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
-
-    user: Mapped["UserModel"] = relationship("UserModel", back_populates="rules")
 
 
 class UserCurrencyRateModel(Base):

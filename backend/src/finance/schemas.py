@@ -30,26 +30,11 @@ class CategoryType(str, Enum):
     TRANSFER = "transfer"
 
 
-class RuleField(str, Enum):
-    """What the rule condition applies to."""
-
-    NOTE = "note"
-    AMOUNT = "amount"
-
-
-class RuleOperator(str, Enum):
-    """How to compare the condition value."""
-
-    CONTAINS = "contains"
-    EQUALS = "equals"
-    GREATER = "greater"
-    LESS = "less"
-
-
 class SubscriptionFrequency(str, Enum):
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
     YEARLY = "yearly"
 
 
@@ -195,7 +180,7 @@ class TransactionUpdate(BaseModel):
 class TransactionResponse(TransactionBase):
     id: int
     created_at: datetime
-    #: Hidden from statistics by a rule
+    #: Hidden from statistics (the record itself stays in lists)
     is_excluded: bool = False
     tags: List["TagInline"] = Field(default_factory=list)
 
@@ -398,7 +383,7 @@ class CurrencyRate(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-#  Tags, templates, rules, personal rates
+#  Tags, templates, personal rates
 # --------------------------------------------------------------------------- #
 
 
@@ -459,50 +444,6 @@ class TemplateResponse(TemplateBase):
     tags: List[TagInline] = Field(default_factory=list)
 
 
-class RuleBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    is_active: bool = True
-    priority: int = Field(100, ge=0, le=1000)
-    field: RuleField
-    operator: RuleOperator
-    value: str = Field(..., min_length=1, max_length=255)
-    set_category_id: Optional[int] = None
-    add_tag_id: Optional[int] = None
-    exclude_from_statistics: bool = False
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class RuleCreate(RuleBase):
-    pass
-
-
-class RuleUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    is_active: Optional[bool] = None
-    priority: Optional[int] = Field(None, ge=0, le=1000)
-    field: Optional[RuleField] = None
-    operator: Optional[RuleOperator] = None
-    value: Optional[str] = Field(None, min_length=1, max_length=255)
-    set_category_id: Optional[int] = None
-    add_tag_id: Optional[int] = None
-    exclude_from_statistics: Optional[bool] = None
-
-
-class RuleResponse(RuleBase):
-    id: int
-    category_name: Optional[str] = None
-    tag_name: Optional[str] = None
-
-
-class RuleApplyResult(BaseModel):
-    """What the rules engine did: matched rules and modified records."""
-
-    matched_rules: List[int] = Field(default_factory=list)
-    updated_transactions: int = 0
-    dry_run: bool = False
-
-
 class UserCurrencyRateUpdate(BaseModel):
     rate: float = Field(..., gt=0)
 
@@ -547,6 +488,8 @@ class ServiceSubCreate(BaseModel):
     started_at: datetime
     #: Account to bill on charge dates; its expense category is created on demand
     account_id: Optional[int] = None
+    #: How often the automatic billing rule charges the account
+    frequency: SubscriptionFrequency = SubscriptionFrequency.MONTHLY
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -558,6 +501,8 @@ class ServiceSubUpdate(BaseModel):
     currency_id: Optional[str] = Field(None, min_length=3, max_length=3)
     started_at: Optional[datetime] = None
     account_id: Optional[int] = None
+    #: Change how often the automatic billing rule charges the account
+    frequency: Optional[SubscriptionFrequency] = None
     #: Pause/resume the automatic billing rule without detaching the account
     rule_active: Optional[bool] = None
 

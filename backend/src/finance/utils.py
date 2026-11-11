@@ -29,6 +29,8 @@ def calculate_next_payment_date(frequency: SubscriptionFrequency, from_date: dat
         return from_date + timedelta(weeks=1)
     if frequency == SubscriptionFrequency.MONTHLY:
         return add_months(from_date, 1)
+    if frequency == SubscriptionFrequency.QUARTERLY:
+        return add_months(from_date, 3)
     if frequency == SubscriptionFrequency.YEARLY:
         return add_months(from_date, 12)
     raise HTTPException(
