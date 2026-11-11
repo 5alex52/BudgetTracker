@@ -400,7 +400,7 @@ export function SubscriptionsPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((sub) => (
-              <Card key={sub.id} className="p-4">
+              <Card key={sub.id} className="min-w-0 p-4">
                 <div className="flex items-start gap-3">
                   <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 text-fg-secondary">
                     {sub.icon ? <ServiceIcon name={sub.icon} size={24} /> : sub.name[0].toUpperCase()}
@@ -452,7 +452,8 @@ export function SubscriptionsPage() {
                       </span>
                       <div className="min-w-0">
                         <p className="text-label font-medium text-fg-primary">{t('subs.autoRule')}</p>
-                        <p className="truncate text-caption text-fg-tertiary">
+                        {/* без truncate: nowrap-текст распирает карточку за экран на телефоне */}
+                        <p className="text-caption text-fg-tertiary">
                           {t(FREQUENCIES.find((entry) => entry.value === sub.frequency)?.labelKey ?? 'subs.freqMonthly')}
                           {sub.next_payment_date &&
                             ` · ${t('subs.nextCharge')}: ${formatDate(sub.next_payment_date, locale)}`}
