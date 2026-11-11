@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
+import { Pencil, Plus, Repeat, Trash2, Upload, X } from 'lucide-react'
 import { ApiError, serviceSubsApi } from '@/api'
 import type { ServiceSubCreatePayload, ServiceSubDto, ServiceSubUpdatePayload } from '@/api/types'
 import { useApiQuery } from '@/hooks/useApi'
@@ -414,25 +414,54 @@ export function SubscriptionsPage() {
                     </span>
                   )}
                 </div>
-                {sub.account_id !== null && (
-                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-stroke-subtle pt-2">
-                    <span className="text-caption text-fg-tertiary">
-                      {t('subs.autoRule')} · {t('subs.ruleMonthly')}
-                    </span>
-                    <Switch
-                      checked={sub.rule_active === true}
-                      onCheckedChange={(active) => void toggleRule(sub, active)}
-                      aria-label={t('subs.autoRule')}
-                    />
+                {sub.account_id !== null ? (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-stroke-subtle bg-surface-2/60 px-3 py-2">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className={`grid size-8 shrink-0 place-items-center rounded-md ${
+                          sub.rule_active === true
+                            ? 'bg-accent-soft text-accent-on-soft'
+                            : 'bg-surface-1 text-fg-tertiary'
+                        }`}
+                      >
+                        <Repeat className="size-4" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-label font-medium text-fg-primary">{t('subs.autoRule')}</p>
+                        <p className="truncate text-caption text-fg-tertiary">
+                          {t('subs.ruleMonthly')}
+                          {sub.next_payment_date &&
+                            ` · ${t('subs.nextCharge')}: ${formatDate(sub.next_payment_date, locale)}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`text-caption font-medium ${
+                          sub.rule_active === true ? 'text-accent' : 'text-fg-tertiary'
+                        }`}
+                      >
+                        {sub.rule_active === true ? t('subs.ruleOn') : t('subs.ruleOff')}
+                      </span>
+                      <Switch
+                        checked={sub.rule_active === true}
+                        onCheckedChange={(active) => void toggleRule(sub, active)}
+                        aria-label={t('subs.autoRule')}
+                      />
+                    </div>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(sub)}
+                    className="mt-3 flex w-full items-center gap-2.5 rounded-md border border-dashed border-stroke-subtle bg-surface-2/40 px-3 py-2 text-left transition-colors hover:bg-surface-2"
+                  >
+                    <Repeat className="size-4 shrink-0 text-[var(--warning)]" aria-hidden="true" />
+                    <span className="text-caption text-fg-secondary">{t('subs.ruleNeedsAccount')}</span>
+                  </button>
                 )}
-                {(sub.next_payment_date !== null || sub.charges.length > 0) && (
+                {sub.charges.length > 0 && (
                   <div className="mt-2 space-y-1 border-t border-stroke-subtle pt-2 text-caption text-fg-tertiary">
-                    {sub.next_payment_date && (
-                      <p>
-                        {t('subs.nextCharge')}: {formatDate(sub.next_payment_date, locale)}
-                      </p>
-                    )}
                     {sub.charges.slice(0, 3).map((charge) => (
                       <p key={charge.id} className="flex items-center justify-between gap-2">
                         <span>{formatDate(charge.date, locale)}</span>
