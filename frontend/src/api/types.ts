@@ -481,6 +481,8 @@ export interface ServiceSubDto {
   price_base: number
   account_id: number | null
   next_payment_date: string | null
+  frequency: string
+  rule_active: boolean | null
   charges: ServiceSubChargeDto[]
   created_at: string
   updated_at: string | null
@@ -513,4 +515,5 @@ export interface ServiceSubUpdatePayload {
   currency_id?: string
   started_at?: string
   account_id?: number | null
+  rule_active?: boolean
 }

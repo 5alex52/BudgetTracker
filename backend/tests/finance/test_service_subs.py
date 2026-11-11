@@ -9,12 +9,14 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from src.finance.models import AccountModel
 from src.finance.models import CategoryModel
+from src.finance.models import ServiceSubRuleModel
 from src.finance.models import ServiceSubscriptionModel
 from src.finance.models import TransactionModel
 from src.finance.schemas import CategoryType
 from src.finance.schemas import ServiceSubCreate
 from src.finance.schemas import ServiceSubUpdate
 from src.finance.service_subs import ServiceSubService
+from src.finance.service_subs import run_due_rules_once
 
 START = datetime(2026, 1, 15, 12, 0)
 
@@ -76,7 +78,12 @@ async def test_attaching_account_schedules_charges(user, currencies, account, se
     )
 
     assert created.account_id == account.id
-    assert created.next_payment_date == START  # bills from the start date itself
+    # A backdated subscription catches up immediately at creation.
+    assert created.next_payment_date > datetime.now()
+
+    listing = await ServiceSubService.list_for_user(user.id, session_maker)
+    charges = listing.items[0].charges
+    assert charges and charges[-1].date == START
 
     async with session_maker() as session:
         category = (
@@ -97,12 +104,24 @@ async def test_attaching_account_schedules_charges(user, currencies, account, se
 
 @pytest.mark.asyncio
 async def test_collect_writes_records_and_advances_schedule(user, currencies, account, session_maker):
-    start = datetime.now() - timedelta(days=3)
+    # A future start bills nothing at creation; collect is tested in isolation.
+    start = datetime.now() + timedelta(days=10)
     created = await ServiceSubService.create_for_user(
         ServiceSubCreate(name="Spotify", price=10.0, currency_id="USD", started_at=start, account_id=account.id),
         user.id,
         session_maker,
     )
+    due = datetime.now() - timedelta(days=3)
+    async with session_maker() as session:
+        sub = await session.get(ServiceSubscriptionModel, created.id)
+        sub.next_payment_date = due
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        rule.next_payment_date = due
+        await session.commit()
 
     result = await ServiceSubService.collect_due(user.id, session_maker)
 
@@ -127,7 +146,13 @@ async def test_collect_writes_records_and_advances_schedule(user, currencies, ac
     # rolling the watermark back does not bill the same date twice
     async with session_maker() as session:
         sub = await session.get(ServiceSubscriptionModel, created.id)
-        sub.next_payment_date = start
+        sub.next_payment_date = due
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        rule.next_payment_date = due
         await session.commit()
 
     again = await ServiceSubService.collect_due(user.id, session_maker)
@@ -163,7 +188,7 @@ async def test_deleting_subscription_removes_its_auto_rule(user, currencies, acc
             name="Netflix",
             price=10.0,
             currency_id="USD",
-            started_at=datetime.now() - timedelta(days=3),
+            started_at=datetime.now() + timedelta(days=10),
             account_id=account.id,
         ),
         user.id,
@@ -177,3 +202,131 @@ async def test_deleting_subscription_removes_its_auto_rule(user, currencies, acc
     async with session_maker() as session:
         refreshed = await session.get(AccountModel, account.id)
         assert refreshed.balance == pytest.approx(1000.0)
+
+
+@pytest.mark.asyncio
+async def test_same_day_subscription_bills_immediately(user, currencies, account, session_maker):
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(name="SameDay", price=10.0, currency_id="USD", started_at=today, account_id=account.id),
+        user.id,
+        session_maker,
+    )
+
+    assert created.next_payment_date > datetime.now()
+    async with session_maker() as session:
+        rows = (
+            (await session.execute(select(TransactionModel).where(TransactionModel.service_sub_id == created.id)))
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+        assert rows[0].date == today
+        refreshed = await session.get(AccountModel, account.id)
+        assert refreshed.balance == pytest.approx(990.0)
+
+
+@pytest.mark.asyncio
+async def test_rule_created_on_attach(user, currencies, account, session_maker):
+    start = datetime.now() + timedelta(days=10)
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(name="RuleSub", price=5.0, currency_id="USD", started_at=start, account_id=account.id),
+        user.id,
+        session_maker,
+    )
+
+    assert created.frequency == "monthly"
+    assert created.rule_active is True
+    async with session_maker() as session:
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        assert rule.frequency.value == "monthly"
+        assert rule.is_active is True
+        assert rule.next_payment_date == start
+
+
+@pytest.mark.asyncio
+async def test_rule_cascades_on_delete(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(
+            name="RuleSub",
+            price=5.0,
+            currency_id="USD",
+            started_at=datetime.now() + timedelta(days=10),
+            account_id=account.id,
+        ),
+        user.id,
+        session_maker,
+    )
+
+    await ServiceSubService.delete_for_user(created.id, user.id, session_maker)
+
+    async with session_maker() as session:
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one_or_none()
+        )
+        assert rule is None
+
+
+@pytest.mark.asyncio
+async def test_paused_rule_does_not_bill(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(
+            name="Paused",
+            price=5.0,
+            currency_id="USD",
+            started_at=datetime.now() + timedelta(days=10),
+            account_id=account.id,
+        ),
+        user.id,
+        session_maker,
+    )
+    paused = await ServiceSubService.update_for_user(
+        created.id, ServiceSubUpdate(rule_active=False), user.id, session_maker
+    )
+    assert paused.rule_active is False
+
+    async with session_maker() as session:
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        rule.next_payment_date = datetime.now() - timedelta(days=3)
+        await session.commit()
+
+    result = await ServiceSubService.collect_due(user.id, session_maker)
+
+    assert result.created == 0
+
+
+@pytest.mark.asyncio
+async def test_run_due_rules_once_bills_due(user, currencies, account, session_maker):
+    created = await ServiceSubService.create_for_user(
+        ServiceSubCreate(
+            name="Scheduler",
+            price=5.0,
+            currency_id="USD",
+            started_at=datetime.now() + timedelta(days=10),
+            account_id=account.id,
+        ),
+        user.id,
+        session_maker,
+    )
+    async with session_maker() as session:
+        rule = (
+            (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == created.id)))
+            .scalars()
+            .one()
+        )
+        rule.next_payment_date = datetime.now() - timedelta(days=3)
+        await session.commit()
+
+    created_count = await run_due_rules_once(session_maker)
+
+    assert created_count >= 1

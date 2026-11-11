@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -58,9 +59,25 @@ async def lifespan(application: FastAPI):
                 pass
         client = None
 
+    # Background worker: executes the subscriptions' automatic billing rules on
+    # a schedule so records appear without anyone opening the page. Disabled in
+    # tests, where billing is driven explicitly.
+    rule_task = None
+    if settings.ENVIRONMENT != "TEST":
+        from .database import async_session_maker
+        from .finance.service_subs import subscription_rule_loop
+
+        rule_task = asyncio.create_task(subscription_rule_loop(async_session_maker))
+
     try:
         yield
     finally:
+        if rule_task is not None:
+            rule_task.cancel()
+            try:
+                await rule_task
+            except asyncio.CancelledError:
+                pass
         Cache.reset()
         if client is not None:
             try:

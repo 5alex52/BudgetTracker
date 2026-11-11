@@ -558,6 +558,8 @@ class ServiceSubUpdate(BaseModel):
     currency_id: Optional[str] = Field(None, min_length=3, max_length=3)
     started_at: Optional[datetime] = None
     account_id: Optional[int] = None
+    #: Pause/resume the automatic billing rule without detaching the account
+    rule_active: Optional[bool] = None
 
 
 class ServiceSubCharge(BaseModel):
@@ -591,6 +593,9 @@ class ServiceSubResponse(BaseModel):
     started_at: datetime
     account_id: Optional[int] = None
     next_payment_date: Optional[datetime] = None
+    #: The automatic billing rule: how often it runs and whether it is enabled
+    frequency: str = "monthly"
+    rule_active: Optional[bool] = None
     charges: List[ServiceSubCharge] = Field(default_factory=list)
     created_at: datetime
     updated_at: Optional[datetime] = None

@@ -14,6 +14,7 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { Field, Input } from '@/components/ui/field'
 import { FilterSelect } from '@/components/ui/overlays'
+import { Switch } from '@/components/ui/toggles'
 import { useToast } from '@/components/ui/toast'
 
 const MAX_ICON_BYTES = 48 * 1024
@@ -284,6 +285,20 @@ export function SubscriptionsPage() {
     setDialogOpen(true)
   }
 
+  const toggleRule = async (sub: ServiceSubDto, active: boolean) => {
+    try {
+      await serviceSubsApi.updateServiceSub(sub.id, { rule_active: active })
+      toast({ title: active ? t('subs.ruleResumed') : t('subs.rulePaused'), tone: 'success' })
+      refresh()
+    } catch (caught) {
+      toast({
+        title: t('subs.saveFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
+  }
+
   const remove = async () => {
     if (!removing) return
     setBusy(true)
@@ -399,6 +414,18 @@ export function SubscriptionsPage() {
                     </span>
                   )}
                 </div>
+                {sub.account_id !== null && (
+                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-stroke-subtle pt-2">
+                    <span className="text-caption text-fg-tertiary">
+                      {t('subs.autoRule')} · {t('subs.ruleMonthly')}
+                    </span>
+                    <Switch
+                      checked={sub.rule_active === true}
+                      onCheckedChange={(active) => void toggleRule(sub, active)}
+                      aria-label={t('subs.autoRule')}
+                    />
+                  </div>
+                )}
                 {(sub.next_payment_date !== null || sub.charges.length > 0) && (
                   <div className="mt-2 space-y-1 border-t border-stroke-subtle pt-2 text-caption text-fg-tertiary">
                     {sub.next_payment_date && (

@@ -7,6 +7,8 @@ When an account is attached, the subscription bills itself monthly: ``collect``
 writes expense records for every date that has come and advances the schedule.
 """
 
+import asyncio
+import logging
 import uuid
 from datetime import datetime
 from datetime import timedelta
@@ -21,10 +23,12 @@ from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from src.database import get_async_session_maker
 
 from .dependencies import CurrentUser
 from .models import CategoryModel
+from .models import ServiceSubRuleModel
 from .models import ServiceSubscriptionModel
 from .models import TransactionModel
 from .schemas import CategoryCreate
@@ -51,8 +55,13 @@ service_subs_router = APIRouter(
     tags=["Service Subs"],
 )
 
+logger = logging.getLogger(__name__)
+
 #: Recent charges shown per subscription in the list response.
 CHARGES_SHOWN = 12
+
+#: How often the background worker runs the automatic billing rules.
+COLLECT_INTERVAL_SECONDS = 60
 
 
 class ServiceSubDAO:
@@ -60,13 +69,22 @@ class ServiceSubDAO:
 
     @classmethod
     async def find_all_by_user(cls, session: AsyncSession, user_id) -> list[ServiceSubscriptionModel]:
-        stmt = select(cls.model).where(cls.model.user_id == user_id).order_by(cls.model.name)
+        stmt = (
+            select(cls.model)
+            .where(cls.model.user_id == user_id)
+            .options(selectinload(cls.model.rule))
+            .order_by(cls.model.name)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
     @classmethod
     async def find_one_by_user(cls, session: AsyncSession, sub_id: int, user_id) -> Optional[ServiceSubscriptionModel]:
-        stmt = select(cls.model).where(cls.model.id == sub_id, cls.model.user_id == user_id)
+        stmt = (
+            select(cls.model)
+            .where(cls.model.id == sub_id, cls.model.user_id == user_id)
+            .options(selectinload(cls.model.rule))
+        )
         result = await session.execute(stmt)
         return result.scalars().one_or_none()
 
@@ -109,6 +127,8 @@ def _to_response(sub: ServiceSubscriptionModel, base_code: str, base_rate: float
         started_at=sub.started_at,
         account_id=sub.account_id,
         next_payment_date=sub.next_payment_date,
+        frequency=sub.rule.frequency.value if sub.rule is not None else "monthly",
+        rule_active=sub.rule.is_active if sub.rule is not None else None,
         created_at=sub.created_at,
         updated_at=sub.updated_at,
     )
@@ -210,8 +230,27 @@ class ServiceSubService:
             values["category_id"] = category_id
             values["next_payment_date"] = next_due
             sub = await cls.dao.create(session, values)
+            if schema.account_id is not None:
+                # The visible automatic rule: bills monthly from the start date.
+                session.add(
+                    ServiceSubRuleModel(
+                        service_sub_id=sub.id,
+                        frequency=SubscriptionFrequency.MONTHLY,
+                        next_payment_date=schema.started_at,
+                        is_active=True,
+                    )
+                )
+                await session.commit()
+            sub_id = sub.id
+            tracked = sub.account_id is not None
+        # A same-day (or backdated) subscription must produce its record right
+        # away, not wait for the next collect run.
+        if tracked:
+            await cls.collect_due(user_id, session_maker)
+        async with session_maker() as session:
+            fresh = await cls.dao.find_one_by_user(session, sub_id, user_id)
             base_code, base_rate, rates = await _rates(session, user_id)
-            return _to_response(sub, base_code, base_rate, rates)
+            return _to_response(fresh, base_code, base_rate, rates)
 
     @classmethod
     async def update_for_user(
@@ -228,6 +267,7 @@ class ServiceSubService:
             if sub is None:
                 raise _not_found()
             data = schema.model_dump(exclude_unset=True)
+            rule_active = data.pop("rule_active", None)
             currency = data.get("currency_id", sub.currency_id)
             if await CurrencyDAO.find_one_or_none(session, code=currency) is None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown currency")
@@ -246,10 +286,38 @@ class ServiceSubService:
                         data["next_payment_date"] = data.get("started_at", sub.started_at)
             for field, value in data.items():
                 setattr(sub, field, value)
+            # Keep the visible automatic rule in step with the subscription.
+            rule = (
+                (await session.execute(select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == sub.id)))
+                .scalars()
+                .first()
+            )
+            if sub.account_id is None or sub.category_id is None:
+                if rule is not None:
+                    await session.delete(rule)
+            else:
+                if rule is None:
+                    rule = ServiceSubRuleModel(
+                        service_sub_id=sub.id,
+                        frequency=SubscriptionFrequency.MONTHLY,
+                        next_payment_date=sub.next_payment_date or sub.started_at,
+                        is_active=True,
+                    )
+                    session.add(rule)
+                else:
+                    rule.next_payment_date = sub.next_payment_date or sub.started_at
+                if rule_active is not None:
+                    rule.is_active = rule_active
             await session.commit()
             await session.refresh(sub)
+            sub_id = sub.id
+            tracked = sub.account_id is not None
+        if tracked:
+            await cls.collect_due(user_id, session_maker)
+        async with session_maker() as session:
+            fresh = await cls.dao.find_one_by_user(session, sub_id, user_id)
             base_code, base_rate, rates = await _rates(session, user_id)
-            return _to_response(sub, base_code, base_rate, rates)
+            return _to_response(fresh, base_code, base_rate, rates)
 
     @classmethod
     async def delete_for_user(cls, sub_id: int, user_id, session_maker: async_sessionmaker) -> None:
@@ -285,7 +353,11 @@ class ServiceSubService:
         billed = {sub_id for sub_id, _ in charged}
         created = 0
         for sub in tracked:
-            charge_date = sub.next_payment_date or sub.started_at
+            rule = sub.rule
+            if rule is not None and not rule.is_active:
+                continue  # paused rule: nothing bills until it is resumed
+            frequency = rule.frequency if rule is not None else SubscriptionFrequency.MONTHLY
+            charge_date = rule.next_payment_date if rule is not None else (sub.next_payment_date or sub.started_at)
             if sub.id not in billed and sub.started_at < charge_date:
                 charge_date = sub.started_at
             if charge_date > now:
@@ -308,12 +380,23 @@ class ServiceSubService:
                     )
                     charged.add((sub.id, charge_date))
                     created += 1
-                charge_date = calculate_next_payment_date(SubscriptionFrequency.MONTHLY, charge_date)
+                charge_date = calculate_next_payment_date(frequency, charge_date)
             async with session_maker() as session:
                 stored = await session.get(ServiceSubscriptionModel, sub.id)
                 if stored is not None:
                     stored.next_payment_date = charge_date
-                    await session.commit()
+                stored_rule = (
+                    (
+                        await session.execute(
+                            select(ServiceSubRuleModel).where(ServiceSubRuleModel.service_sub_id == sub.id)
+                        )
+                    )
+                    .scalars()
+                    .first()
+                )
+                if stored_rule is not None:
+                    stored_rule.next_payment_date = charge_date
+                await session.commit()
         return ServiceSubCollect(created=created)
 
     @classmethod
@@ -353,6 +436,40 @@ class ServiceSubService:
             key = f"{absolute // 12:04d}-{absolute % 12 + 1:02d}"
             points.append(ServiceSubMonthTotal(month=key, total=totals.get(key, 0.0)))
         return points
+
+
+async def run_due_rules_once(session_maker: async_sessionmaker) -> int:
+    """Execute every user's automatic billing rules once; returns records created."""
+    async with session_maker() as session:
+        user_ids = (
+            (
+                await session.execute(
+                    select(ServiceSubscriptionModel.user_id)
+                    .where(ServiceSubscriptionModel.account_id.is_not(None))
+                    .distinct()
+                )
+            )
+            .scalars()
+            .all()
+        )
+    created = 0
+    for user_id in user_ids:
+        try:
+            result = await ServiceSubService.collect_due(user_id, session_maker)
+            created += result.created
+        except Exception:
+            logger.exception("Automatic billing failed for user %s", user_id)
+    return created
+
+
+async def subscription_rule_loop(session_maker: async_sessionmaker, interval: int = COLLECT_INTERVAL_SECONDS) -> None:
+    """Background worker: run the automatic billing rules every ``interval`` seconds."""
+    while True:
+        try:
+            await run_due_rules_once(session_maker)
+        except Exception:
+            logger.exception("Automatic billing run failed")
+        await asyncio.sleep(interval)
 
 
 @service_subs_router.get("", status_code=status.HTTP_200_OK, response_model=ServiceSubList)

@@ -350,3 +350,41 @@ class ServiceSubscriptionModel(Base):
     next_payment_date: Mapped[Optional[datetime]] = mapped_column(sa.DateTime, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+
+    #: The visible automatic billing rule created together with the subscription
+    rule: Mapped[Optional["ServiceSubRuleModel"]] = relationship(
+        "ServiceSubRuleModel",
+        uselist=False,
+        back_populates="service_sub",
+        cascade="all, delete-orphan",
+    )
+
+
+class ServiceSubRuleModel(Base):
+    """Automatic billing rule: runs every period and writes a charge record.
+
+    One rule per tracked service subscription; deleting the subscription
+    removes the rule (and vice versa is not allowed — the rule is owned by it).
+    """
+
+    __tablename__ = "service_sub_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    service_sub_id: Mapped[int] = mapped_column(
+        sa.Integer,
+        sa.ForeignKey("service_subscriptions.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    frequency: Mapped[SubscriptionFrequency] = mapped_column(
+        sa.Enum(SubscriptionFrequency, name="subscription_frequency", values_callable=_enum_values),
+        default=SubscriptionFrequency.MONTHLY,
+        nullable=False,
+    )
+    next_payment_date: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
+
+    service_sub: Mapped["ServiceSubscriptionModel"] = relationship("ServiceSubscriptionModel", back_populates="rule")
