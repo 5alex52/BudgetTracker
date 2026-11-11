@@ -200,6 +200,7 @@ function ConnectDialog({
 }) {
   const { t } = useI18n()
   const { toast } = useToast()
+  const reloadAccounts = useFinanceStore((state) => state.reloadAccounts)
   const [kind, setKind] = useState<CryptoWalletKind>('trust')
   const [name, setName] = useState('')
   const [addresses, setAddresses] = useState<AddressDraft[]>([{ ...EMPTY_ADDRESS }])
@@ -232,6 +233,8 @@ function ConnectDialog({
               .map((row) => ({ asset_code: row.asset_code, amount: row.amount.replace(',', '.') }))
           : undefined,
       })
+      // Для кошелька создаётся финансовый счёт — список счетов должен обновиться сразу.
+      await reloadAccounts()
       toast({ title: t('crypto.saved'), tone: 'success' })
       onSaved()
       onClose()

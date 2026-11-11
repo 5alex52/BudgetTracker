@@ -42,6 +42,8 @@ class CryptoWalletModel(Base):
     account_id: Mapped[Optional[int]] = mapped_column(
         sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True
     )
+    #: Account was created together with the wallet: its balance mirrors the wallet value on sync
+    account_auto_created: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 

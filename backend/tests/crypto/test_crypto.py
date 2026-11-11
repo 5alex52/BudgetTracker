@@ -17,6 +17,7 @@ from src.crypto.models import CryptoBalanceSnapshotModel
 from src.crypto.models import CryptoHoldingModel
 from src.crypto.models import CryptoPriceDailyModel
 from src.crypto.models import CryptoSyncRunModel
+from src.crypto.models import CryptoWalletModel
 from src.crypto.schemas import AddressIn
 from src.crypto.schemas import Chain
 from src.crypto.schemas import HoldingIn
@@ -454,6 +455,48 @@ async def test_wallet_patch_unlink_and_relink(user, account, session_maker):
         wallet.id, WalletUpdate(account_id=account.id), user.id, session_maker
     )
     assert relinked.account_id == account.id
+
+
+@pytest.mark.asyncio
+async def test_auto_created_account_mirrors_wallet_value(user, currencies, session_maker):
+    async with session_maker() as session:
+        session.add(CryptoPriceDailyModel(asset_code="BTC", day=date.today(), price_usd=Decimal("60000")))
+        await session.commit()
+    wallet = await CryptoService.create_for_user(
+        WalletCreate(name="W", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="BTC", amount=1)]),
+        user.id,
+        session_maker,
+    )
+    async with session_maker() as session:
+        row = (await session.execute(select(CryptoWalletModel).where(CryptoWalletModel.id == wallet.id))).scalar_one()
+        assert row.account_auto_created is True
+        mirrored = await AccountService.get_by_user(row.account_id, user.id, session_maker)
+    assert mirrored.name == "W"
+    assert mirrored.is_excluded is True  # the crypto path already feeds the totals once
+    assert mirrored.balance == pytest.approx(60000.0)
+
+    # Hand-editing holdings re-mirrors the account balance...
+    await CryptoService.set_manual_holdings(
+        wallet.id, [HoldingIn(asset_code="BTC", amount=0.5)], user.id, session_maker
+    )
+    mirrored = await _account_of(session_maker, row.account_id, user.id)
+    assert mirrored.balance == pytest.approx(30000.0)
+
+    # ...but a manual relink hands the wallet over: no account balance is touched after it
+    mine = await AccountService.create_for_user(
+        AccountCreate(name="Mine", type=AccountType.CASH, currency_id="USD", balance=10.0), user.id, session_maker
+    )
+    await CryptoService.update_for_user(wallet.id, WalletUpdate(account_id=mine.id), user.id, session_maker)
+    await CryptoService.set_manual_holdings(wallet.id, [HoldingIn(asset_code="BTC", amount=2)], user.id, session_maker)
+    auto = await _account_of(session_maker, row.account_id, user.id)
+    now = await _account_of(session_maker, mine.id, user.id)
+    assert now.balance == pytest.approx(10.0)
+    assert auto.balance == pytest.approx(30000.0)  # frozen: mirroring stopped at relink
+
+
+async def _account_of(session_maker, account_id, user_id):
+    async with session_maker() as session:
+        return await AccountService.get_by_user(account_id, user_id, session_maker)
 
 
 # --- sync status on the wallet DTO ---------------------------------------------

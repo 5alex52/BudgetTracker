@@ -283,6 +283,43 @@ async def crypto_current_value_base(session: AsyncSession, user_id) -> float:
     return round(total, 2)
 
 
+async def _mirror_account_balance(session: AsyncSession, wallet_id: int) -> None:
+    """Keep an auto-created account's balance equal to the wallet's current value.
+
+    The account is excluded from statistics (the linked wallet feeds the totals
+    through the crypto path), so the mirrored balance is a display value for the
+    accounts page — no analytics invalidation needed here.
+    Holdings are re-queried with fresh SQL: callers may hold stale ORM collections.
+    """
+    wallet = (
+        await session.execute(
+            select(
+                CryptoWalletModel.user_id,
+                CryptoWalletModel.account_id,
+                CryptoWalletModel.account_auto_created,
+            ).where(CryptoWalletModel.id == wallet_id)
+        )
+    ).one_or_none()
+    if wallet is None or wallet.account_id is None or not wallet.account_auto_created:
+        return
+    holding_rows = (
+        (await session.execute(select(CryptoHoldingModel).where(CryptoHoldingModel.wallet_id == wallet_id)))
+        .scalars()
+        .all()
+    )
+    base_code, base_rate, rates = await _rates(session, wallet.user_id)
+    codes = sorted({row.asset_code for row in holding_rows})
+    current = await prices.latest_prices(session, codes) if codes else {}
+    total = sum(
+        _usd_to_base(round(float(row.amount) * float(current[row.asset_code]), 2), rates, base_rate)
+        for row in holding_rows
+        if row.asset_code in current
+    )
+    account = await session.get(AccountModel, wallet.account_id)
+    if account is not None:
+        account.balance = round(total, 2)
+
+
 class CryptoDAO:
     @classmethod
     async def find_wallet_by_user(cls, session: AsyncSession, wallet_id: int, user_id) -> Optional[CryptoWalletModel]:
@@ -369,6 +406,7 @@ async def run_wallet_sync(
                         prices_map.get((holding.asset_code, today)),
                         SnapshotSource.MANUAL,
                     )
+            await _mirror_account_balance(session, wallet_id)
             session.add(
                 CryptoSyncRunModel(
                     wallet_id=wallet_id, status=SyncStatus.OK, started_at=started_at, finished_at=datetime.now()
@@ -416,6 +454,7 @@ async def run_wallet_sync(
                     )
             for asset, amount in holdings.items():
                 await _upsert_snapshot(session, wallet_id, asset, today, amount, prices_map.get((asset, today)), source)
+        await _mirror_account_balance(session, wallet_id)
         session.add(
             CryptoSyncRunModel(
                 wallet_id=wallet_id,
@@ -603,15 +642,27 @@ class CryptoService:
                 await cls._ensure_account(session, schema.account_id, user_id)
                 account_id = schema.account_id
             else:
-                # Every connected wallet gets its own finance account (base currency, zero balance)
+                # Every connected wallet gets its own finance account (base currency).
+                # It is excluded from statistics — the linked wallet feeds the totals
+                # once through the crypto path — and its balance mirrors the wallet value.
                 base_code, _, _ = await _rates(session, user_id)
                 account = AccountModel(
-                    user_id=user_id, name=schema.name, currency_id=base_code, type=AccountType.INVESTMENT
+                    user_id=user_id,
+                    name=schema.name,
+                    currency_id=base_code,
+                    type=AccountType.INVESTMENT,
+                    is_excluded=True,
                 )
                 session.add(account)
                 await session.flush()
                 account_id = account.id
-            wallet = CryptoWalletModel(user_id=user_id, name=schema.name, kind=schema.kind, account_id=account_id)
+            wallet = CryptoWalletModel(
+                user_id=user_id,
+                name=schema.name,
+                kind=schema.kind,
+                account_id=account_id,
+                account_auto_created=schema.account_id is None,
+            )
             session.add(wallet)
             await session.flush()
             for item in schema.addresses or []:
@@ -643,6 +694,9 @@ class CryptoService:
             data = schema.model_dump(exclude_unset=True)
             if data.get("account_id") is not None:
                 await cls._ensure_account(session, data["account_id"], user_id)
+            if "account_id" in data and data["account_id"] != wallet.account_id:
+                # A manual relink/unlink hands the account over to the user: stop mirroring.
+                wallet.account_auto_created = False
             for field, value in data.items():
                 setattr(wallet, field, value)
             await session.commit()
@@ -762,6 +816,7 @@ class CryptoService:
                     prices_map.get((code, today)),
                     SnapshotSource.MANUAL,
                 )
+            await _mirror_account_balance(session, wallet_id)
             await session.commit()
         async with session_maker() as session:
             wallet = await cls._wallet_or_404(session, wallet_id, user_id)
