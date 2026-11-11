@@ -38,6 +38,10 @@ class CryptoWalletModel(Base):
         sa.Enum(WalletKind, name="crypto_wallet_kind", values_callable=_enum_values),
         nullable=False,
     )
+    #: Link to a finance account: the wallet's value then feeds main analytics balances
+    account_id: Mapped[Optional[int]] = mapped_column(
+        sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 

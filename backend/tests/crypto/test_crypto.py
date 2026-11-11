@@ -8,7 +8,11 @@ from decimal import Decimal
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
+from src.crypto import service as crypto_service
+from src.crypto.adapters import parse_avalanche_balances
+from src.crypto.adapters import parse_solana_account
 from src.crypto.adapters import parse_tronscan_account
+from src.crypto.adapters import validate_address
 from src.crypto.models import CryptoBalanceSnapshotModel
 from src.crypto.models import CryptoHoldingModel
 from src.crypto.models import CryptoPriceDailyModel
@@ -17,16 +21,22 @@ from src.crypto.schemas import AddressIn
 from src.crypto.schemas import Chain
 from src.crypto.schemas import HoldingIn
 from src.crypto.schemas import SnapshotSource
+from src.crypto.schemas import SyncStatus
 from src.crypto.schemas import WalletCreate
 from src.crypto.schemas import WalletKind
 from src.crypto.schemas import WalletUpdate
 from src.crypto.service import CryptoService
+from src.crypto.service import run_syncs_once
 from src.crypto.service import run_wallet_sync
+from src.finance.schemas import AccountCreate
+from src.finance.schemas import AccountType
+from src.finance.service import AccountService
 
 EVM = "0x" + "a" * 40
 BTC = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
 TON = "UQ" + "A" * 46
 TRON = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+SOLANA = "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9"
 
 
 # --- address validation (trust boundary) ------------------------------------
@@ -42,6 +52,11 @@ TRON = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
         ("ton", "QQ" + "A" * 46),
         ("tron", "X" + "0" * 33),
         ("tron", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6"),  # 33 chars: one short
+        ("solana", "0" + "1" * 43),  # base58 has no 0
+        ("solana", "O" * 44),  # base58 has no O/I/l
+        ("solana", "5tz" + "a" * 20),  # too short
+        ("avalanche", "0x" + "g" * 40),
+        ("avalanche", "0x" + "a" * 39),
     ],
 )
 @pytest.mark.asyncio
@@ -56,7 +71,7 @@ async def test_invalid_addresses_rejected(verified_user_client, chain, address):
 
 @pytest.mark.parametrize(
     "chain,address",
-    [("evm", EVM), ("btc", BTC), ("ton", TON), ("tron", TRON)],
+    [("evm", EVM), ("btc", BTC), ("ton", TON), ("tron", TRON), ("solana", SOLANA), ("avalanche", EVM)],
 )
 @pytest.mark.asyncio
 async def test_valid_addresses_accepted(verified_user_client, currencies, chain, address):
@@ -399,3 +414,185 @@ def test_parse_tronscan_account():
 
 def test_parse_tronscan_account_empty():
     assert parse_tronscan_account({}) == []
+
+
+# --- wallet ↔ account linking -------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_wallet_create_with_account_links(user, account, session_maker):
+    wallet = await CryptoService.create_for_user(
+        WalletCreate(name="W", kind=WalletKind.MANUAL, account_id=account.id), user.id, session_maker
+    )
+    assert wallet.account_id == account.id
+
+
+@pytest.mark.asyncio
+async def test_wallet_link_foreign_account_is_404(user, other_user, currencies, session_maker):
+    foreign = await AccountService.create_for_user(
+        AccountCreate(name="Theirs", type=AccountType.CASH, currency_id="USD", balance=1.0),
+        other_user.id,
+        session_maker,
+    )
+    with pytest.raises(HTTPException) as error:
+        await CryptoService.create_for_user(
+            WalletCreate(name="W", kind=WalletKind.MANUAL, account_id=foreign.id), user.id, session_maker
+        )
+    assert error.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_wallet_patch_unlink_and_relink(user, account, session_maker):
+    wallet = await CryptoService.create_for_user(
+        WalletCreate(name="W", kind=WalletKind.MANUAL, account_id=account.id), user.id, session_maker
+    )
+    renamed = await CryptoService.update_for_user(wallet.id, WalletUpdate(name="X"), user.id, session_maker)
+    assert renamed.account_id == account.id  # exclude_unset: a rename must not unlink
+    unlinked = await CryptoService.update_for_user(wallet.id, WalletUpdate(account_id=None), user.id, session_maker)
+    assert unlinked.account_id is None
+    relinked = await CryptoService.update_for_user(
+        wallet.id, WalletUpdate(account_id=account.id), user.id, session_maker
+    )
+    assert relinked.account_id == account.id
+
+
+# --- sync status on the wallet DTO ---------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_wallet_dto_carries_last_sync(user, currencies, session_maker):
+    async with session_maker() as session:
+        session.add(CryptoPriceDailyModel(asset_code="BTC", day=date.today(), price_usd=Decimal("60000")))
+        await session.commit()
+    wallet = await CryptoService.create_for_user(
+        WalletCreate(name="W", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="BTC", amount=1)]),
+        user.id,
+        session_maker,
+    )
+    listing = await CryptoService.list_for_user(user.id, session_maker)
+    item = listing.items[0]
+    assert item.id == wallet.id
+    assert item.last_sync_status == "ok"
+    assert item.last_sync_at is not None
+
+
+@pytest.mark.asyncio
+async def test_last_sync_uses_latest_run(user, currencies, session_maker):
+    wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.TRUST), user.id, session_maker)
+    now = datetime.now()
+    async with session_maker() as session:
+        session.add_all(
+            [
+                CryptoSyncRunModel(wallet_id=wallet.id, status=SyncStatus.OK, started_at=now - timedelta(hours=2)),
+                CryptoSyncRunModel(wallet_id=wallet.id, status=SyncStatus.ERROR, started_at=now - timedelta(hours=1)),
+            ]
+        )
+        await session.commit()
+    listing = await CryptoService.list_for_user(user.id, session_maker)
+    assert listing.items[0].last_sync_status == "error"
+
+
+# --- backfill self-heal ---------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_scheduler_rekicks_missing_backfill_once(user, session_maker, monkeypatch):
+    crypto_service._SELFHEAL_KICKED.clear()
+    wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.TRUST), user.id, session_maker)
+    kicked: list = []
+    monkeypatch.setattr(crypto_service, "kick_backfill", kicked.append)
+    await run_syncs_once(session_maker)
+    assert kicked == [wallet.id]
+    await run_syncs_once(session_maker)  # second tick: already healed once this process
+    assert kicked == [wallet.id]
+
+
+@pytest.mark.asyncio
+async def test_scheduler_does_not_rekick_wallet_with_history(user, session_maker, monkeypatch):
+    crypto_service._SELFHEAL_KICKED.clear()
+    wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.TRUST), user.id, session_maker)
+    kicked: list = []
+    monkeypatch.setattr(crypto_service, "kick_backfill", kicked.append)
+    async with session_maker() as session:
+        session.add(
+            CryptoBalanceSnapshotModel(
+                wallet_id=wallet.id,
+                asset_code="BTC",
+                day=date.today() - timedelta(days=5),
+                amount=Decimal("1"),
+                price_usd=None,
+                source=SnapshotSource.BACKFILL,
+                taken_at=datetime.now(),
+            )
+        )
+        await session.commit()
+    await run_syncs_once(session_maker)
+    assert kicked == []
+
+
+# --- solana / avalanche adapters -------------------------------------------------
+
+
+def test_validate_address_new_chains():
+    validate_address(Chain.SOLANA, SOLANA)  # no exception
+    validate_address(Chain.AVALANCHE, EVM)  # no exception
+
+
+def test_parse_solana_account():
+    token_accounts = [
+        {"account": {"data": {"parsed": {"info": {"tokenAmount": {"uiAmount": 207.3133}}}}}},
+        {"account": {"data": {"parsed": {"info": {"tokenAmount": {"uiAmount": None}}}}}},
+    ]
+    holdings = dict(parse_solana_account(65746168004, token_accounts))
+    assert holdings["SOL"] == Decimal("65.746168004")
+    assert holdings["USDC"] == Decimal("207.3133")
+
+
+def test_parse_solana_account_empty():
+    assert parse_solana_account(0, []) == []
+
+
+def test_parse_avalanche_balances():
+    results = ["0xde0b6b3a7640000", "0x5f5e100", None]  # 1 AVAX, 100 USDC (6 decimals), USDT missing
+    holdings = dict(parse_avalanche_balances(results))
+    assert holdings == {"AVAX": Decimal("1"), "USDC": Decimal("100")}
+
+
+@pytest.mark.asyncio
+async def test_fetch_solana_holdings_rpc_shape(monkeypatch):
+    calls: list = []
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._payload
+
+    class FakeClient:
+        async def post(self, url, json=None):
+            calls.append((url, json["method"], json["params"]))
+            if json["method"] == "getBalance":
+                return FakeResponse({"result": {"context": {}, "value": 1500000000}})
+            return FakeResponse(
+                {
+                    "result": {
+                        "value": [{"account": {"data": {"parsed": {"info": {"tokenAmount": {"uiAmount": 12.5}}}}}}]
+                    }
+                }
+            )
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    monkeypatch.setattr("src.crypto.adapters._client", lambda: FakeClient())
+    holdings = dict(await crypto_service.adapters._fetch_solana_holdings(SOLANA))
+    assert holdings == {"SOL": Decimal("1.5"), "USDC": Decimal("12.5")}
+    assert [call[1] for call in calls] == ["getBalance", "getTokenAccountsByOwner"]
+    assert calls[1][2][1] == {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}

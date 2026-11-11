@@ -37,6 +37,8 @@ ASSET_IDS = {
     "BNB": "binancecoin",
     "TON": "the-open-network",
     "TRX": "tron",
+    "SOL": "solana",
+    "AVAX": "avalanche-2",
 }
 #: Pause between per-asset historical calls keeps the free tier happy
 REQUEST_PAUSE_SECONDS = 1.5

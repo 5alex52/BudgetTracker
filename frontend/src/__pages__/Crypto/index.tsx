@@ -17,7 +17,9 @@ import type {
   CryptoWalletKind,
 } from '@/api/types'
 import { useApiQuery } from '@/hooks/useApi'
+import type { Account } from '@/__shared__/types/models'
 import { useI18n, type TranslationKey } from '@/i18n'
+import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
 import { Amount, TrendBadge } from '@/components/data/Amount'
 import { LineChart } from '@/components/charts/charts'
@@ -54,7 +56,26 @@ const CHAIN_LABEL: Record<CryptoChain, TranslationKey> = {
   btc: 'crypto.chainBtc',
   ton: 'crypto.chainTon',
   tron: 'crypto.chainTron',
+  solana: 'crypto.chainSolana',
+  avalanche: 'crypto.chainAvalanche',
 }
+
+const CHAINS: CryptoChain[] = ['evm', 'btc', 'ton', 'tron', 'solana', 'avalanche']
+
+/** Подсказка формата адреса; остальные сети — просто «Адрес». */
+const CHAIN_PLACEHOLDER: Partial<Record<CryptoChain, TranslationKey>> = {
+  solana: 'crypto.addrSolana',
+  avalanche: 'crypto.addrAvalanche',
+}
+
+const chainOptions = (t: (key: TranslationKey) => string) =>
+  CHAINS.map((value) => ({ value, label: t(CHAIN_LABEL[value]) }))
+
+/** Привязка счёта — как в подписках: «Без счёта» + неархивированные счета. */
+const accountOptions = (t: (key: TranslationKey) => string, accounts: Account[]) => [
+  { value: '', label: t('crypto.accountNone') },
+  ...accounts.filter((account) => !account.archived).map((account) => ({ value: String(account.id), label: account.name })),
+]
 
 /** Цвет точки статуса синхронизации; null — ещё не синхронизировался. */
 const STATUS_COLOR: Record<string, string> = {
@@ -179,8 +200,10 @@ function ConnectDialog({
 }) {
   const { t } = useI18n()
   const { toast } = useToast()
+  const accounts = useFinanceStore((state) => state.accounts)
   const [kind, setKind] = useState<CryptoWalletKind>('trust')
   const [name, setName] = useState('')
+  const [account, setAccount] = useState('')
   const [addresses, setAddresses] = useState<AddressDraft[]>([{ ...EMPTY_ADDRESS }])
   const [holdings, setHoldings] = useState<HoldingDraft[]>([])
   const [pending, setPending] = useState(false)
@@ -188,6 +211,7 @@ function ConnectDialog({
   if (!open && name !== '') {
     // Диалог закрыт — сбрасываем черновик к значениям по умолчанию.
     setName('')
+    setAccount('')
     setKind('trust')
     setAddresses([{ ...EMPTY_ADDRESS }])
     setHoldings([])
@@ -204,6 +228,7 @@ function ConnectDialog({
       await cryptoApi.createWallet({
         name: name.trim(),
         kind,
+        account_id: account === '' ? undefined : Number(account),
         addresses: manual ? undefined : filledAddresses.map((row) => ({ chain: row.chain, address: row.address.trim() })),
         holdings: manual
           ? holdings
@@ -256,6 +281,15 @@ function ConnectDialog({
           </div>
           <p className="text-caption text-fg-tertiary">{t('crypto.help')}</p>
 
+          <Field label={t('crypto.accountOptional')}>
+            <FilterSelect
+              ariaLabel={t('crypto.accountOptional')}
+              value={account}
+              onValueChange={setAccount}
+              options={accountOptions(t, accounts)}
+            />
+          </Field>
+
           {manual ? (
             <Field label={t('crypto.holdings')}>
               <HoldingsEditor rows={holdings} assets={assets} onChange={setHoldings} />
@@ -272,11 +306,11 @@ function ConnectDialog({
                       onValueChange={(value) =>
                         setAddresses(addresses.map((item, i) => (i === index ? { ...item, chain: value as CryptoChain } : item)))
                       }
-                      options={(["evm", "btc", "ton", "tron"] as const).map((value) => ({ value, label: t(CHAIN_LABEL[value]) }))}
+                      options={chainOptions(t)}
                     />
                     <Input
                       className="min-w-0 flex-1"
-                      placeholder={t('crypto.address')}
+                      placeholder={t(CHAIN_PLACEHOLDER[row.chain] ?? 'crypto.address')}
                       value={row.address}
                       onChange={(event) =>
                         setAddresses(addresses.map((item, i) => (i === index ? { ...item, address: event.target.value } : item)))
@@ -388,6 +422,7 @@ function BalancesDialog({
 export function CryptoPage() {
   const { t, locale, number } = useI18n()
   const { toast } = useToast()
+  const accounts = useFinanceStore((state) => state.accounts)
   const [period, setPeriod] = useState<CryptoPeriod>('30d')
   const [groupBy, setGroupBy] = useState<CryptoGroupBy>('total')
   const [connectOpen, setConnectOpen] = useState(false)
@@ -548,12 +583,19 @@ export function CryptoPage() {
           </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((wallet) => (
+            {items.map((wallet) => {
+              const linkedAccount = wallet.account_id == null ? undefined : accounts.find((account) => account.id === String(wallet.account_id))
+              return (
               <Card key={wallet.id} className="min-w-0 p-4">
                 <div className="flex min-w-0 items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-label font-medium text-fg-primary">{wallet.name}</p>
                     <p className="mt-0.5 text-caption text-fg-tertiary">{t(KIND_LABEL[wallet.kind])}</p>
+                    {linkedAccount && (
+                      <p className="mt-0.5 min-w-0 text-caption text-fg-tertiary">
+                        {t('crypto.linkedAccount', { name: linkedAccount.name })}
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button
@@ -654,7 +696,8 @@ export function CryptoPage() {
                   </div>
                 </div>
               </Card>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -711,19 +754,27 @@ function RenameDialog({
 }) {
   const { t } = useI18n()
   const { toast } = useToast()
+  const accounts = useFinanceStore((state) => state.accounts)
   const [name, setName] = useState('')
+  const [account, setAccount] = useState('')
   const [pending, setPending] = useState(false)
   const [lastKey, setLastKey] = useState<number | null>(null)
   if ((wallet?.id ?? null) !== lastKey) {
     setLastKey(wallet?.id ?? null)
-    if (wallet) setName(wallet.name)
+    if (wallet) {
+      setName(wallet.name)
+      setAccount(wallet.account_id == null ? '' : String(wallet.account_id))
+    }
   }
 
   const save = async () => {
     if (!wallet || name.trim() === '') return
     setPending(true)
     try {
-      await cryptoApi.updateWallet(wallet.id, { name: name.trim() })
+      await cryptoApi.updateWallet(wallet.id, {
+        name: name.trim(),
+        account_id: account === '' ? null : Number(account),
+      })
       toast({ title: t('crypto.saved'), tone: 'success' })
       onSaved()
       onClose()
@@ -753,9 +804,19 @@ function RenameDialog({
           </>
         }
       >
-        <Field label={t('crypto.name')}>
-          <Input value={name} onChange={(event) => setName(event.target.value)} />
-        </Field>
+        <div className="space-y-4">
+          <Field label={t('crypto.name')}>
+            <Input value={name} onChange={(event) => setName(event.target.value)} />
+          </Field>
+          <Field label={t('crypto.accountOptional')}>
+            <FilterSelect
+              ariaLabel={t('crypto.accountOptional')}
+              value={account}
+              onValueChange={setAccount}
+              options={accountOptions(t, accounts)}
+            />
+          </Field>
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -825,11 +886,11 @@ function AddAddressDialog({
               ariaLabel={t('crypto.chain')}
               value={chain}
               onValueChange={(value) => setChain(value as CryptoChain)}
-              options={(["evm", "btc", "ton", "tron"] as const).map((value) => ({ value, label: t(CHAIN_LABEL[value]) }))}
+              options={chainOptions(t)}
             />
           </Field>
           <Field label={t('crypto.address')} hint={t('crypto.help')}>
-            <Input value={address} onChange={(event) => setAddress(event.target.value)} />
+            <Input placeholder={t(CHAIN_PLACEHOLDER[chain] ?? 'crypto.address')} value={address} onChange={(event) => setAddress(event.target.value)} />
           </Field>
         </div>
       </DialogContent>

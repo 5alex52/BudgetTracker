@@ -2,10 +2,20 @@
 
 from datetime import datetime
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException
+from src.analytics.dao import AnalyticsDAO
 from src.analytics.service import AnalyticsService
+from src.crypto.models import CryptoBalanceSnapshotModel
+from src.crypto.models import CryptoPriceDailyModel
+from src.crypto.schemas import HoldingIn
+from src.crypto.schemas import SnapshotSource
+from src.crypto.schemas import WalletCreate
+from src.crypto.schemas import WalletKind
+from src.crypto.service import CryptoService
+from src.finance.models import AccountModel
 from src.finance.schemas import AccountCreate
 from src.finance.schemas import AccountType
 from src.finance.schemas import CategoryCreate
@@ -618,3 +628,108 @@ async def test_previous_period_is_adjacent_and_same_length():
 
     assert previous_end == start - timedelta(microseconds=1)
     assert previous_end - previous_start == end - start
+
+
+# --- linked crypto wallets feed the main balance ------------------------------
+
+
+@pytest.mark.asyncio
+async def test_total_balance_includes_linked_wallets(user, account, currencies, session_maker):
+    """Linked non-archived wallet adds its current value; unlinked and archived wallets do not."""
+    today = datetime.now().date()
+    async with session_maker() as session:
+        session.add_all(
+            [
+                CryptoPriceDailyModel(asset_code="BTC", day=today, price_usd=Decimal("60000")),
+                CryptoPriceDailyModel(asset_code="ETH", day=today, price_usd=Decimal("3000")),
+                CryptoPriceDailyModel(asset_code="SOL", day=today, price_usd=Decimal("100")),
+            ]
+        )
+        await session.commit()
+    await CryptoService.create_for_user(
+        WalletCreate(
+            name="Linked",
+            kind=WalletKind.MANUAL,
+            account_id=account.id,
+            holdings=[HoldingIn(asset_code="BTC", amount=1)],
+        ),
+        user.id,
+        session_maker,
+    )
+    await CryptoService.create_for_user(
+        WalletCreate(name="Loose", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="ETH", amount=2)]),
+        user.id,
+        session_maker,
+    )
+    archived = await AccountService.create_for_user(
+        AccountCreate(name="Old", type=AccountType.CASH, currency_id="USD", balance=0.0), user.id, session_maker
+    )
+    await CryptoService.create_for_user(
+        WalletCreate(
+            name="Archived",
+            kind=WalletKind.MANUAL,
+            account_id=archived.id,
+            holdings=[HoldingIn(asset_code="SOL", amount=5)],
+        ),
+        user.id,
+        session_maker,
+    )
+    async with session_maker() as session:
+        row = await session.get(AccountModel, archived.id)
+        row.is_archived = True
+        await session.commit()
+
+    async with session_maker() as session:
+        # account 1000 USD + linked wallet 1 BTC × 60000
+        assert await AnalyticsDAO.total_balance_base(session, user.id) == pytest.approx(61000.0)
+
+
+@pytest.mark.asyncio
+async def test_balance_series_includes_linked_wallet(user, account, currencies, session_maker):
+    """Daily snapshots price the curve: 0 before the first day, that day's amount × that day's price after."""
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    async with session_maker() as session:
+        session.add_all(
+            [
+                CryptoPriceDailyModel(asset_code="BTC", day=yesterday, price_usd=Decimal("50000")),
+                CryptoPriceDailyModel(asset_code="BTC", day=today, price_usd=Decimal("60000")),
+            ]
+        )
+        await session.commit()
+    wallet = await CryptoService.create_for_user(
+        WalletCreate(
+            name="Linked",
+            kind=WalletKind.MANUAL,
+            account_id=account.id,
+            holdings=[HoldingIn(asset_code="BTC", amount=1)],
+        ),
+        user.id,
+        session_maker,
+    )
+    async with session_maker() as session:
+        session.add(
+            CryptoBalanceSnapshotModel(
+                wallet_id=wallet.id,
+                asset_code="BTC",
+                day=yesterday,
+                amount=Decimal("1"),
+                price_usd=Decimal("50000"),
+                source=SnapshotSource.BACKFILL,
+                taken_at=datetime.now(),
+            )
+        )
+        await session.commit()
+
+    series = await AnalyticsService.timeseries(
+        user_id=user.id,
+        metric="balance",
+        group_by="day",
+        start_date=datetime.combine(today - timedelta(days=2), datetime.min.time()),
+        end_date=datetime.now(),
+        session_maker=session_maker,
+    )
+    values = {point.date.date(): point.value for point in series.points}
+    assert values[today - timedelta(days=2)] == pytest.approx(1000.0)  # before the first snapshot: no crypto
+    assert values[yesterday] == pytest.approx(51000.0)  # 1 BTC carried, priced at 50000
+    assert values[today] == pytest.approx(61000.0)  # today's snapshot × today's price = current total

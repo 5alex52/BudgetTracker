@@ -20,13 +20,17 @@ from typing import Tuple
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import status
+from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from ..cache import Cache
 from ..config import settings
 from ..database import async_session_maker
+from ..finance.dao import AccountDAO
+from ..finance.models import AccountModel
 from ..finance.service_subs import _rates
 from ..finance.utils import convert_amount
 from . import adapters
@@ -192,6 +196,92 @@ def _daily_amounts(
     return result
 
 
+async def _linked_wallets(session: AsyncSession, user_id) -> Dict[int, int]:
+    """{wallet_id: account_id} of the user's wallets linked to a non-archived account."""
+    rows = await session.execute(
+        select(CryptoWalletModel.id, CryptoWalletModel.account_id)
+        .join(AccountModel, CryptoWalletModel.account_id == AccountModel.id)
+        .where(
+            CryptoWalletModel.user_id == user_id,
+            CryptoWalletModel.account_id.is_not(None),
+            AccountModel.is_archived.is_(False),
+        )
+    )
+    return {row.id: row.account_id for row in rows}
+
+
+async def crypto_daily_value_base(session: AsyncSession, user_id, days: List[date]) -> Dict[date, Dict[int, Decimal]]:
+    """{day: {account_id: value}} in base currency: carried snapshot amounts × carried USD prices.
+
+    Days before a wallet's first snapshot contribute nothing; prices fall back to the
+    nearest previous day (same rules as CryptoService.timeseries). Used by analytics to
+    feed linked wallets into the main balance series.
+    """
+    days = sorted(set(days))
+    if not days:
+        return {}
+    linked = await _linked_wallets(session, user_id)
+    if not linked:
+        return {}
+    rows = list(
+        (
+            await session.execute(
+                select(CryptoBalanceSnapshotModel)
+                .where(CryptoBalanceSnapshotModel.wallet_id.in_(list(linked)))
+                .order_by(CryptoBalanceSnapshotModel.day)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return {}
+    base_code, base_rate, rates = await _rates(session, user_id)
+    assets = sorted({row.asset_code for row in rows})
+    # Prices are read from the first snapshot day: a day without a price falls back to
+    # the nearest previous one, which may live before the requested window.
+    price_days = _days_between(min(days[0], rows[0].day), days[-1])
+    prices_map = await prices.cached_daily_prices(session, assets, price_days)
+    carried_prices = prices.carry_prices_for_days(prices_map, assets, price_days)
+    amounts = _daily_amounts(rows, days[0], days[-1])
+    result: Dict[date, Dict[int, Decimal]] = {}
+    for day in days:
+        per_account: Dict[int, Decimal] = {}
+        for (wallet_id, asset), amount in amounts.get(day, {}).items():
+            price = carried_prices.get(day, {}).get(asset)
+            if price is None:
+                continue
+            value = Decimal(str(_usd_to_base(float(amount) * float(price), rates, base_rate)))
+            account_id = linked[wallet_id]
+            per_account[account_id] = per_account.get(account_id, Decimal(0)) + value
+        if per_account:
+            result[day] = per_account
+    return result
+
+
+async def crypto_current_value_base(session: AsyncSession, user_id) -> float:
+    """Current holdings of linked non-archived wallets, in base currency (feeds total_balance_base)."""
+    linked = await _linked_wallets(session, user_id)
+    if not linked:
+        return 0.0
+    holding_rows = list(
+        (await session.execute(select(CryptoHoldingModel).where(CryptoHoldingModel.wallet_id.in_(list(linked)))))
+        .scalars()
+        .all()
+    )
+    if not holding_rows:
+        return 0.0
+    base_code, base_rate, rates = await _rates(session, user_id)
+    current = await prices.latest_prices(session, sorted({row.asset_code for row in holding_rows}))
+    total = 0.0
+    for holding in holding_rows:
+        price = current.get(holding.asset_code)
+        if price is None:
+            continue
+        total += _usd_to_base(round(float(holding.amount) * float(price), 2), rates, base_rate)
+    return round(total, 2)
+
+
 class CryptoDAO:
     @classmethod
     async def find_wallet_by_user(cls, session: AsyncSession, wallet_id: int, user_id) -> Optional[CryptoWalletModel]:
@@ -257,6 +347,7 @@ async def run_wallet_sync(
             if wallet is not None and wallet.kind == WalletKind.TRUST
             else []
         )
+        linked = wallet is not None and wallet.account_id is not None
     if not addresses:
         # Manual wallet or wallet without addresses: snapshot from current holdings
         async with session_maker() as session:
@@ -283,6 +374,8 @@ async def run_wallet_sync(
                 )
             )
             await session.commit()
+        if linked:
+            await Cache.delete_scope("analytics")  # linked wallets feed the main balance aggregates
         return SyncStatus.OK.value
 
     sync_status = SyncStatus.OK
@@ -332,13 +425,43 @@ async def run_wallet_sync(
             )
         )
         await session.commit()
+    if linked:
+        await Cache.delete_scope("analytics")  # linked wallets feed the main balance aggregates
     return sync_status.value
+
+
+#: Wallets whose missing history was already self-healed this process (module-level
+#: one-shot guard: re-kicking every tick would hammer public RPCs forever if backfill keeps failing)
+_SELFHEAL_KICKED: set = set()
 
 
 async def run_syncs_once(session_maker: async_sessionmaker) -> int:
     """One scheduler tick: refresh every wallet; returns wallets processed."""
     async with session_maker() as session:
         wallet_rows = (await session.execute(select(CryptoWalletModel.id, CryptoWalletModel.kind))).all()
+        # Backfill self-heal: trust wallets created before the history fix have no
+        # snapshots older than today — re-kick the one-time backfill once per wallet.
+        trust_ids = [wallet_id for wallet_id, kind in wallet_rows if kind == WalletKind.TRUST]
+        pending = [wallet_id for wallet_id in trust_ids if wallet_id not in _SELFHEAL_KICKED]
+        if pending:
+            with_history = set(
+                (
+                    await session.execute(
+                        select(CryptoBalanceSnapshotModel.wallet_id)
+                        .where(
+                            CryptoBalanceSnapshotModel.wallet_id.in_(pending),
+                            CryptoBalanceSnapshotModel.day < datetime.now().date(),
+                        )
+                        .distinct()
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for wallet_id in pending:
+                if wallet_id not in with_history:
+                    _SELFHEAL_KICKED.add(wallet_id)
+                    kick_backfill(wallet_id)
     processed = 0
     for wallet_id, _kind in wallet_rows:
         try:
@@ -370,6 +493,33 @@ class CryptoService:
         return wallet
 
     @classmethod
+    async def _ensure_account(cls, session: AsyncSession, account_id: int, user_id) -> None:
+        """Ownership convention: someone else's account is not found, not forbidden."""
+        account = await AccountDAO.find_one_or_none(session, id=account_id)
+        if account is None or account.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+
+    @classmethod
+    async def _latest_sync_runs(cls, session: AsyncSession, wallet_ids: List[int]) -> Dict[int, Tuple[str, datetime]]:
+        """wallet_id -> (status, started_at) of the newest crypto_sync_runs row, one query."""
+        if not wallet_ids:
+            return {}
+        latest = (
+            select(CryptoSyncRunModel.wallet_id, func.max(CryptoSyncRunModel.id).label("latest_id"))
+            .where(CryptoSyncRunModel.wallet_id.in_(wallet_ids))
+            .group_by(CryptoSyncRunModel.wallet_id)
+            .subquery()
+        )
+        rows = await session.execute(
+            select(
+                CryptoSyncRunModel.wallet_id,
+                CryptoSyncRunModel.status,
+                CryptoSyncRunModel.started_at,
+            ).join(latest, CryptoSyncRunModel.id == latest.c.latest_id)
+        )
+        return {row.wallet_id: (row.status.value, row.started_at) for row in rows.all()}
+
+    @classmethod
     async def _holding_dtos(
         cls, session: AsyncSession, holding_rows: List[CryptoHoldingModel], user_id
     ) -> Tuple[str, float, float, List[HoldingDTO]]:
@@ -398,12 +548,18 @@ class CryptoService:
         return base_code, round(total_usd, 2), round(total_base, 2), items
 
     @classmethod
-    async def _wallet_dto(cls, session: AsyncSession, wallet: CryptoWalletModel, user_id) -> WalletDTO:
+    async def _wallet_dto(
+        cls, session: AsyncSession, wallet: CryptoWalletModel, user_id, sync_runs: Optional[Dict] = None
+    ) -> WalletDTO:
         base_code, total_usd, total_base, holdings = await cls._holding_dtos(session, wallet.holdings, user_id)
+        if sync_runs is None:
+            sync_runs = await cls._latest_sync_runs(session, [wallet.id])
+        last_sync = sync_runs.get(wallet.id)
         return WalletDTO(
             id=wallet.id,
             name=wallet.name,
             kind=wallet.kind,
+            account_id=wallet.account_id,
             addresses=[
                 AddressDTO(id=item.id, chain=item.chain, address=item.address, is_active=item.is_active)
                 for item in wallet.addresses
@@ -414,13 +570,16 @@ class CryptoService:
             base_currency=base_code,
             created_at=wallet.created_at,
             updated_at=wallet.updated_at,
+            last_sync_status=last_sync[0] if last_sync else None,
+            last_sync_at=last_sync[1] if last_sync else None,
         )
 
     @classmethod
     async def list_for_user(cls, user_id, session_maker: async_sessionmaker) -> WalletList:
         async with session_maker() as session:
             wallets = await cls.dao.find_all_by_user(session, user_id)
-            items = [await cls._wallet_dto(session, wallet, user_id) for wallet in wallets]
+            sync_runs = await cls._latest_sync_runs(session, [wallet.id for wallet in wallets])
+            items = [await cls._wallet_dto(session, wallet, user_id, sync_runs) for wallet in wallets]
         return WalletList(
             items=items,
             total_usd=round(sum(item.total_usd for item in items), 2),
@@ -439,7 +598,11 @@ class CryptoService:
             seen.add(key)
         manual = schema.kind != WalletKind.TRUST
         async with session_maker() as session:
-            wallet = CryptoWalletModel(user_id=user_id, name=schema.name, kind=schema.kind)
+            if schema.account_id is not None:
+                await cls._ensure_account(session, schema.account_id, user_id)
+            wallet = CryptoWalletModel(
+                user_id=user_id, name=schema.name, kind=schema.kind, account_id=schema.account_id
+            )
             session.add(wallet)
             await session.flush()
             for item in schema.addresses or []:
@@ -469,9 +632,13 @@ class CryptoService:
         async with session_maker() as session:
             wallet = await cls._wallet_or_404(session, wallet_id, user_id)
             data = schema.model_dump(exclude_unset=True)
+            if data.get("account_id") is not None:
+                await cls._ensure_account(session, data["account_id"], user_id)
             for field, value in data.items():
                 setattr(wallet, field, value)
             await session.commit()
+            if "account_id" in data:
+                await Cache.delete_scope("analytics")  # linking changes the main balance aggregates
         async with session_maker() as session:
             wallet = await cls._wallet_or_404(session, wallet_id, user_id)
             return await cls._wallet_dto(session, wallet, user_id)
@@ -482,6 +649,7 @@ class CryptoService:
             wallet = await cls._wallet_or_404(session, wallet_id, user_id)
             await session.delete(wallet)
             await session.commit()
+        await Cache.delete_scope("analytics")  # deleting a linked wallet changes the main balance aggregates
 
     @classmethod
     async def add_address(

@@ -247,17 +247,30 @@ class AnalyticsService:
 
     @classmethod
     async def _balance_series(cls, session, user_id, group_by, start_date, end_date) -> TimeseriesResponse:
-        """Balance at the end of the interval: current balance minus everything that happened after."""
+        """Balance at the end of the interval: current balance minus everything that happened after.
+
+        Linked crypto wallets enter the curve by their daily snapshot value:
+        ``current_total`` already contains today's crypto value, so each bucket
+        swaps it for that day's value (buckets before the first snapshot fall
+        back to accounts-only). No crypto → identical math as before.
+        """
+        from src.crypto.service import crypto_current_value_base, crypto_daily_value_base
+
         current_total = await AnalyticsDAO.total_balance_base(session, user_id)
         rows = await AnalyticsDAO.balances_by_bucket(session, user_id, group_by, start_date, end_date)
         after = await AnalyticsDAO.signed_total_after(session, user_id, end_date)
 
-        deltas = {row.bucket: float(row.total) for row in rows}
         bounds = cls._bucket_bounds(group_by, start_date, end_date)
+        bucket_days = [bound.date() for bound in bounds]
+        crypto_by_day = await crypto_daily_value_base(session, user_id, bucket_days)
+        crypto_now = await crypto_current_value_base(session, user_id)
+
+        deltas = {row.bucket: float(row.total) for row in rows}
         points: List[BalancePoint] = []
         tail = after
         for bound in reversed(bounds):
-            value = current_total - tail
+            crypto_at_day = float(sum(crypto_by_day.get(bound.date(), {}).values()))
+            value = current_total - tail + crypto_at_day - crypto_now
             points.append(BalancePoint(date=bound, value=round(value, 2)))
             tail += deltas.get(bound, 0.0)
         points.reverse()

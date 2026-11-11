@@ -477,7 +477,7 @@ export interface ServiceSubCreatePayload {
 
 export type CryptoPeriod = '7d' | '30d' | '90d' | '1y' | 'all'
 export type CryptoGroupBy = 'total' | 'asset' | 'wallet'
-export type CryptoChain = 'evm' | 'btc' | 'ton' | 'tron'
+export type CryptoChain = 'evm' | 'btc' | 'ton' | 'tron' | 'solana' | 'avalanche'
 export type CryptoWalletKind = 'trust' | 'telegram' | 'manual'
 export type CryptoSyncStatus = 'ok' | 'error' | 'partial'
 
@@ -504,6 +504,7 @@ export interface CryptoWalletDto {
   base_currency: string
   last_sync_at: string | null
   last_sync_status: CryptoSyncStatus | null
+  account_id: number | null
   created_at: string
   updated_at: string | null
 }
@@ -517,10 +518,13 @@ export interface CryptoWalletCreatePayload {
   kind: CryptoWalletKind
   addresses?: Array<{ chain: CryptoChain; address: string }>
   holdings?: CryptoHoldingDto[]
+  account_id?: number | null
 }
 
 export interface CryptoWalletUpdatePayload {
   name?: string
+  /** null — отвязать счёт; отсутствие — без изменений. */
+  account_id?: number | null
 }
 
 export interface CryptoAddressCreatePayload {

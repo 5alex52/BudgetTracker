@@ -24,6 +24,8 @@ class Chain(str, enum.Enum):
     BTC = "btc"
     TON = "ton"
     TRON = "tron"
+    SOLANA = "solana"
+    AVALANCHE = "avalanche"
 
 
 class SnapshotSource(str, enum.Enum):
@@ -74,10 +76,14 @@ class WalletCreate(BaseModel):
     addresses: Optional[List[AddressIn]] = None
     #: Only used by manual/telegram wallets: assets the user enters himself
     holdings: Optional[List[HoldingIn]] = None
+    #: Finance account this wallet feeds into main analytics balances
+    account_id: Optional[int] = None
 
 
 class WalletUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=120)
+    #: Explicit null unlinks the wallet (exclude_unset keeps "not sent" ≠ "null")
+    account_id: Optional[int] = None
 
 
 class ManualBalances(BaseModel):
@@ -90,6 +96,7 @@ class WalletDTO(BaseModel):
     id: int
     name: str
     kind: WalletKind
+    account_id: Optional[int] = None
     addresses: List[AddressDTO]
     holdings: List[HoldingDTO]
     total_usd: float
@@ -97,6 +104,9 @@ class WalletDTO(BaseModel):
     base_currency: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    #: Latest crypto_sync_runs row for this wallet
+    last_sync_status: Optional[str] = None
+    last_sync_at: Optional[datetime] = None
 
 
 class WalletList(BaseModel):
