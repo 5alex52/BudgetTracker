@@ -208,7 +208,7 @@ export function SettingsTemplatesPage() {
   const openCreate = () => {
     setName('')
     setAmount('')
-    setAccountId(accounts[0]?.id ?? '')
+    setAccountId(accounts.find((item) => !item.crypto)?.id ?? '')
     setCategoryId(categories[0] ? String(categories[0].id) : '')
     setOpen(true)
   }
@@ -361,7 +361,7 @@ export function SettingsTemplatesPage() {
                   ariaLabel={t('recordForm.account')}
                   value={accountId}
                   onValueChange={setAccountId}
-                  options={accounts.map((item) => ({ value: item.id, label: item.name }))}
+                  options={accounts.filter((item) => !item.crypto).map((item) => ({ value: item.id, label: item.name }))}
                 />
               </Field>
               <Field label={t('recordForm.category')}>

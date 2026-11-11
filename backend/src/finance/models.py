@@ -53,6 +53,12 @@ class AccountModel(Base):
     is_archived: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     #: Excluded from statistics: account lives on, operations are visible, but it does not affect totals or charts
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
+    #: Set for crypto-wallet accounts (trust/telegram/manual): balance is maintained by sync,
+    #: the wallet's extra fields live in crypto_* tables and are editable only from the crypto page
+    crypto_kind: Mapped[Optional[str]] = mapped_column(
+        sa.Enum("trust", "telegram", "manual", name="crypto_wallet_kind", create_type=False),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 

@@ -147,6 +147,11 @@ export function AccountsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-1.5 truncate text-label font-medium text-fg-primary">
                           {account.name}
+                          {account.crypto && (
+                            <span className="shrink-0 rounded-xs bg-surface-2 px-1.5 py-0.5 text-[11px] text-fg-tertiary">
+                              {t('accounts.cryptoBadge')}
+                            </span>
+                          )}
                         </p>
                         <p className="flex flex-wrap items-center gap-1.5 text-caption text-fg-tertiary">
                           {t(KIND_LABEL[account.kind])}

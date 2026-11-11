@@ -1,24 +1,23 @@
-"""Crypto wallet models: read-only watched addresses, holdings and daily snapshots."""
+"""Crypto account models: read-only watched addresses, holdings and daily snapshots.
 
-import uuid
+A crypto wallet IS a finance account (``accounts.crypto_kind`` is set): these
+tables hang off ``accounts.id`` and only exist for crypto accounts.
+"""
+
 from datetime import date
 from datetime import datetime
 from typing import List
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from ..database import Base
-from ..users.models import UserModel
 from .schemas import Chain
 from .schemas import SnapshotSource
 from .schemas import SyncStatus
-from .schemas import WalletKind
 
 
 def _enum_values(enum_cls) -> List[str]:
@@ -26,40 +25,15 @@ def _enum_values(enum_cls) -> List[str]:
     return [member.value for member in enum_cls]
 
 
-class CryptoWalletModel(Base):
-    __tablename__ = "crypto_wallets"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    name: Mapped[str] = mapped_column(sa.String(120), nullable=False)
-    kind: Mapped[WalletKind] = mapped_column(
-        sa.Enum(WalletKind, name="crypto_wallet_kind", values_callable=_enum_values),
-        nullable=False,
-    )
-    #: Link to a finance account: the wallet's value then feeds main analytics balances
-    account_id: Mapped[Optional[int]] = mapped_column(
-        sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True
-    )
-    #: Account was created together with the wallet: its balance mirrors the wallet value on sync
-    account_auto_created: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
-
-    addresses: Mapped[List["CryptoAddressModel"]] = relationship(back_populates="wallet", cascade="all, delete-orphan")
-    holdings: Mapped[List["CryptoHoldingModel"]] = relationship(back_populates="wallet", cascade="all, delete-orphan")
-
-
 class CryptoAddressModel(Base):
     __tablename__ = "crypto_addresses"
     __table_args__ = (
-        sa.UniqueConstraint("wallet_id", "chain", "address", name="uq_crypto_addresses_wallet_chain_address"),
+        sa.UniqueConstraint("account_id", "chain", "address", name="uq_crypto_addresses_account_chain_address"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    wallet_id: Mapped[int] = mapped_column(
-        sa.Integer, sa.ForeignKey("crypto_wallets.id", ondelete="CASCADE"), index=True, nullable=False
+    account_id: Mapped[int] = mapped_column(
+        sa.Integer, sa.ForeignKey("accounts.id", ondelete="CASCADE"), index=True, nullable=False
     )
     chain: Mapped[Chain] = mapped_column(
         sa.Enum(Chain, name="crypto_chain", values_callable=_enum_values), nullable=False
@@ -68,38 +42,34 @@ class CryptoAddressModel(Base):
     is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
 
-    wallet: Mapped["CryptoWalletModel"] = relationship(back_populates="addresses")
-
 
 class CryptoHoldingModel(Base):
-    """Current state: how much of each asset the wallet holds right now."""
+    """Current state: how much of each asset the account's wallet holds right now."""
 
     __tablename__ = "crypto_holdings"
-    __table_args__ = (sa.UniqueConstraint("wallet_id", "asset_code", name="uq_crypto_holdings_wallet_asset"),)
+    __table_args__ = (sa.UniqueConstraint("account_id", "asset_code", name="uq_crypto_holdings_account_asset"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    wallet_id: Mapped[int] = mapped_column(
-        sa.Integer, sa.ForeignKey("crypto_wallets.id", ondelete="CASCADE"), index=True, nullable=False
+    account_id: Mapped[int] = mapped_column(
+        sa.Integer, sa.ForeignKey("accounts.id", ondelete="CASCADE"), index=True, nullable=False
     )
     asset_code: Mapped[str] = mapped_column(sa.String(16), nullable=False)
     amount: Mapped[sa.DECIMAL] = mapped_column(sa.Numeric(38, 18), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 
-    wallet: Mapped["CryptoWalletModel"] = relationship(back_populates="holdings")
-
 
 class CryptoBalanceSnapshotModel(Base):
-    """Daily point of the balance history; one row per (wallet, asset, day)."""
+    """Daily point of the balance history; one row per (account, asset, day)."""
 
     __tablename__ = "crypto_balance_snapshots"
     __table_args__ = (
-        sa.UniqueConstraint("wallet_id", "asset_code", "day", name="uq_crypto_balance_snapshots_wallet_asset_day"),
-        sa.Index("ix_crypto_balance_snapshots_wallet_asset_day", "wallet_id", "asset_code", "day"),
+        sa.UniqueConstraint("account_id", "asset_code", "day", name="uq_crypto_balance_snapshots_account_asset_day"),
+        sa.Index("ix_crypto_balance_snapshots_account_asset_day", "account_id", "asset_code", "day"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    wallet_id: Mapped[int] = mapped_column(
-        sa.Integer, sa.ForeignKey("crypto_wallets.id", ondelete="CASCADE"), index=True, nullable=False
+    account_id: Mapped[int] = mapped_column(
+        sa.Integer, sa.ForeignKey("accounts.id", ondelete="CASCADE"), index=True, nullable=False
     )
     asset_code: Mapped[str] = mapped_column(sa.String(16), nullable=False)
     amount: Mapped[sa.DECIMAL] = mapped_column(sa.Numeric(38, 18), nullable=False)
@@ -124,13 +94,13 @@ class CryptoPriceDailyModel(Base):
 
 
 class CryptoSyncRunModel(Base):
-    """Audit trail of one network sync attempt for a wallet."""
+    """Audit trail of one network sync attempt for a crypto account."""
 
     __tablename__ = "crypto_sync_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    wallet_id: Mapped[int] = mapped_column(
-        sa.Integer, sa.ForeignKey("crypto_wallets.id", ondelete="CASCADE"), index=True, nullable=False
+    account_id: Mapped[int] = mapped_column(
+        sa.Integer, sa.ForeignKey("accounts.id", ondelete="CASCADE"), index=True, nullable=False
     )
     status: Mapped[SyncStatus] = mapped_column(
         sa.Enum(SyncStatus, name="crypto_sync_status", values_callable=_enum_values),

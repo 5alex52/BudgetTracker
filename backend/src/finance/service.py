@@ -78,6 +78,15 @@ async def _get_owned_account(session: AsyncSession, account_id: int, user_id) ->
     return account
 
 
+def _ensure_not_crypto(account: AccountModel) -> None:
+    """A crypto wallet-account's balance is owned by sync: transactions must not touch it."""
+    if account.crypto_kind is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Crypto wallet accounts are managed from the crypto page",
+        )
+
+
 async def _get_owned_category(session: AsyncSession, category_id: int, user_id) -> CategoryModel:
     """Returns a category owned by the user or raises 404."""
     category = await CategoryDAO.find_one_by_user(session, category_id, user_id)
@@ -452,6 +461,12 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
         async with maker() as session:
             account = await _get_owned_account(session, account_id, user_id)
             update_data = schema.model_dump(exclude_unset=True)
+            if account.crypto_kind is not None and {"balance", "type", "currency_id"} & set(update_data):
+                # These fields of a wallet-account belong to the crypto page/sync
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Crypto wallet accounts are managed from the crypto page",
+                )
             if "currency_id" in update_data:
                 await _get_currency(session, update_data["currency_id"])
             for field, value in update_data.items():
@@ -1073,6 +1088,7 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             account = await _get_owned_account(session, schema.account_id, user_id)
+            _ensure_not_crypto(account)
             transfer_account = None
             if schema.type == TransactionType.TRANSFER:
                 transfer_account = await _resolve_transfer_account(
@@ -1083,6 +1099,7 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
                     schema.currency_id,
                     session_maker=maker,
                 )
+                _ensure_not_crypto(transfer_account)
                 category = await _transfer_category(session, user_id)
             else:
                 if schema.category_id is None:
@@ -1185,6 +1202,7 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
             account = old_account
             if "account_id" in update_data:
                 account = await _get_owned_account(session, update_data["account_id"], user_id)
+                _ensure_not_crypto(account)
 
             category = transaction.category
             if "category_id" in update_data:
@@ -1205,6 +1223,7 @@ class TransactionService(BaseService[TransactionModel, TransactionCreate, Transa
                     new_currency.code,
                     session_maker=maker,
                 )
+                _ensure_not_crypto(transfer_account)
                 update_data["transfer_account_id"] = transfer_account.id
             else:
                 _validate_category_type(category, new_type)

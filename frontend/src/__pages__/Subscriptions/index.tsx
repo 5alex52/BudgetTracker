@@ -255,7 +255,7 @@ function SubDialog({
               options={[
                 { value: '', label: t('subs.accountNone') },
                 ...accounts
-                  .filter((account) => !account.archived)
+                  .filter((account) => !account.archived && !account.crypto)
                   .map((account) => ({ value: String(account.id), label: account.name })),
               ]}
             />

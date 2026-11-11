@@ -14,7 +14,6 @@ from src.crypto.schemas import HoldingIn
 from src.crypto.schemas import SnapshotSource
 from src.crypto.schemas import WalletCreate
 from src.crypto.schemas import WalletKind
-from src.crypto.schemas import WalletUpdate
 from src.crypto.service import CryptoService
 from src.finance.models import AccountModel
 from src.finance.schemas import AccountCreate
@@ -631,64 +630,44 @@ async def test_previous_period_is_adjacent_and_same_length():
     assert previous_end - previous_start == end - start
 
 
-# --- linked crypto wallets feed the main balance ------------------------------
+# --- wallet accounts feed the main balance ------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_total_balance_includes_linked_wallets(user, account, currencies, session_maker):
-    """Linked non-archived wallet adds its current value; unlinked and archived wallets do not."""
+async def test_total_balance_includes_wallet_accounts(user, account, currencies, session_maker):
+    """A wallet account counts like any other account; excluded ones do not."""
     today = datetime.now().date()
     async with session_maker() as session:
         session.add_all(
             [
                 CryptoPriceDailyModel(asset_code="BTC", day=today, price_usd=Decimal("60000")),
                 CryptoPriceDailyModel(asset_code="ETH", day=today, price_usd=Decimal("3000")),
-                CryptoPriceDailyModel(asset_code="SOL", day=today, price_usd=Decimal("100")),
             ]
         )
         await session.commit()
     await CryptoService.create_for_user(
-        WalletCreate(
-            name="Linked",
-            kind=WalletKind.MANUAL,
-            account_id=account.id,
-            holdings=[HoldingIn(asset_code="BTC", amount=1)],
-        ),
+        WalletCreate(name="Wallet", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="BTC", amount=1)]),
         user.id,
         session_maker,
     )
-    loose = await CryptoService.create_for_user(
-        WalletCreate(name="Loose", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="ETH", amount=2)]),
+    hidden = await CryptoService.create_for_user(
+        WalletCreate(name="Hidden", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="ETH", amount=2)]),
         user.id,
         session_maker,
     )
-    # accounts are auto-created now; unlink explicitly to test the excluded path
-    await CryptoService.update_for_user(loose.id, WalletUpdate(account_id=None), user.id, session_maker)
-    archived = await AccountService.create_for_user(
-        AccountCreate(name="Old", type=AccountType.CASH, currency_id="USD", balance=0.0), user.id, session_maker
-    )
-    await CryptoService.create_for_user(
-        WalletCreate(
-            name="Archived",
-            kind=WalletKind.MANUAL,
-            account_id=archived.id,
-            holdings=[HoldingIn(asset_code="SOL", amount=5)],
-        ),
-        user.id,
-        session_maker,
-    )
+    # Excluding the wallet account takes its synced balance out of the totals.
     async with session_maker() as session:
-        row = await session.get(AccountModel, archived.id)
-        row.is_archived = True
+        row = await session.get(AccountModel, hidden.id)
+        row.is_excluded = True
         await session.commit()
 
     async with session_maker() as session:
-        # account 1000 USD + linked wallet 1 BTC × 60000
+        # account 1000 USD + wallet account 1 BTC × 60000; hidden (ETH 2 × 3000) excluded
         assert await AnalyticsDAO.total_balance_base(session, user.id) == pytest.approx(61000.0)
 
 
 @pytest.mark.asyncio
-async def test_balance_series_includes_linked_wallet(user, account, currencies, session_maker):
+async def test_balance_series_includes_wallet_value(user, account, currencies, session_maker):
     """Daily snapshots price the curve: 0 before the first day, that day's amount × that day's price after."""
     today = datetime.now().date()
     yesterday = today - timedelta(days=1)
@@ -701,19 +680,14 @@ async def test_balance_series_includes_linked_wallet(user, account, currencies, 
         )
         await session.commit()
     wallet = await CryptoService.create_for_user(
-        WalletCreate(
-            name="Linked",
-            kind=WalletKind.MANUAL,
-            account_id=account.id,
-            holdings=[HoldingIn(asset_code="BTC", amount=1)],
-        ),
+        WalletCreate(name="Wallet", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="BTC", amount=1)]),
         user.id,
         session_maker,
     )
     async with session_maker() as session:
         session.add(
             CryptoBalanceSnapshotModel(
-                wallet_id=wallet.id,
+                account_id=wallet.id,
                 asset_code="BTC",
                 day=yesterday,
                 amount=Decimal("1"),

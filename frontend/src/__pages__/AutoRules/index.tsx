@@ -209,7 +209,7 @@ function PaymentDialog({
               value={draft.account}
               onValueChange={(value) => setDraft((prev) => ({ ...prev, account: value }))}
               options={accounts
-                .filter((account) => !account.archived)
+                .filter((account) => !account.archived && !account.crypto)
                 .map((account) => ({ value: String(account.id), label: account.name }))}
             />
           </Field>

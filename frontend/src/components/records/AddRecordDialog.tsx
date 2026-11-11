@@ -98,7 +98,7 @@ export function AddRecordDialog({
   }, [availableCategories])
 
   const formAccounts = useMemo(
-    () => accounts.filter((item) => !item.archived),
+    () => accounts.filter((item) => !item.archived && !item.crypto),
     [accounts],
   )
 

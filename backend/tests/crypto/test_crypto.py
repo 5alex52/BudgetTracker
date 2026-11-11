@@ -17,7 +17,6 @@ from src.crypto.models import CryptoBalanceSnapshotModel
 from src.crypto.models import CryptoHoldingModel
 from src.crypto.models import CryptoPriceDailyModel
 from src.crypto.models import CryptoSyncRunModel
-from src.crypto.models import CryptoWalletModel
 from src.crypto.schemas import AddressIn
 from src.crypto.schemas import Chain
 from src.crypto.schemas import HoldingIn
@@ -29,9 +28,12 @@ from src.crypto.schemas import WalletUpdate
 from src.crypto.service import CryptoService
 from src.crypto.service import run_syncs_once
 from src.crypto.service import run_wallet_sync
-from src.finance.schemas import AccountCreate
 from src.finance.schemas import AccountType
+from src.finance.schemas import AccountUpdate
+from src.finance.schemas import TransactionCreate
+from src.finance.schemas import TransactionType
 from src.finance.service import AccountService
+from src.finance.service import TransactionService
 
 EVM = "0x" + "a" * 40
 BTC = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
@@ -159,7 +161,7 @@ async def test_manual_wallet_balances_flow(verified_user_client, currencies, ses
             (
                 await session.execute(
                     select(CryptoBalanceSnapshotModel).where(
-                        CryptoBalanceSnapshotModel.wallet_id == wallet_id,
+                        CryptoBalanceSnapshotModel.account_id == wallet_id,
                         CryptoBalanceSnapshotModel.asset_code == "BTC",
                         CryptoBalanceSnapshotModel.day == today,
                     )
@@ -218,7 +220,7 @@ async def test_overview_and_timeseries_math(user, currencies, session_maker):
         session.add_all(
             [
                 CryptoBalanceSnapshotModel(
-                    wallet_id=wallet.id,
+                    account_id=wallet.id,
                     asset_code="BTC",
                     day=yesterday,
                     amount=Decimal("1"),
@@ -303,7 +305,7 @@ async def test_backfill_writes_holdings_snapshots_and_sync_run(user, currencies,
             (
                 await session.execute(
                     select(CryptoHoldingModel).where(
-                        CryptoHoldingModel.wallet_id == wallet.id,
+                        CryptoHoldingModel.account_id == wallet.id,
                         CryptoHoldingModel.asset_code == "BTC",
                     )
                 )
@@ -316,7 +318,7 @@ async def test_backfill_writes_holdings_snapshots_and_sync_run(user, currencies,
             (
                 await session.execute(
                     select(CryptoBalanceSnapshotModel)
-                    .where(CryptoBalanceSnapshotModel.wallet_id == wallet.id)
+                    .where(CryptoBalanceSnapshotModel.account_id == wallet.id)
                     .order_by(CryptoBalanceSnapshotModel.day)
                 )
             )
@@ -329,7 +331,7 @@ async def test_backfill_writes_holdings_snapshots_and_sync_run(user, currencies,
         }
         assert {row.source for row in snapshots} == {SnapshotSource.BACKFILL}
         sync_run = (
-            (await session.execute(select(CryptoSyncRunModel).where(CryptoSyncRunModel.wallet_id == wallet.id)))
+            (await session.execute(select(CryptoSyncRunModel).where(CryptoSyncRunModel.account_id == wallet.id)))
             .scalars()
             .one()
         )
@@ -359,7 +361,7 @@ async def test_sync_error_is_recorded(user, currencies, session_maker, monkeypat
     assert sync_status == "error"
     async with session_maker() as session:
         sync_run = (
-            (await session.execute(select(CryptoSyncRunModel).where(CryptoSyncRunModel.wallet_id == wallet.id)))
+            (await session.execute(select(CryptoSyncRunModel).where(CryptoSyncRunModel.account_id == wallet.id)))
             .scalars()
             .one()
         )
@@ -385,7 +387,7 @@ async def test_scheduler_snapshots_manual_wallet_without_network(user, currencie
             (
                 await session.execute(
                     select(CryptoBalanceSnapshotModel).where(
-                        CryptoBalanceSnapshotModel.wallet_id == wallet.id,
+                        CryptoBalanceSnapshotModel.account_id == wallet.id,
                         CryptoBalanceSnapshotModel.day == date.today(),
                     )
                 )
@@ -417,48 +419,11 @@ def test_parse_tronscan_account_empty():
     assert parse_tronscan_account({}) == []
 
 
-# --- wallet ↔ account linking -------------------------------------------------
+# --- wallet IS the account -----------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_wallet_create_with_account_links(user, account, session_maker):
-    wallet = await CryptoService.create_for_user(
-        WalletCreate(name="W", kind=WalletKind.MANUAL, account_id=account.id), user.id, session_maker
-    )
-    assert wallet.account_id == account.id
-
-
-@pytest.mark.asyncio
-async def test_wallet_link_foreign_account_is_404(user, other_user, currencies, session_maker):
-    foreign = await AccountService.create_for_user(
-        AccountCreate(name="Theirs", type=AccountType.CASH, currency_id="USD", balance=1.0),
-        other_user.id,
-        session_maker,
-    )
-    with pytest.raises(HTTPException) as error:
-        await CryptoService.create_for_user(
-            WalletCreate(name="W", kind=WalletKind.MANUAL, account_id=foreign.id), user.id, session_maker
-        )
-    assert error.value.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_wallet_patch_unlink_and_relink(user, account, session_maker):
-    wallet = await CryptoService.create_for_user(
-        WalletCreate(name="W", kind=WalletKind.MANUAL, account_id=account.id), user.id, session_maker
-    )
-    renamed = await CryptoService.update_for_user(wallet.id, WalletUpdate(name="X"), user.id, session_maker)
-    assert renamed.account_id == account.id  # exclude_unset: a rename must not unlink
-    unlinked = await CryptoService.update_for_user(wallet.id, WalletUpdate(account_id=None), user.id, session_maker)
-    assert unlinked.account_id is None
-    relinked = await CryptoService.update_for_user(
-        wallet.id, WalletUpdate(account_id=account.id), user.id, session_maker
-    )
-    assert relinked.account_id == account.id
-
-
-@pytest.mark.asyncio
-async def test_auto_created_account_mirrors_wallet_value(user, currencies, session_maker):
+async def test_wallet_create_owns_its_account(user, currencies, session_maker):
     async with session_maker() as session:
         session.add(CryptoPriceDailyModel(asset_code="BTC", day=date.today(), price_usd=Decimal("60000")))
         await session.commit()
@@ -467,36 +432,68 @@ async def test_auto_created_account_mirrors_wallet_value(user, currencies, sessi
         user.id,
         session_maker,
     )
-    async with session_maker() as session:
-        row = (await session.execute(select(CryptoWalletModel).where(CryptoWalletModel.id == wallet.id))).scalar_one()
-        assert row.account_auto_created is True
-        mirrored = await AccountService.get_by_user(row.account_id, user.id, session_maker)
-    assert mirrored.name == "W"
-    assert mirrored.is_excluded is True  # the crypto path already feeds the totals once
-    assert mirrored.balance == pytest.approx(60000.0)
+    # The wallet id is the account id: one object, visible to finance as an investment account.
+    own = await AccountService.get_by_user(wallet.id, user.id, session_maker)
+    assert own.name == "W"
+    assert own.type == AccountType.INVESTMENT
+    assert own.currency_id == "USD"
+    assert own.crypto_kind == "manual"
+    assert own.is_excluded is False
+    assert own.balance == pytest.approx(60000.0)
 
-    # Hand-editing holdings re-mirrors the account balance...
+    # Hand-editing holdings rewrites the account balance directly.
     await CryptoService.set_manual_holdings(
         wallet.id, [HoldingIn(asset_code="BTC", amount=0.5)], user.id, session_maker
     )
-    mirrored = await _account_of(session_maker, row.account_id, user.id)
-    assert mirrored.balance == pytest.approx(30000.0)
+    own = await AccountService.get_by_user(wallet.id, user.id, session_maker)
+    assert own.balance == pytest.approx(30000.0)
 
-    # ...but a manual relink hands the wallet over: no account balance is touched after it
-    mine = await AccountService.create_for_user(
-        AccountCreate(name="Mine", type=AccountType.CASH, currency_id="USD", balance=10.0), user.id, session_maker
-    )
-    await CryptoService.update_for_user(wallet.id, WalletUpdate(account_id=mine.id), user.id, session_maker)
-    await CryptoService.set_manual_holdings(wallet.id, [HoldingIn(asset_code="BTC", amount=2)], user.id, session_maker)
-    auto = await _account_of(session_maker, row.account_id, user.id)
-    now = await _account_of(session_maker, mine.id, user.id)
-    assert now.balance == pytest.approx(10.0)
-    assert auto.balance == pytest.approx(30000.0)  # frozen: mirroring stopped at relink
+    # Deleting the wallet deletes the account (single lifecycle).
+    await CryptoService.delete_for_user(wallet.id, user.id, session_maker)
+    with pytest.raises(HTTPException) as error:
+        await AccountService.get_by_user(wallet.id, user.id, session_maker)
+    assert error.value.status_code == 404
 
 
-async def _account_of(session_maker, account_id, user_id):
-    async with session_maker() as session:
-        return await AccountService.get_by_user(account_id, user_id, session_maker)
+@pytest.mark.asyncio
+async def test_rename_through_wallet_or_account(user, currencies, session_maker):
+    wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.TRUST), user.id, session_maker)
+    renamed = await CryptoService.update_for_user(wallet.id, WalletUpdate(name="X"), user.id, session_maker)
+    assert renamed.name == "X"
+    own = await AccountService.get_by_user(wallet.id, user.id, session_maker)
+    assert own.name == "X"
+    # Finance side may rename too: it is the same row.
+    again = await AccountService.update_for_user(wallet.id, AccountUpdate(name="Y"), user.id, session_maker)
+    assert again.name == "Y"
+
+
+@pytest.mark.asyncio
+async def test_finance_side_cannot_edit_wallet_fields(user, currencies, session_maker):
+    wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.MANUAL), user.id, session_maker)
+    for schema in (AccountUpdate(balance=5.0), AccountUpdate(currency_id="EUR"), AccountUpdate(type=AccountType.CASH)):
+        with pytest.raises(HTTPException) as error:
+            await AccountService.update_for_user(wallet.id, schema, user.id, session_maker)
+        assert error.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_transactions_on_wallet_account_rejected(user, account, session_maker):
+    wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.MANUAL), user.id, session_maker)
+    for source_id, target_id in ((wallet.id, account.id), (account.id, wallet.id)):
+        with pytest.raises(HTTPException) as error:
+            await TransactionService.create_for_user(
+                TransactionCreate(
+                    account_id=source_id,
+                    amount=1.0,
+                    currency_id="USD",
+                    type=TransactionType.TRANSFER,
+                    transfer_account_id=target_id,
+                    date=datetime.now(),
+                ),
+                user.id,
+                session_maker,
+            )
+        assert error.value.status_code == 400
 
 
 # --- sync status on the wallet DTO ---------------------------------------------
@@ -526,8 +523,8 @@ async def test_last_sync_uses_latest_run(user, currencies, session_maker):
     async with session_maker() as session:
         session.add_all(
             [
-                CryptoSyncRunModel(wallet_id=wallet.id, status=SyncStatus.OK, started_at=now - timedelta(hours=2)),
-                CryptoSyncRunModel(wallet_id=wallet.id, status=SyncStatus.ERROR, started_at=now - timedelta(hours=1)),
+                CryptoSyncRunModel(account_id=wallet.id, status=SyncStatus.OK, started_at=now - timedelta(hours=2)),
+                CryptoSyncRunModel(account_id=wallet.id, status=SyncStatus.ERROR, started_at=now - timedelta(hours=1)),
             ]
         )
         await session.commit()
@@ -559,7 +556,7 @@ async def test_scheduler_does_not_rekick_wallet_with_history(user, currencies, s
     async with session_maker() as session:
         session.add(
             CryptoBalanceSnapshotModel(
-                wallet_id=wallet.id,
+                account_id=wallet.id,
                 asset_code="BTC",
                 day=date.today() - timedelta(days=5),
                 amount=Decimal("1"),

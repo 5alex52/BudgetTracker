@@ -69,6 +69,8 @@ class AccountUpdate(BaseModel):
 class AccountResponse(AccountBase):
     id: int
     user_id: uuid.UUID
+    #: Set when the account is a crypto wallet (trust/telegram/manual): its balance is managed by sync
+    crypto_kind: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

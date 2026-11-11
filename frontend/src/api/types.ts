@@ -69,6 +69,8 @@ export interface AccountDto {
   balance: number
   is_archived: boolean
   is_excluded: boolean
+  /** Признак криптокошелька: счёт управляется со страницы «Крипто» */
+  crypto_kind?: string | null
   created_at: string
   updated_at: string | null
 }
@@ -504,7 +506,6 @@ export interface CryptoWalletDto {
   base_currency: string
   last_sync_at: string | null
   last_sync_status: CryptoSyncStatus | null
-  account_id: number | null
   created_at: string
   updated_at: string | null
 }
@@ -518,13 +519,10 @@ export interface CryptoWalletCreatePayload {
   kind: CryptoWalletKind
   addresses?: Array<{ chain: CryptoChain; address: string }>
   holdings?: CryptoHoldingDto[]
-  account_id?: number | null
 }
 
 export interface CryptoWalletUpdatePayload {
   name?: string
-  /** null — отвязать счёт; отсутствие — без изменений. */
-  account_id?: number | null
 }
 
 export interface CryptoAddressCreatePayload {

@@ -88,22 +88,24 @@ export function AccountDialog({
     if (!draft.name.trim()) return
     setPending(true)
     try {
-      const payload = {
+      const shared = {
         name: draft.name.trim(),
-        type: draft.kind,
-        currency_id: draft.currency,
-        balance: Number.isFinite(balanceValue) ? balanceValue : 0,
         is_archived: Boolean(draft.archived),
         is_excluded: Boolean(draft.excluded),
       }
+      const balance = Number.isFinite(balanceValue) ? balanceValue : 0
       if (editing && account) {
+        // крипто-счёт: тип/валюту/баланс сервер править не даёт — они живут на странице «Крипто»
+        const payload = draft.crypto
+          ? shared
+          : { ...shared, type: draft.kind, currency_id: draft.currency, balance }
         await updateAccount(account.id, payload, draft.tint)
         toast({ title: t('state.saved'), description: draft.name, tone: 'success' })
       } else {
-        await createAccount(payload, draft.tint)
+        await createAccount({ ...shared, type: draft.kind, currency_id: draft.currency, balance }, draft.tint)
         toast({
           title: t('accounts.created'),
-          description: `${draft.name} · ${payload.balance} ${draft.currency}`,
+          description: `${draft.name} · ${balance} ${draft.currency}`,
           tone: 'success',
         })
       }
@@ -188,9 +190,14 @@ export function AccountDialog({
                 value={draft.currency}
                 onValueChange={(value) => setDraft({ ...draft, currency: value })}
                 options={currencyOptions}
+                disabled={draft.crypto}
               />
             </Field>
           </div>
+
+          {draft.crypto && (
+            <p className="text-caption text-fg-tertiary">{t('accounts.cryptoHint')}</p>
+          )}
 
           <div>
             <p className="mb-2 text-label font-medium text-fg-primary">{t('account.type')}</p>
@@ -201,6 +208,7 @@ export function AccountDialog({
               items={ACCOUNT_KINDS.map((kind) => ({
                 value: kind,
                 label: t(KIND_LABEL_KEY[kind]),
+                disabled: draft.crypto,
               }))}
             />
           </div>

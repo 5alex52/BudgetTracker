@@ -92,6 +92,7 @@ export function toAccount(dto: AccountDto): Account {
     tint: accountTint(dto.id),
     excluded: dto.is_excluded,
     archived: dto.is_archived,
+    crypto: dto.crypto_kind != null,
   }
 }
 

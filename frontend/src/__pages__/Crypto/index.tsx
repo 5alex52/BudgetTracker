@@ -17,7 +17,6 @@ import type {
   CryptoWalletKind,
 } from '@/api/types'
 import { useApiQuery } from '@/hooks/useApi'
-import type { Account } from '@/__shared__/types/models'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
@@ -70,12 +69,6 @@ const CHAIN_PLACEHOLDER: Partial<Record<CryptoChain, TranslationKey>> = {
 
 const chainOptions = (t: (key: TranslationKey) => string) =>
   CHAINS.map((value) => ({ value, label: t(CHAIN_LABEL[value]) }))
-
-/** Привязка счёта — как в подписках: «Без счёта» + неархивированные счета. */
-const accountOptions = (t: (key: TranslationKey) => string, accounts: Account[]) => [
-  { value: '', label: t('crypto.accountNone') },
-  ...accounts.filter((account) => !account.archived).map((account) => ({ value: String(account.id), label: account.name })),
-]
 
 /** Цвет точки статуса синхронизации; null — ещё не синхронизировался. */
 const STATUS_COLOR: Record<string, string> = {
@@ -413,7 +406,7 @@ function BalancesDialog({
 export function CryptoPage() {
   const { t, locale, number } = useI18n()
   const { toast } = useToast()
-  const accounts = useFinanceStore((state) => state.accounts)
+  const reloadAccounts = useFinanceStore((state) => state.reloadAccounts)
   const [period, setPeriod] = useState<CryptoPeriod>('30d')
   const [groupBy, setGroupBy] = useState<CryptoGroupBy>('total')
   const [connectOpen, setConnectOpen] = useState(false)
@@ -462,6 +455,8 @@ export function CryptoPage() {
       await cryptoApi.syncWallet(wallet.id)
       toast({ title: t('crypto.synced'), tone: 'success' })
       refresh()
+      // синхронизация обновила баланс счёта-кошелька — список счетов на других страницах должен быть свежим
+      void reloadAccounts()
     } catch (caught) {
       toast({
         title: t('crypto.syncFailed'),
@@ -480,6 +475,8 @@ export function CryptoPage() {
       toast({ title: t('crypto.deleted'), tone: 'success' })
       setRemoving(null)
       refresh()
+      // вместе с кошельком удался и его счёт
+      void reloadAccounts()
     } catch (caught) {
       toast({
         title: t('crypto.deleteFailed'),
@@ -575,18 +572,12 @@ export function CryptoPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((wallet) => {
-              const linkedAccount = wallet.account_id == null ? undefined : accounts.find((account) => account.id === String(wallet.account_id))
               return (
               <Card key={wallet.id} className="min-w-0 p-4">
                 <div className="flex min-w-0 items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-label font-medium text-fg-primary">{wallet.name}</p>
                     <p className="mt-0.5 text-caption text-fg-tertiary">{t(KIND_LABEL[wallet.kind])}</p>
-                    {linkedAccount && (
-                      <p className="mt-0.5 min-w-0 text-caption text-fg-tertiary">
-                        {t('crypto.linkedAccount', { name: linkedAccount.name })}
-                      </p>
-                    )}
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button
@@ -745,16 +736,14 @@ function RenameDialog({
 }) {
   const { t } = useI18n()
   const { toast } = useToast()
-  const accounts = useFinanceStore((state) => state.accounts)
+  const reloadAccounts = useFinanceStore((state) => state.reloadAccounts)
   const [name, setName] = useState('')
-  const [account, setAccount] = useState('')
   const [pending, setPending] = useState(false)
   const [lastKey, setLastKey] = useState<number | null>(null)
   if ((wallet?.id ?? null) !== lastKey) {
     setLastKey(wallet?.id ?? null)
     if (wallet) {
       setName(wallet.name)
-      setAccount(wallet.account_id == null ? '' : String(wallet.account_id))
     }
   }
 
@@ -762,11 +751,10 @@ function RenameDialog({
     if (!wallet || name.trim() === '') return
     setPending(true)
     try {
-      await cryptoApi.updateWallet(wallet.id, {
-        name: name.trim(),
-        account_id: account === '' ? null : Number(account),
-      })
+      await cryptoApi.updateWallet(wallet.id, { name: name.trim() })
       toast({ title: t('crypto.saved'), tone: 'success' })
+      // переименование кошелька переименовывает и его счёт
+      void reloadAccounts()
       onSaved()
       onClose()
     } catch (caught) {
@@ -798,14 +786,6 @@ function RenameDialog({
         <div className="space-y-4">
           <Field label={t('crypto.name')}>
             <Input value={name} onChange={(event) => setName(event.target.value)} />
-          </Field>
-          <Field label={t('crypto.accountOptional')}>
-            <FilterSelect
-              ariaLabel={t('crypto.accountOptional')}
-              value={account}
-              onValueChange={setAccount}
-              options={accountOptions(t, accounts)}
-            />
           </Field>
         </div>
       </DialogContent>

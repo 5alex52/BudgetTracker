@@ -152,11 +152,9 @@ class AnalyticsDAO:
     async def total_balance_base(cls, session: AsyncSession, user_id) -> float:
         """Sum of account balances in the base currency — the starting point for the balance chart.
 
-        Crypto wallets linked to a (non-archived) account add their current value;
-        analytics imports crypto, never the other way round, so there is no cycle.
+        Crypto wallets are accounts whose balance is maintained by sync, so they
+        already live in this sum; the history view restates them per day below.
         """
-        from src.crypto.service import crypto_current_value_base
-
         base_rate = await cls._base_rate(session, user_id)
         divisor = base_rate if base_rate and base_rate > 0 else 1.0
         rate = cls._effective_rate(user_id, CurrencyModel.code)
@@ -178,8 +176,7 @@ class AnalyticsDAO:
             )
         )
         result = await session.execute(stmt)
-        total = float(result.scalar() or 0.0) + await crypto_current_value_base(session, user_id)
-        return round(total, 2)
+        return round(float(result.scalar() or 0.0), 2)
 
     @classmethod
     async def totals_by_type(
