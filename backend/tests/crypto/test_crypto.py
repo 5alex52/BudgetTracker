@@ -496,7 +496,7 @@ async def test_last_sync_uses_latest_run(user, currencies, session_maker):
 
 
 @pytest.mark.asyncio
-async def test_scheduler_rekicks_missing_backfill_once(user, session_maker, monkeypatch):
+async def test_scheduler_rekicks_missing_backfill_once(user, currencies, session_maker, monkeypatch):
     crypto_service._SELFHEAL_KICKED.clear()
     wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.TRUST), user.id, session_maker)
     kicked: list = []
@@ -508,7 +508,7 @@ async def test_scheduler_rekicks_missing_backfill_once(user, session_maker, monk
 
 
 @pytest.mark.asyncio
-async def test_scheduler_does_not_rekick_wallet_with_history(user, session_maker, monkeypatch):
+async def test_scheduler_does_not_rekick_wallet_with_history(user, currencies, session_maker, monkeypatch):
     crypto_service._SELFHEAL_KICKED.clear()
     wallet = await CryptoService.create_for_user(WalletCreate(name="W", kind=WalletKind.TRUST), user.id, session_maker)
     kicked: list = []

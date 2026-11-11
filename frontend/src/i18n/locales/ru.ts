@@ -573,6 +573,7 @@ export const ru = {
   'crypto.kindTelegram': 'Telegram Wallet',
   'crypto.kindManual': 'Вручную',
   'crypto.help': 'Вставьте публичный адрес кошелька (только чтение). Сид-фразы не нужны и не принимаются.',
+  'crypto.autoAccountHint': 'Финансовый счёт будет создан для кошелька автоматически.',
   'crypto.holdings': 'Активы',
   'crypto.asset': 'Актив',
   'crypto.amount': 'Количество',

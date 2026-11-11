@@ -14,6 +14,7 @@ from src.crypto.schemas import HoldingIn
 from src.crypto.schemas import SnapshotSource
 from src.crypto.schemas import WalletCreate
 from src.crypto.schemas import WalletKind
+from src.crypto.schemas import WalletUpdate
 from src.crypto.service import CryptoService
 from src.finance.models import AccountModel
 from src.finance.schemas import AccountCreate
@@ -656,11 +657,13 @@ async def test_total_balance_includes_linked_wallets(user, account, currencies, 
         user.id,
         session_maker,
     )
-    await CryptoService.create_for_user(
+    loose = await CryptoService.create_for_user(
         WalletCreate(name="Loose", kind=WalletKind.MANUAL, holdings=[HoldingIn(asset_code="ETH", amount=2)]),
         user.id,
         session_maker,
     )
+    # accounts are auto-created now; unlink explicitly to test the excluded path
+    await CryptoService.update_for_user(loose.id, WalletUpdate(account_id=None), user.id, session_maker)
     archived = await AccountService.create_for_user(
         AccountCreate(name="Old", type=AccountType.CASH, currency_id="USD", balance=0.0), user.id, session_maker
     )

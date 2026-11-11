@@ -200,10 +200,8 @@ function ConnectDialog({
 }) {
   const { t } = useI18n()
   const { toast } = useToast()
-  const accounts = useFinanceStore((state) => state.accounts)
   const [kind, setKind] = useState<CryptoWalletKind>('trust')
   const [name, setName] = useState('')
-  const [account, setAccount] = useState('')
   const [addresses, setAddresses] = useState<AddressDraft[]>([{ ...EMPTY_ADDRESS }])
   const [holdings, setHoldings] = useState<HoldingDraft[]>([])
   const [pending, setPending] = useState(false)
@@ -211,7 +209,6 @@ function ConnectDialog({
   if (!open && name !== '') {
     // Диалог закрыт — сбрасываем черновик к значениям по умолчанию.
     setName('')
-    setAccount('')
     setKind('trust')
     setAddresses([{ ...EMPTY_ADDRESS }])
     setHoldings([])
@@ -228,7 +225,6 @@ function ConnectDialog({
       await cryptoApi.createWallet({
         name: name.trim(),
         kind,
-        account_id: account === '' ? undefined : Number(account),
         addresses: manual ? undefined : filledAddresses.map((row) => ({ chain: row.chain, address: row.address.trim() })),
         holdings: manual
           ? holdings
@@ -280,15 +276,7 @@ function ConnectDialog({
             </Field>
           </div>
           <p className="text-caption text-fg-tertiary">{t('crypto.help')}</p>
-
-          <Field label={t('crypto.accountOptional')}>
-            <FilterSelect
-              ariaLabel={t('crypto.accountOptional')}
-              value={account}
-              onValueChange={setAccount}
-              options={accountOptions(t, accounts)}
-            />
-          </Field>
+          <p className="text-caption text-fg-tertiary">{t('crypto.autoAccountHint')}</p>
 
           {manual ? (
             <Field label={t('crypto.holdings')}>

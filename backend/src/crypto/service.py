@@ -31,6 +31,7 @@ from ..config import settings
 from ..database import async_session_maker
 from ..finance.dao import AccountDAO
 from ..finance.models import AccountModel
+from ..finance.schemas import AccountType
 from ..finance.service_subs import _rates
 from ..finance.utils import convert_amount
 from . import adapters
@@ -600,9 +601,17 @@ class CryptoService:
         async with session_maker() as session:
             if schema.account_id is not None:
                 await cls._ensure_account(session, schema.account_id, user_id)
-            wallet = CryptoWalletModel(
-                user_id=user_id, name=schema.name, kind=schema.kind, account_id=schema.account_id
-            )
+                account_id = schema.account_id
+            else:
+                # Every connected wallet gets its own finance account (base currency, zero balance)
+                base_code, _, _ = await _rates(session, user_id)
+                account = AccountModel(
+                    user_id=user_id, name=schema.name, currency_id=base_code, type=AccountType.INVESTMENT
+                )
+                session.add(account)
+                await session.flush()
+                account_id = account.id
+            wallet = CryptoWalletModel(user_id=user_id, name=schema.name, kind=schema.kind, account_id=account_id)
             session.add(wallet)
             await session.flush()
             for item in schema.addresses or []:

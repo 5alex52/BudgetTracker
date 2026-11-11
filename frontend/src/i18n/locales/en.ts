@@ -556,6 +556,7 @@ export const en: Translations = {
   'crypto.kindTelegram': 'Telegram Wallet',
   'crypto.kindManual': 'Manual',
   'crypto.help': 'Paste a public wallet address (read-only). Seed phrases are not needed and are not accepted.',
+  'crypto.autoAccountHint': 'A finance account will be created automatically for this wallet.',
   'crypto.holdings': 'Assets',
   'crypto.asset': 'Asset',
   'crypto.amount': 'Amount',
