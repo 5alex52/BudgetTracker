@@ -473,6 +473,105 @@ export interface ServiceSubCreatePayload {
   frequency?: ServiceSubFrequency
 }
 
+/* ------------------------------- Криптокошельки ------------------------------- */
+
+export type CryptoPeriod = '7d' | '30d' | '90d' | '1y' | 'all'
+export type CryptoGroupBy = 'total' | 'asset' | 'wallet'
+export type CryptoChain = 'evm' | 'btc' | 'ton' | 'tron'
+export type CryptoWalletKind = 'trust' | 'telegram' | 'manual'
+export type CryptoSyncStatus = 'ok' | 'error' | 'partial'
+
+export interface CryptoAddressDto {
+  id: number
+  chain: CryptoChain
+  address: string
+  is_active: boolean
+}
+
+export interface CryptoHoldingDto {
+  asset_code: string
+  amount: string
+}
+
+export interface CryptoWalletDto {
+  id: number
+  name: string
+  kind: CryptoWalletKind
+  addresses: CryptoAddressDto[]
+  holdings: CryptoHoldingDto[]
+  total_usd: string
+  total_base: string
+  base_currency: string
+  last_sync_at: string | null
+  last_sync_status: CryptoSyncStatus | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface CryptoWalletListDto {
+  items: CryptoWalletDto[]
+}
+
+export interface CryptoWalletCreatePayload {
+  name: string
+  kind: CryptoWalletKind
+  addresses?: Array<{ chain: CryptoChain; address: string }>
+  holdings?: CryptoHoldingDto[]
+}
+
+export interface CryptoWalletUpdatePayload {
+  name?: string
+}
+
+export interface CryptoAddressCreatePayload {
+  chain: CryptoChain
+  address: string
+}
+
+export interface CryptoBalancesUpdatePayload {
+  holdings: CryptoHoldingDto[]
+}
+
+export interface CryptoWalletBalancesDto {
+  items: Array<{
+    asset_code: string
+    amount: string
+    price_usd: string
+    value_usd: string
+    value_base: string
+  }>
+  base_currency: string
+}
+
+export interface CryptoOverviewDto {
+  total_now_base: string
+  base_currency: string
+  change_absolute: string
+  change_percent: string
+  by_asset: Array<{
+    asset_code: string
+    amount: string
+    price_usd: string
+    value_base: string
+    change_percent: string
+  }>
+  by_wallet: Array<{
+    wallet_id: number
+    name: string
+    value_base: string
+    change_percent: string
+  }>
+}
+
+export interface CryptoTimeseriesDto {
+  points: Array<{
+    day: string
+    total_base: string
+    by_asset: Record<string, string>
+    by_wallet: Record<string, string>
+  }>
+}
+
 export interface ServiceSubUpdatePayload {
   name?: string
   icon?: string | null

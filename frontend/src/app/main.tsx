@@ -12,6 +12,7 @@ import { RecordsPage } from '../__pages__/Records'
 import type { RecordItem } from '@/__shared__/types/models'
 import { AnalyticsPage } from '../__pages__/Analytics'
 import { SubscriptionsPage } from '../__pages__/Subscriptions'
+import { CryptoPage } from '../__pages__/Crypto'
 import { AutoRulesPage } from '../__pages__/AutoRules'
 import { SettingsPage } from '../__pages__/Settings'
 import { SettingsCurrenciesPage } from '../__pages__/SettingsCurrencies'
@@ -61,6 +62,7 @@ function App() {
                   <Route path="/analytics" element={guarded(<AnalyticsPage />)} />
                   <Route path="/subscriptions" element={guarded(<SubscriptionsPage />)} />
                   <Route path="/auto-rules" element={guarded(<AutoRulesPage />)} />
+                  <Route path="/crypto" element={guarded(<CryptoPage />)} />
                   <Route path="/settings" element={guarded(<SettingsPage />)} />
                   <Route path="/settings/currencies" element={guarded(<SettingsCurrenciesPage />)} />
                   <Route path="/settings/categories" element={guarded(<SettingsCategoriesPage />)} />

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .admin import admin_router
 from .analytics import analytics_router
 from .config import settings
+from .crypto import crypto_router
 from .finance import accounts_router
 from .finance import categories_router
 from .finance import currencies_router
@@ -62,21 +63,25 @@ async def lifespan(application: FastAPI):
     # a schedule so records appear without anyone opening the page. Disabled in
     # tests, where billing is driven explicitly.
     rule_task = None
+    crypto_task = None
     if settings.ENVIRONMENT != "TEST":
         from .database import async_session_maker
+        from .crypto.service import crypto_sync_loop
         from .finance.service_subs import subscription_rule_loop
 
         rule_task = asyncio.create_task(subscription_rule_loop(async_session_maker))
+        crypto_task = asyncio.create_task(crypto_sync_loop(async_session_maker))
 
     try:
         yield
     finally:
-        if rule_task is not None:
-            rule_task.cancel()
-            try:
-                await rule_task
-            except asyncio.CancelledError:
-                pass
+        for task in (rule_task, crypto_task):
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
         Cache.reset()
         if client is not None:
             try:
@@ -114,5 +119,6 @@ app.include_router(currencies_router)
 app.include_router(tags_router)
 app.include_router(templates_router)
 app.include_router(service_subs_router)
+app.include_router(crypto_router)
 app.include_router(auth_router)
 app.include_router(users_router)

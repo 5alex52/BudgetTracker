@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CalendarClock, LayoutGrid, LineChart, Receipt, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Bitcoin, CalendarClock, LayoutGrid, LineChart, Receipt, Wallet, type LucideIcon } from 'lucide-react'
 import type { TranslationKey } from '@/i18n'
 
 export interface NavItem {
@@ -15,4 +15,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/analytics', labelKey: 'nav.analytics', icon: LineChart },
   { to: '/subscriptions', labelKey: 'nav.subscriptions', icon: Receipt },
   { to: '/auto-rules', labelKey: 'nav.autoRules', icon: CalendarClock },
+  { to: '/crypto', labelKey: 'nav.crypto', icon: Bitcoin },
 ]
