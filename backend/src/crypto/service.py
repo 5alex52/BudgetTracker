@@ -219,7 +219,12 @@ async def _wallet_rows(user_id, session: AsyncSession) -> List[CryptoBalanceSnap
 def _daily_amounts(
     rows: List[CryptoBalanceSnapshotModel], start_day: date, end_day: date
 ) -> Dict[date, Dict[Tuple[int, str], Decimal]]:
-    """{day: {(account, asset): amount}} with the latest snapshot ≤ day carried forward."""
+    """{day: {(account, asset): amount}} with the latest snapshot ≤ day carried forward.
+
+    Days BEFORE an account's first snapshot carry the earliest known snapshot
+    backward (opening balance): otherwise the balance series would show the
+    account popping out of nowhere on the first snapshot day.
+    """
     by_key: Dict[Tuple[int, str], List[CryptoBalanceSnapshotModel]] = {}
     for row in rows:
         by_key.setdefault((row.account_id, row.asset_code), []).append(row)
@@ -229,6 +234,10 @@ def _daily_amounts(
         current: Dict[Tuple[int, str], Decimal] = {}
         for key, day_rows in by_key.items():
             index = pointers[key]
+            if index == 0 and day_rows[0].day > day:
+                # открытие баланса: до первого снапшота показываем самую раннюю известную сумму
+                current[key] = day_rows[0].amount
+                continue
             while index < len(day_rows) and day_rows[index].day <= day:
                 current[key] = day_rows[index].amount
                 index += 1
@@ -258,8 +267,9 @@ async def _synced_accounts(session: AsyncSession, user_id) -> List[int]:
 async def crypto_daily_value_base(session: AsyncSession, user_id, days: List[date]) -> Dict[date, Dict[int, Decimal]]:
     """{day: {account_id: value}} in base currency: carried snapshot amounts × carried USD prices.
 
-    Days before an account's first snapshot contribute nothing; prices fall back to the
-    nearest previous day (same rules as CryptoService.timeseries). Used by analytics to
+    Days before an account's first snapshot carry the earliest known snapshot
+    backward as an opening balance; prices fall back to the nearest previous
+    day (same rules as CryptoService.timeseries). Used by analytics to
     restate crypto account balances in past buckets of the main balance series.
     """
     days = sorted(set(days))
@@ -288,6 +298,19 @@ async def crypto_daily_value_base(session: AsyncSession, user_id, days: List[dat
     price_days = _days_between(min(days[0], rows[0].day), days[-1])
     prices_map = await prices.cached_daily_prices(session, assets, price_days)
     carried_prices = prices.carry_prices_for_days(prices_map, assets, price_days)
+    # Дни до первой известной цены получают самую раннюю известную цену
+    # (симметрично переносу суммы в _daily_amounts), иначе крипта «выскакивает»
+    # в серии баланса на дне первой цены.
+    opening_prices = None
+    for day in price_days:
+        if day in carried_prices:
+            opening_prices = carried_prices[day]
+            break
+    if opening_prices is not None:
+        for day in price_days:
+            if day in carried_prices:
+                break
+            carried_prices[day] = opening_prices
     amounts = _daily_amounts(rows, days[0], days[-1])
     result: Dict[date, Dict[int, Decimal]] = {}
     for day in days:

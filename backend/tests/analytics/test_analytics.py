@@ -668,7 +668,9 @@ async def test_total_balance_includes_wallet_accounts(user, account, currencies,
 
 @pytest.mark.asyncio
 async def test_balance_series_includes_wallet_value(user, account, currencies, session_maker):
-    """Daily snapshots price the curve: 0 before the first day, that day's amount × that day's price after."""
+    """Daily snapshots price the curve: days before the first snapshot carry the
+    opening balance (earliest known amount × earliest known price), that day's
+    amount × that day's price after."""
     today = datetime.now().date()
     yesterday = today - timedelta(days=1)
     async with session_maker() as session:
@@ -707,6 +709,8 @@ async def test_balance_series_includes_wallet_value(user, account, currencies, s
         session_maker=session_maker,
     )
     values = {point.date.date(): point.value for point in series.points}
-    assert values[today - timedelta(days=2)] == pytest.approx(1000.0)  # before the first snapshot: no crypto
+    assert values[today - timedelta(days=2)] == pytest.approx(
+        51000.0
+    )  # before the first snapshot: opening 1 BTC × earliest price
     assert values[yesterday] == pytest.approx(51000.0)  # 1 BTC carried, priced at 50000
     assert values[today] == pytest.approx(61000.0)  # today's snapshot × today's price = current total

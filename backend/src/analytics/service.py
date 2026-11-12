@@ -251,8 +251,9 @@ class AnalyticsService:
 
         Crypto wallet-accounts enter the curve by their daily snapshot value:
         ``current_total`` already contains today's crypto balance, so each bucket
-        swaps it for that day's value (buckets before the first snapshot fall
-        back to non-crypto accounts only). No crypto → identical math as before.
+        swaps it for that day's value (days before the first snapshot carry the
+        earliest known snapshot backward as an opening balance). No crypto →
+        identical math as before.
         """
         from src.crypto.service import crypto_balance_base, crypto_daily_value_base
 
