@@ -139,6 +139,12 @@ class TelegramLinkInfo(BaseModel):
     chat_id: Optional[int] = None
 
 
+class TelegramAuthRequest(BaseModel):
+    """Signed launch data from a Telegram Mini App (window.Telegram.WebApp.initData)."""
+
+    init_data: str = Field(..., min_length=1, max_length=8192)
+
+
 class PushSubscribeRequest(BaseModel):
     """Browser Web Push subscription from PushManager.subscribe()."""
 

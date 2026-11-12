@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { ApiError } from '@/api'
 import * as authApi from '@/api/auth'
 import type { UserDto } from '@/api/types'
+import { initTelegramWebApp, loadTelegramWebApp } from '@/__shared__/utils/telegram'
 
 /**
  * Сессия пользователя.
@@ -33,12 +34,29 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   bootstrap: async () => {
     set({ status: 'loading', error: null })
+    // Внутри Telegram Mini App поднимаем SDK и красим окно под тему клиента.
+    const webApp = await loadTelegramWebApp()
+    if (webApp) initTelegramWebApp(webApp)
     try {
       const user = await authApi.me()
       set({ user, status: 'authenticated', error: null })
     } catch (caught) {
+      const unauthorized = caught instanceof ApiError && caught.status === 401
+      // Нет сессии, но мы в Telegram и есть подписанные initData — входим по ним.
+      if (unauthorized && webApp?.initData) {
+        try {
+          await authApi.telegramLogin(webApp.initData)
+          const user = await authApi.me()
+          set({ user, status: 'authenticated', error: null })
+          return
+        } catch {
+          // Аккаунт не привязан или initData недействителен — показываем обычный вход.
+          set({ user: null, status: 'anonymous', error: null })
+          return
+        }
+      }
       // 401 — обычная ситуация «не вошёл»; остальное показываем текстом ошибки
-      const error = caught instanceof ApiError && caught.status !== 401 ? caught.detail : null
+      const error = caught instanceof ApiError && !unauthorized ? caught.detail : null
       set({ user: null, status: 'anonymous', error })
     }
   },

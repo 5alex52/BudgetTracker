@@ -35,6 +35,7 @@ from .schemas import UserCreate
 from .schemas import UserExport
 from .schemas import UserProfileUpdate
 from .schemas import UserUpdate
+from .telegram_auth import telegram_user_id
 from .utils import get_password_hash
 from .utils import is_valid_password
 
@@ -478,6 +479,24 @@ class AuthService:
         user = await cls._authenticate_user(credentials.username, credentials.password, session_maker)
         token = await cls._create_token(user.id, device_info, session_maker)
         return token
+
+    @classmethod
+    async def login_telegram(
+        cls,
+        init_data: str,
+        device_info: DeviceInfo,
+        session_maker: async_sessionmaker,
+    ) -> Token:
+        """Вход из Telegram Mini App: initData подписан ботом, пароль не нужен."""
+        try:
+            tg_id = telegram_user_id(init_data)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram initData")
+        async with session_maker() as session:
+            user = await UserDAO.find_one_or_none(session, telegram_id=tg_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Telegram account is not linked")
+        return await cls._create_token(user.id, device_info, session_maker)
 
     @classmethod
     async def logout(cls, token: uuid.UUID, session_maker: async_sessionmaker) -> None:

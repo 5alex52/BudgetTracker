@@ -25,6 +25,19 @@ export function refresh(): Promise<TokenDto> {
   return request<TokenDto>('/auth/refresh', { method: 'POST', skipAuthRedirect: true, skipAuthRefresh: true })
 }
 
+/**
+ * Вход через Telegram Mini App: backend проверяет подпись `initData` токеном
+ * бота и выдаёт сессию по привязанному telegram_id. Токены — в httpOnly-cookie.
+ */
+export function telegramLogin(initData: string): Promise<TokenDto> {
+  return request<TokenDto>('/auth/telegram', {
+    method: 'POST',
+    body: { init_data: initData },
+    skipAuthRedirect: true,
+    skipAuthRefresh: true,
+  })
+}
+
 /** Текущий пользователь: используется для восстановления сессии при загрузке. */
 export function me(): Promise<UserDto> {
   return request<UserDto>('/users/me', { skipAuthRedirect: true })

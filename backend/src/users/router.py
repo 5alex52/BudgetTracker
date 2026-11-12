@@ -26,6 +26,7 @@ from .schemas import PushEndpointRequest
 from .schemas import PushPublicKeyResponse
 from .schemas import PushSubscribeRequest
 from .schemas import SessionInfo
+from .schemas import TelegramAuthRequest
 from .schemas import TelegramLinkInfo
 from .schemas import DeviceInfo
 from .schemas import Token
@@ -77,6 +78,22 @@ async def login(
         request=request,
         response=response,
         credentials=credentials,
+        session_maker=session_maker,
+    )
+
+
+@auth_router.post("/telegram")
+async def login_telegram(
+    request: Request,
+    response: Response,
+    payload: TelegramAuthRequest,
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+) -> Token:
+    """Вход из Telegram Mini App по подписанным initData (без пароля)."""
+    return await AuthViewSet.login_telegram(
+        request=request,
+        response=response,
+        init_data=payload.init_data,
         session_maker=session_maker,
     )
 

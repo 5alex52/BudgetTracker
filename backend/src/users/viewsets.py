@@ -189,6 +189,29 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
             device_info=device_info,
             session_maker=session_maker,
         )
+        cls._set_session_cookies(response, token)
+        return token
+
+    @classmethod
+    @check_permissions(action="login_telegram")
+    async def login_telegram(
+        cls,
+        request: Request,
+        response: Response,
+        init_data: str,
+        session_maker: async_sessionmaker = Depends(get_async_session_maker),
+    ) -> Token:
+        device_info = get_device_info(request.headers.get("User-Agent"))
+        token = await cls.service.login_telegram(
+            init_data=init_data,
+            device_info=device_info,
+            session_maker=session_maker,
+        )
+        cls._set_session_cookies(response, token)
+        return token
+
+    @staticmethod
+    def _set_session_cookies(response: Response, token: Token) -> None:
         response.set_cookie(
             "access_token",
             token.access_token,
@@ -205,7 +228,6 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
             secure=settings.ENVIRONMENT != "LOCAL",
             samesite="strict",
         )
-        return token
 
     @classmethod
     @check_permissions(action="logout")
