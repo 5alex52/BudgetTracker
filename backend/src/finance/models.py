@@ -357,3 +357,25 @@ class ServiceSubRuleModel(Base):
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime, onupdate=func.now(), nullable=True)
 
     service_sub: Mapped["ServiceSubscriptionModel"] = relationship("ServiceSubscriptionModel", back_populates="rule")
+
+
+class ServiceSubReminderModel(Base):
+    """Dedup log for subscription charge reminders: one notification per due date.
+
+    The reminder loop checks this table before sending, so a subscription is
+    reminded about a given charge at most once even across restarts.
+    """
+
+    __tablename__ = "service_sub_reminders"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    service_sub_id: Mapped[int] = mapped_column(
+        sa.Integer,
+        sa.ForeignKey("service_subscriptions.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    due_date: Mapped["datetime"] = mapped_column(sa.Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
+
+    __table_args__ = (sa.UniqueConstraint("service_sub_id", "due_date", name="uq_sub_reminder_once"),)

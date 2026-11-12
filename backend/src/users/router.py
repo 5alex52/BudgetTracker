@@ -15,13 +15,18 @@ from fastapi import Response
 from fastapi import status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import async_sessionmaker
+from src.config import settings
 from src.database import get_async_session_maker
 
 from .dependencies import get_current_active_user
 from .dependencies import get_current_superuser
 from .schemas import AccountDeleteConfirmation
 from .schemas import PasswordChange
+from .schemas import PushEndpointRequest
+from .schemas import PushPublicKeyResponse
+from .schemas import PushSubscribeRequest
 from .schemas import SessionInfo
+from .schemas import TelegramLinkInfo
 from .schemas import DeviceInfo
 from .schemas import Token
 from .schemas import User
@@ -342,6 +347,53 @@ async def delete_my_account(
 ) -> Response:
     """Delete account along with financial data (password required)."""
     await UserViewSet.delete_own_account(obj_data=payload, user=user, session_maker=session_maker)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@users_router.get("/me/telegram/link", status_code=status.HTTP_200_OK)
+async def telegram_link(
+    user: User = Depends(get_current_active_user),
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+) -> TelegramLinkInfo:
+    """Code + deep link for linking the Telegram bot (user sends /start <code>)."""
+    return await UserViewSet.telegram_link(user=user, session_maker=session_maker)
+
+
+@users_router.delete("/me/telegram", status_code=status.HTTP_204_NO_CONTENT)
+async def unlink_telegram(
+    user: User = Depends(get_current_active_user),
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+) -> Response:
+    await UserViewSet.unlink_telegram(user=user, session_maker=session_maker)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@users_router.get("/me/push/public-key", status_code=status.HTTP_200_OK)
+async def push_public_key(
+    user: User = Depends(get_current_active_user),
+) -> PushPublicKeyResponse:
+    """VAPID public key for pushManager.subscribe."""
+    return PushPublicKeyResponse(public_key=settings.VAPID_PUBLIC_KEY)
+
+
+@users_router.post("/me/push", status_code=status.HTTP_204_NO_CONTENT)
+async def subscribe_push(
+    payload: PushSubscribeRequest,
+    user: User = Depends(get_current_active_user),
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+) -> Response:
+    """Store the browser's Web Push subscription."""
+    await UserViewSet.subscribe_push(obj_data=payload, user=user, session_maker=session_maker)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@users_router.delete("/me/push", status_code=status.HTTP_204_NO_CONTENT)
+async def unsubscribe_push(
+    payload: PushEndpointRequest,
+    user: User = Depends(get_current_active_user),
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+) -> Response:
+    await UserViewSet.unsubscribe_push(obj_data=payload, user=user, session_maker=session_maker)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

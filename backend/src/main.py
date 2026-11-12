@@ -64,18 +64,22 @@ async def lifespan(application: FastAPI):
     # tests, where billing is driven explicitly.
     rule_task = None
     crypto_task = None
+    notifications_task = None
     if settings.ENVIRONMENT != "TEST":
         from .database import async_session_maker
         from .crypto.service import crypto_sync_loop
         from .finance.service_subs import subscription_rule_loop
+        from .notifications.reminders import notification_loop
 
         rule_task = asyncio.create_task(subscription_rule_loop(async_session_maker))
         crypto_task = asyncio.create_task(crypto_sync_loop(async_session_maker))
+        # Subscription charge reminders: Telegram linking poll + Web Push delivery
+        notifications_task = asyncio.create_task(notification_loop(async_session_maker))
 
     try:
         yield
     finally:
-        for task in (rule_task, crypto_task):
+        for task in (rule_task, crypto_task, notifications_task):
             if task is not None:
                 task.cancel()
                 try:

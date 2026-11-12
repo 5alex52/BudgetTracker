@@ -55,6 +55,8 @@ class UserProfileUpdate(BaseModel):
     timezone: Optional[str] = Field(None, max_length=64)
     base_currency: Optional[str] = Field(None, min_length=3, max_length=3)
     locale: Optional[str] = Field(None, max_length=8)
+    #: How many days before a subscription charge the reminder is sent: 0 = same day, 1 (default) = day before, 2 = two days before
+    reminder_days_before: Optional[int] = Field(None, ge=0, le=2)
     theme: Optional[str] = Field(None, max_length=16)
     default_period: Optional[str] = Field(None, max_length=8)
 
@@ -124,6 +126,39 @@ class User(UserBase):
     locale: Optional[str] = None
     theme: Optional[str] = None
     default_period: Optional[str] = None
+    #: 0 = remind on the charge day, 1 = day before (default), 2 = two days before
+    reminder_days_before: Optional[int] = None
+
+
+class TelegramLinkInfo(BaseModel):
+    """How to link the Telegram bot: code to send as /start and the deep link."""
+
+    code: str
+    bot_username: Optional[str] = None
+    deep_link: Optional[str] = None
+    chat_id: Optional[int] = None
+
+
+class PushSubscribeRequest(BaseModel):
+    """Browser Web Push subscription from PushManager.subscribe()."""
+
+    endpoint: str = Field(..., max_length=1024)
+    keys: "PushKeys"
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(..., max_length=256)
+    auth: str = Field(..., max_length=256)
+
+
+class PushPublicKeyResponse(BaseModel):
+    public_key: str
+
+
+class PushEndpointRequest(BaseModel):
+    """Unsubscribe only needs the endpoint."""
+
+    endpoint: str = Field(..., max_length=1024)
 
 
 class UserInline(BaseModel):
@@ -165,3 +200,4 @@ class SessionInfo(BaseModel):
 
 
 UserExport.model_rebuild()
+PushSubscribeRequest.model_rebuild()

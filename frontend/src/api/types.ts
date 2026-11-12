@@ -25,6 +25,8 @@ export interface UserDto {
   locale: string | null
   theme: string | null
   default_period: string | null
+  telegram_id: number | null
+  reminder_days_before: number | null
   created_at: string
   updated_at: string | null
   last_login_at: string | null
@@ -46,6 +48,24 @@ export interface UserProfileUpdate {
   locale?: string
   theme?: string
   default_period?: 'day' | 'week' | 'month'
+  reminder_days_before?: number
+}
+
+/** Код привязки телеграм-бота: пользователь шлёт боту /start <code> */
+export interface TelegramLinkDto {
+  code: string
+  bot_username: string | null
+  deep_link: string | null
+  chat_id: number | null
+}
+
+export interface PushSubscribeDto {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
+}
+
+export interface PushPublicKeyDto {
+  public_key: string
 }
 
 export interface UserExportDto {

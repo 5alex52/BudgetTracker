@@ -45,7 +45,26 @@ class TelegramNotifier(BaseNotifier):
         return True
 
     async def deliver(self, chat_id: str, message: str) -> None:
-        logger.info("Telegram message to %s | body=%s", chat_id, message)
+        from src.config import settings
+
+        token = settings.TELEGRAM_BOT_TOKEN
+        if not token:
+            logger.info("Telegram message to %s | body=%s (TELEGRAM_BOT_TOKEN is not set)", chat_id, message)
+            return
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                response = await client.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={"chat_id": chat_id, "text": message, "disable_notification": False},
+                )
+            if response.status_code != 200:
+                logger.warning(
+                    "Telegram delivery to %s failed: %s %s", chat_id, response.status_code, response.text[:200]
+                )
+        except Exception as caught:  # noqa: BLE001 — delivery must not break the loop
+            logger.warning("Telegram delivery to %s error: %s", chat_id, caught)
 
 
 NOTIFIERS: Dict[str, BaseNotifier] = {

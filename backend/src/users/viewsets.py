@@ -13,7 +13,9 @@ from src.database import get_async_session_maker
 from src.users.permissions import UserPermission
 from src.users.schemas import AccountDeleteConfirmation
 from src.users.schemas import PasswordChange
+from src.users.schemas import PushSubscribeRequest
 from src.users.schemas import SessionInfo
+from src.users.schemas import TelegramLinkInfo
 from src.users.schemas import Token
 from src.users.schemas import User
 from src.users.schemas import UserCreate
@@ -86,6 +88,54 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         **kwargs,
     ) -> UserExport:
         return await cls.service.export_data(user_id=user.id, session_maker=session_maker)
+
+    @classmethod
+    @check_permissions(action="telegram_link")
+    async def telegram_link(
+        cls,
+        user: User,
+        session_maker: async_sessionmaker = Depends(get_async_session_maker),
+        **kwargs,
+    ) -> TelegramLinkInfo:
+        return await cls.service.get_telegram_link(user_id=user.id, session_maker=session_maker)
+
+    @classmethod
+    @check_permissions(action="unlink_telegram")
+    async def unlink_telegram(
+        cls,
+        user: User,
+        session_maker: async_sessionmaker = Depends(get_async_session_maker),
+        **kwargs,
+    ) -> None:
+        await cls.service.unlink_telegram(user_id=user.id, session_maker=session_maker)
+
+    @classmethod
+    @check_permissions(action="subscribe_push")
+    async def subscribe_push(
+        cls,
+        obj_data: PushSubscribeRequest,
+        user: User,
+        session_maker: async_sessionmaker = Depends(get_async_session_maker),
+        **kwargs,
+    ) -> None:
+        await cls.service.save_push_subscription(
+            user_id=user.id,
+            endpoint=obj_data.endpoint,
+            p256dh=obj_data.keys.p256dh,
+            auth=obj_data.keys.auth,
+            session_maker=session_maker,
+        )
+
+    @classmethod
+    @check_permissions(action="unsubscribe_push")
+    async def unsubscribe_push(
+        cls,
+        obj_data: PushSubscribeRequest,
+        user: User,
+        session_maker: async_sessionmaker = Depends(get_async_session_maker),
+        **kwargs,
+    ) -> None:
+        await cls.service.remove_push_subscription(endpoint=obj_data.endpoint, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="delete_own_account")

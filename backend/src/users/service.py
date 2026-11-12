@@ -40,6 +40,30 @@ from .utils import is_valid_password
 
 logger = logging.getLogger(__name__)
 
+# getMe ответ кэшируется на процесс: username бота не меняется
+_bot_username_cache: Optional[str] = None
+
+
+async def _bot_username() -> str:
+    """Username бота из getMe (кэш); пустая строка без токена или при ошибке."""
+    global _bot_username_cache
+    if _bot_username_cache is not None:
+        return _bot_username_cache
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token:
+        return ""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
+        username = resp.json().get("result", {}).get("username", "") if resp.status_code == 200 else ""
+        _bot_username_cache = username
+        return username
+    except Exception:
+        logger.warning("Telegram getMe failed", exc_info=True)
+        return ""
+
 
 class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
     dao = UserDAO
@@ -242,6 +266,67 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
                 setattr(user, field, value)
             await session.commit()
         return await cls.get(user_id, session_maker)
+
+    @classmethod
+    async def get_telegram_link(cls, user_id: uuid.UUID, session_maker: async_sessionmaker) -> dict:
+        """Code for the Telegram bot: user sends /start <code> to link the chat.
+
+        The bot username is read once from getMe and cached; without a token the
+        deep link is empty and the user types the code manually.
+        """
+        import secrets
+
+        async with session_maker() as session:
+            user = await session.get(UserModel, user_id)
+            if user is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            if user.telegram_link_code is None:
+                user.telegram_link_code = secrets.token_hex(4)
+                await session.commit()
+            chat_id = user.telegram_id
+
+        bot_username = await _bot_username()
+        deep_link = f"https://t.me/{bot_username}?start={user.telegram_link_code}" if bot_username else None
+        return {
+            "code": user.telegram_link_code,
+            "bot_username": bot_username or None,
+            "deep_link": deep_link,
+            "chat_id": chat_id,
+        }
+
+    @classmethod
+    async def unlink_telegram(cls, user_id: uuid.UUID, session_maker: async_sessionmaker) -> None:
+        async with session_maker() as session:
+            user = await session.get(UserModel, user_id)
+            if user is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            user.telegram_id = None
+            user.telegram_link_code = None
+            await session.commit()
+
+    @classmethod
+    async def save_push_subscription(
+        cls, user_id: uuid.UUID, endpoint: str, p256dh: str, auth: str, session_maker: async_sessionmaker
+    ) -> None:
+        """Stores (or replaces, by endpoint) the browser's push subscription."""
+        from sqlalchemy import delete as sa_delete
+
+        from src.users.models import PushSubscriptionModel
+
+        async with session_maker() as session:
+            await session.execute(sa_delete(PushSubscriptionModel).where(PushSubscriptionModel.endpoint == endpoint))
+            session.add(PushSubscriptionModel(user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth=auth))
+            await session.commit()
+
+    @classmethod
+    async def remove_push_subscription(cls, endpoint: str, session_maker: async_sessionmaker) -> None:
+        from sqlalchemy import delete as sa_delete
+
+        from src.users.models import PushSubscriptionModel
+
+        async with session_maker() as session:
+            await session.execute(sa_delete(PushSubscriptionModel).where(PushSubscriptionModel.endpoint == endpoint))
+            await session.commit()
 
     @classmethod
     async def change_password(

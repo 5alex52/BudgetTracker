@@ -41,6 +41,11 @@ x-backend-env: &backend-env
   OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
   OAUTH_RETURN_URL: ${OAUTH_RETURN_URL:-http://localhost:5173/}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+  # Telegram-бот напоминаний о подписках и ключи Web Push (значения в .env)
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+  VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@budgettracker.local}
 
 services:
   postgres:

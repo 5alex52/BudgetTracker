@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, Languages, Wallet } from 'lucide-react'
+import { Bell, BellRing, CalendarDays, Languages, Send, Wallet } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { ApiError, usersApi } from '@/api'
+import type { TelegramLinkDto } from '@/api/types'
 import { useAuthStore } from '@/store/auth'
 import { useFinanceStore } from '@/store/finance'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
@@ -35,6 +36,15 @@ export function SettingsPage() {
   const [currency, setCurrency] = useState(baseCurrency)
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [pending, setPending] = useState(false)
+  const [remind, setRemind] = useState<'0' | '1' | '2'>('1')
+  const [pushOn, setPushOn] = useState(
+    () =>
+      typeof Notification !== 'undefined' &&
+      localStorage.getItem('bt-push-endpoint') !== null &&
+      Notification.permission === 'granted',
+  )
+  const [pushBusy, setPushBusy] = useState(false)
+  const [telegramLink, setTelegramLink] = useState<TelegramLinkDto | null>(null)
 
   /* Профиль приходит асинхронно: заполняем форму, когда он появился */
   useEffect(() => {
@@ -49,6 +59,11 @@ export function SettingsPage() {
   useEffect(() => {
     const saved = user?.default_period
     if (saved === 'day' || saved === 'week' || saved === 'month') setPeriod(saved)
+  }, [user])
+
+  useEffect(() => {
+    const saved = user?.reminder_days_before
+    if (saved === 0 || saved === 1 || saved === 2) setRemind(String(saved) as '0' | '1' | '2')
   }, [user])
 
   const save = async () => {
@@ -112,6 +127,108 @@ export function SettingsPage() {
         tone: 'error',
       })
     }
+  }
+
+  /* Напоминания о подписках: за сколько дней предупреждать (сохраняется сразу) */
+  const changeRemind = async (next: '0' | '1' | '2') => {
+    if (next === remind) return
+    setRemind(next)
+    try {
+      const updated = await usersApi.updateProfile({ reminder_days_before: Number(next) })
+      setUser(updated)
+      toast({ title: t('profile.saved'), tone: 'success' })
+    } catch (caught) {
+      setRemind(String(user?.reminder_days_before ?? 1) as '0' | '1' | '2')
+      toast({
+        title: t('profile.saveFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
+  }
+
+  const pushSupported =
+    window.isSecureContext &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    typeof Notification !== 'undefined'
+
+  const togglePush = async () => {
+    setPushBusy(true)
+    try {
+      if (pushOn) {
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.getSubscription()
+        const endpoint = localStorage.getItem('bt-push-endpoint') ?? subscription?.endpoint
+        if (subscription) await subscription.unsubscribe()
+        if (endpoint) await usersApi.unsubscribePush(endpoint)
+        localStorage.removeItem('bt-push-endpoint')
+        setPushOn(false)
+        toast({ title: t('settings.pushOff'), tone: 'info' })
+      } else {
+        const permission = await Notification.requestPermission()
+        if (permission !== 'granted') {
+          toast({ title: t('settings.pushBlocked'), tone: 'error' })
+          return
+        }
+        const { public_key } = await usersApi.getPushPublicKey()
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(public_key),
+        })
+        const keys = subscription.toJSON().keys
+        if (!keys?.p256dh || !keys?.auth) throw new Error('Push keys missing')
+        await usersApi.subscribePush({
+          endpoint: subscription.endpoint,
+          keys: { p256dh: keys.p256dh, auth: keys.auth },
+        })
+        localStorage.setItem('bt-push-endpoint', subscription.endpoint)
+        setPushOn(true)
+        toast({ title: t('settings.pushOn'), tone: 'success' })
+      }
+    } catch (caught) {
+      toast({
+        title: t('settings.pushFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
+  const connectTelegram = async () => {
+    try {
+      const link = await usersApi.getTelegramLink()
+      setTelegramLink(link)
+      if (link.deep_link) window.open(link.deep_link, '_blank', 'noopener')
+    } catch (caught) {
+      toast({
+        title: t('settings.pushFailed'),
+        description: caught instanceof ApiError ? caught.detail : String(caught),
+        tone: 'error',
+      })
+    }
+  }
+
+  /* Привязка подтверждается ботом асинхронно: «Проверить» перечитывает профиль */
+  const checkTelegram = async () => {
+    const updated = await usersApi.getProfile()
+    setUser(updated)
+    if (updated.telegram_id) {
+      setTelegramLink(null)
+      toast({ title: t('settings.telegramLinked'), tone: 'success' })
+    } else {
+      toast({ title: t('settings.telegramNotLinked'), tone: 'info' })
+    }
+  }
+
+  const disconnectTelegram = async () => {
+    await usersApi.unlinkTelegram()
+    setUser(await usersApi.getProfile())
+    setTelegramLink(null)
+    toast({ title: t('settings.telegramUnlinked'), tone: 'info' })
   }
 
   return (
@@ -193,9 +310,81 @@ export function SettingsPage() {
             </SettingRow>
           </div>
         </Card>
+
+        <Card>
+          <CardHeader title={t('settings.notifications')} subtitle={t('settings.notificationsHint')} />
+          <div className="mt-4 space-y-4">
+            <SettingRow label={t('settings.remindBefore')} icon={<BellRing className="size-4" />}>
+              <div className="w-44">
+                <FilterSelect
+                  ariaLabel={t('settings.remindBefore')}
+                  value={remind}
+                  onValueChange={(value) => void changeRemind(value as '0' | '1' | '2')}
+                  options={[
+                    { value: '2', label: t('settings.remind2days') },
+                    { value: '1', label: t('settings.remind1day') },
+                    { value: '0', label: t('settings.remindSameDay') },
+                  ]}
+                />
+              </div>
+            </SettingRow>
+
+            <SettingRow
+              label={t('settings.push')}
+              icon={<Bell className="size-4" />}
+              hint={t('settings.pushHint')}
+            >
+              {pushSupported ? (
+                <Button variant="subtle" size="sm" disabled={pushBusy} onClick={() => void togglePush()}>
+                  {pushOn ? t('settings.pushDisable') : t('settings.pushEnable')}
+                </Button>
+              ) : (
+                <span className="text-caption text-fg-tertiary">{t('settings.pushUnsupported')}</span>
+              )}
+            </SettingRow>
+
+            <SettingRow
+              label={t('settings.telegram')}
+              icon={<Send className="size-4" />}
+              hint={telegramLink ? t('settings.telegramOpen') : t('settings.telegramHint')}
+            >
+              {user?.telegram_id ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-caption text-fg-tertiary">{t('settings.telegramLinked')}</span>
+                  <Button variant="subtle" size="sm" onClick={() => void disconnectTelegram()}>
+                    {t('settings.telegramUnlink')}
+                  </Button>
+                </div>
+              ) : telegramLink ? (
+                <div className="flex items-center gap-2">
+                  <code className="rounded-xs bg-surface-2 px-2 py-1 text-caption" title={t('settings.telegramCode')}>
+                    /start {telegramLink.code}
+                  </code>
+                  <Button variant="subtle" size="sm" onClick={() => void checkTelegram()}>
+                    {t('settings.telegramCheck')}
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="subtle" size="sm" onClick={() => void connectTelegram()}>
+                  {t('settings.telegramConnect')}
+                </Button>
+              )}
+            </SettingRow>
+          </div>
+        </Card>
       </div>
     </SettingsLayout>
   )
+}
+
+/** VAPID-ключ приходит base64url — PushManager ждёт байты. */
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64.length % 4)) % 4)
+  const normalized = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = window.atob(normalized)
+  const bytes = new Uint8Array(raw.length)
+  for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index)
+  return bytes
 }
 
 function SettingRow({

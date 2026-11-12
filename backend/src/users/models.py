@@ -41,6 +41,10 @@ class UserModel(Base):
     base_currency: Mapped[str] = mapped_column(sa.String(3), default="BYN", nullable=True)
     #: Default interface language for new devices
     locale: Mapped[str] = mapped_column(sa.String(8), default="ru", nullable=True)
+    #: How many days before a subscription charge the reminder is sent: 0 = same day, 1 (default) = day before, 2 = two days before
+    reminder_days_before: Mapped[int] = mapped_column(sa.SmallInteger, default=1, nullable=False)
+    #: One-time linking code for the Telegram bot: user sends /start <code>, the bot links the chat
+    telegram_link_code: Mapped[Optional[str]] = mapped_column(sa.String(16), index=True, unique=True, nullable=True)
     #: UI theme: system | light | dark
     theme: Mapped[str] = mapped_column(sa.String(16), default="system", nullable=True)
     #: Base reporting period: day | week | month — this is what "Overview" and "Analytics" open with
@@ -54,6 +58,21 @@ class UserModel(Base):
         "TemplateModel", back_populates="user", cascade="all, delete-orphan"
     )
     fullname = sa.orm.column_property(firstname + " " + lastname)
+
+
+class PushSubscriptionModel(Base):
+    """Web Push subscription of one browser: where service-worker pushes are delivered."""
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, sa.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    endpoint: Mapped[str] = mapped_column(sa.Text, unique=True, index=True, nullable=False)
+    p256dh: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    auth: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime, default=func.now())
 
 
 class RefreshSessionModel(Base):

@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     #: Frontend URL: users land directly on app pages from emails
     FRONTEND_URL: str = "http://localhost:5173"
 
+    #: Telegram bot for subscription reminders: empty token disables the channel
+    TELEGRAM_BOT_TOKEN: str = ""
+    #: Web Push (VAPID): keys for the browser service-worker channel
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:admin@budgettracker.local"
+
     RABBIT_HOST: str = "rabbitmq"
     RABBIT_PORT: int = 5672
     RABBIT_USER: str = "user"

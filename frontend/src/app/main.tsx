@@ -93,3 +93,8 @@ function App() {
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('Failed to find the root element')
 createRoot(rootElement).render(<App />)
+
+// Web Push: воркер регистрируется тихо; на небезопасном origin просто не встанет
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  void navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+}

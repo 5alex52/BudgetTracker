@@ -23,6 +23,8 @@ celery = "^5.4.0"
 redis = "^5.0.5"
 psycopg2-binary = "^2.9.10"
 user-agents = "^2.2.0"
+httpx = "^0.28.1"
+pywebpush = "^2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"
