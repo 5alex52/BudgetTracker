@@ -14,7 +14,7 @@
 
 **Track expenses, manage multi-currency accounts, and get insights into your spending habits with advanced analytics.**
 
-[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Deployment](#deployment) • [License](#license)
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Deployment](#%EF%B8%8F-development) • [License](#-license)
 
 </div>
 
