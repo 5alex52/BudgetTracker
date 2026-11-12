@@ -61,7 +61,7 @@ const CHAIN_LABEL: Record<CryptoChain, TranslationKey> = {
 
 const CHAINS: CryptoChain[] = ['evm', 'btc', 'ton', 'tron', 'solana', 'avalanche']
 
-/** Подсказка формата адреса; остальные сети — просто «Адрес». */
+/** Address format hint; other networks — just "Address". */
 const CHAIN_PLACEHOLDER: Partial<Record<CryptoChain, TranslationKey>> = {
   solana: 'crypto.addrSolana',
   avalanche: 'crypto.addrAvalanche',
@@ -70,20 +70,20 @@ const CHAIN_PLACEHOLDER: Partial<Record<CryptoChain, TranslationKey>> = {
 const chainOptions = (t: (key: TranslationKey) => string) =>
   CHAINS.map((value) => ({ value, label: t(CHAIN_LABEL[value]) }))
 
-/** Цвет точки статуса синхронизации; null — ещё не синхронизировался. */
+/** Sync status dot color; null — never synced yet. */
 const STATUS_COLOR: Record<string, string> = {
   ok: 'var(--positive)',
   partial: 'var(--warning)',
   error: 'var(--negative)',
 }
 
-/** Ручной адрес / актив телеграм-кошелька. */
+/** Manual address / asset of a Telegram wallet. */
 interface AddressDraft {
   chain: CryptoChain
   address: string
 }
 
-/** Актив в редакторе балансов. */
+/** Asset in the balance editor. */
 interface HoldingDraft {
   asset_code: string
   amount: string
@@ -91,7 +91,7 @@ interface HoldingDraft {
 
 const EMPTY_ADDRESS: AddressDraft = { chain: 'evm', address: '' }
 
-/** Активы по умолчанию, пока /crypto/assets недоступен или пуст. */
+/** Default assets while /crypto/assets is unavailable or empty. */
 const FALLBACK_ASSETS = ['BTC', 'ETH', 'BNB', 'SOL', 'TON', 'TRX']
 
 function formatDay(day: string, locale: 'ru' | 'en') {
@@ -110,7 +110,7 @@ function formatDateTime(iso: string, locale: 'ru' | 'en') {
   }).format(new Date(iso))
 }
 
-/** Адрес длинный: режем середину вручную — CSS-обрезка в flex-строках ломает вёрстку. */
+/** Addresses are long: cut the middle manually — CSS truncation breaks layout in flex rows. */
 function middleTruncate(value: string, head = 6, tail = 4) {
   return value.length <= head + tail + 1 ? value : `${value.slice(0, head)}…${value.slice(-tail)}`
 }
@@ -119,7 +119,7 @@ function errorDetail(caught: unknown): string {
   return caught instanceof ApiError ? caught.detail : String(caught)
 }
 
-/* ------------------------- редактор активов (строки) ------------------------- */
+/* ------------------------- asset editor (rows) -------------------------------- */
 
 function HoldingsEditor({
   rows,
@@ -177,9 +177,9 @@ function HoldingsEditor({
   )
 }
 
-/* ------------------------------ диалог создания ----------------------------- */
+/* ------------------------------ create dialog -------------------------------- */
 
-/** Подключение кошелька: Trust — адреса, Telegram/manual — ручные активы. */
+/** Wallet connection: Trust — addresses, Telegram/manual — manual assets. */
 function ConnectDialog({
   open,
   onClose,
@@ -201,7 +201,7 @@ function ConnectDialog({
   const [pending, setPending] = useState(false)
 
   if (!open && name !== '') {
-    // Диалог закрыт — сбрасываем черновик к значениям по умолчанию.
+    // Dialog closed — reset the draft to defaults.
     setName('')
     setKind('trust')
     setAddresses([{ ...EMPTY_ADDRESS }])
@@ -226,7 +226,7 @@ function ConnectDialog({
               .map((row) => ({ asset_code: row.asset_code, amount: row.amount.replace(',', '.') }))
           : undefined,
       })
-      // Для кошелька создаётся финансовый счёт — список счетов должен обновиться сразу.
+      // A financial account is created for the wallet — the account list must update immediately.
       await reloadAccounts()
       toast({ title: t('crypto.saved'), tone: 'success' })
       onSaved()
@@ -329,9 +329,9 @@ function ConnectDialog({
   )
 }
 
-/* ------------------------------ диалог балансов ----------------------------- */
+/* ------------------------------ balances dialog ------------------------------ */
 
-/** Ручной ввод балансов (telegram/manual): строки актив + количество. */
+/** Manual balance entry (telegram/manual): asset + amount rows. */
 function BalancesDialog({
   wallet,
   onClose,
@@ -348,7 +348,7 @@ function BalancesDialog({
   const [rows, setRows] = useState<HoldingDraft[]>([])
   const [pending, setPending] = useState(false)
   const [lastKey, setLastKey] = useState<number | null>(null)
-  // Открытие может быть с другим кошельком — синхронизируем черновик.
+  // Opening may be for a different wallet — sync the draft.
   if ((wallet?.id ?? null) !== lastKey) {
     setLastKey(wallet?.id ?? null)
     if (wallet) setRows(wallet.holdings.map((h) => ({ ...h, amount: h.amount })))
@@ -401,7 +401,7 @@ function BalancesDialog({
   )
 }
 
-/* ---------------------------------- страница -------------------------------- */
+/* ---------------------------------- page ------------------------------------- */
 
 export function CryptoPage() {
   const { t, locale, number } = useI18n()
@@ -424,7 +424,7 @@ export function CryptoPage() {
   const items = wallets.data?.items ?? []
   const baseCurrency = overview.data?.base_currency ?? 'USD'
 
-  /** Точки графика: total — одна линия; asset/wallet — по линии на группу (поля точек = ключи серий). */
+  /** Chart points: total — one line; asset/wallet — one line per group (point fields = series keys). */
   const { chartPoints, chartSeries } = useMemo(() => {
     const raw = series.data?.points ?? []
     if (groupBy === 'total') {
@@ -456,7 +456,7 @@ export function CryptoPage() {
     }
   }, [series.data, groupBy, locale, wallets.data])
 
-  /** Синхронизация и любая мутация меняют и список, и сводку с графиком. */
+  /** Sync and any mutation change both the list and the summary with the chart. */
   const refresh = () => {
     wallets.reload()
     overview.reload()
@@ -468,7 +468,7 @@ export function CryptoPage() {
       await navigator.clipboard.writeText(address)
       toast({ title: t('crypto.copied'), tone: 'success' })
     } catch {
-      /* без доступа к буферу — просто ничего не делаем */
+      /* no clipboard access — just do nothing */
     }
   }
 
@@ -478,7 +478,7 @@ export function CryptoPage() {
       await cryptoApi.syncWallet(wallet.id)
       toast({ title: t('crypto.synced'), tone: 'success' })
       refresh()
-      // синхронизация обновила баланс счёта-кошелька — список счетов на других страницах должен быть свежим
+      // sync updated the wallet account balance — account lists on other pages must be fresh
       void reloadAccounts()
     } catch (caught) {
       toast({
@@ -498,7 +498,7 @@ export function CryptoPage() {
       toast({ title: t('crypto.deleted'), tone: 'success' })
       setRemoving(null)
       refresh()
-      // вместе с кошельком удался и его счёт
+      // the wallet's account is deleted along with the wallet
       void reloadAccounts()
     } catch (caught) {
       toast({
@@ -525,7 +525,7 @@ export function CryptoPage() {
       }
     >
       <div className="space-y-4">
-        {/* Сводка: итог и изменение за период */}
+        {/* Summary: total and change over the period */}
         <Card className="min-w-0 p-4">
           <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -548,7 +548,7 @@ export function CryptoPage() {
           </div>
         </Card>
 
-        {/* Период и группировка: на мобиле прокручиваются, без переноса строк */}
+        {/* Period and grouping: scroll on mobile, no line wrapping */}
         <div className="overflow-x-auto pb-1">
           <div className="flex min-w-max items-center gap-2">
             <SegmentedControl
@@ -566,7 +566,7 @@ export function CryptoPage() {
           </div>
         </div>
 
-        {/* График портфеля */}
+        {/* Portfolio chart */}
         {chartPoints.length > 0 && (
           <Card className="min-w-0 p-4">
             <CardHeader title={t('crypto.chartTitle')} subtitle={t('crypto.chartSubtitle')} />
@@ -580,7 +580,7 @@ export function CryptoPage() {
           </Card>
         )}
 
-        {/* Кошельки */}
+        {/* Wallets */}
         {wallets.error ? (
           <Card className="flex flex-col items-center gap-2 p-6 text-center">
             <p className="text-label text-fg-secondary">{t('state.error')}</p>
@@ -726,13 +726,13 @@ export function CryptoPage() {
         assets={assets.data?.items ?? []}
       />
 
-      {/* Переименование */}
+      {/* Rename */}
       <RenameDialog wallet={renaming} onClose={() => setRenaming(null)} onSaved={refresh} />
 
-      {/* Добавление адреса в Trust-кошелёк */}
+      {/* Add an address to a Trust wallet */}
       <AddAddressDialog wallet={addAddressWallet} onClose={() => setAddAddressWallet(null)} onSaved={refresh} />
 
-      {/* Удаление с подтверждением */}
+      {/* Delete with confirmation */}
       <Dialog open={removing !== null} onOpenChange={(next) => !next && setRemoving(null)}>
         <DialogContent
           title={t('crypto.deleteTitle')}
@@ -753,7 +753,7 @@ export function CryptoPage() {
   )
 }
 
-/** Переименование кошелька: PATCH /wallets/{id}. */
+/** Wallet rename: PATCH /wallets/{id}. */
 function RenameDialog({
   wallet,
   onClose,
@@ -782,7 +782,7 @@ function RenameDialog({
     try {
       await cryptoApi.updateWallet(wallet.id, { name: name.trim() })
       toast({ title: t('crypto.saved'), tone: 'success' })
-      // переименование кошелька переименовывает и его счёт
+      // renaming a wallet also renames its account
       void reloadAccounts()
       onSaved()
       onClose()
@@ -822,7 +822,7 @@ function RenameDialog({
   )
 }
 
-/** Новый адрес Trust-кошелька: 422 от сервера — некорректный адрес для сети. */
+/** New Trust wallet address: a 422 from the server means an invalid address for the network. */
 function AddAddressDialog({
   wallet,
   onClose,

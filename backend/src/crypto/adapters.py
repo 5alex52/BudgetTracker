@@ -229,13 +229,14 @@ async def _fetch_btc_holdings(address: str) -> Holdings:
 
 def _btc_tx_delta(tx: dict, address: str) -> int:
     """Net satoshi change of one transaction for the watched address."""
-    received = sum(
+    # vin.prevout are coins the address SPENT (inputs); vout are coins it RECEIVED.
+    spent = sum(
         vin["prevout"]["value"]
         for vin in tx.get("vin") or []
         if vin.get("prevout") and vin["prevout"].get("scriptpubkey_address") == address
     )
-    sent = sum(vout["value"] for vout in tx.get("vout") or [] if vout.get("scriptpubkey_address") == address)
-    return received - sent
+    received = sum(vout["value"] for vout in tx.get("vout") or [] if vout.get("scriptpubkey_address") == address)
+    return received - spent
 
 
 async def _fetch_btc_history(address: str, days: int) -> DailyHistory:

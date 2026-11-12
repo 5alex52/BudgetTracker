@@ -238,10 +238,10 @@ def _daily_amounts(
                 index += 1
             pointers[key] = index
             if index > 0:
-                # последний снапшот ≤ дня, в том числе перенесённый после последнего
+                # latest snapshot ≤ day, carried forward even after the last snapshot
                 current[key] = day_rows[index - 1].amount
             else:
-                # открытие баланса: до первого снапшота показываем самую раннюю известную сумму
+                # opening balance: before the first snapshot, show the earliest known amount
                 current[key] = day_rows[0].amount
         if current:
             result[day] = current

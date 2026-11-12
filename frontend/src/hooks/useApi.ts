@@ -1,9 +1,9 @@
 /**
- * Небольшие хуки для запросов к API.
+ * Small hooks for API requests.
  *
- * Полноценный кэш здесь не нужен: экранов немного, данные меняются после
- * собственных мутаций. Поэтому — загрузка с состоянием `loading/error`,
- * отмена устаревших ответов и ручной `reload` после записи.
+ * A full cache isn't needed here: there are few screens and data changes after
+ * our own mutations. So — loading with `loading/error` state, cancelling stale
+ * responses and a manual `reload` after a write.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/api'
@@ -16,13 +16,13 @@ export interface QueryState<T> {
   reload: () => void
 }
 
-/** Запрос, который перезапускается при изменении `deps`. */
+/** A request that re-runs when `deps` change. */
 export function useApiQuery<T>(factory: () => Promise<T>, deps: unknown[] = []): QueryState<T> {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<ApiError | null>(null)
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
-  // Любая правка записи/счёта меняет ревизию — виджеты перезапрашивают данные
+  // Any record/account edit bumps the revision — widgets re-fetch data
   const revision = useFinanceStore((state) => state.revision)
   const mounted = useRef(true)
 
@@ -65,7 +65,7 @@ export function useApiQuery<T>(factory: () => Promise<T>, deps: unknown[] = []):
   return { data, error, loading, reload }
 }
 
-/** Значение с задержкой: поиск по вводу не должен бить в API на каждую букву. */
+/** Debounced value: search-as-you-type must not hit the API on every keystroke. */
 export function useDebounced<T>(value: T, delay = 350): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {

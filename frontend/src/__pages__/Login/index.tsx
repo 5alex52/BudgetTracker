@@ -13,7 +13,7 @@ import { Field, Input } from '@/components/ui/field'
 import { useToast } from '@/components/ui/toast'
 import { LanguageSwitcher, ThemeSwitcher } from '@/components/layout/Switchers'
 
-/** Куда вернуть пользователя после входа: путь, с которого его увели на /login. */
+/** Where to return the user after login: the path they were taken from to /login. */
 function useRedirectTarget(): string {
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from
@@ -21,11 +21,11 @@ function useRedirectTarget(): string {
 }
 
 /**
- * «Окно входа»: слева промо-часть и мобильное приложение, справа форма.
- * На 390 px панели складываются в столбик, промо уходит вниз как второстепенное.
+ * "Login screen": promo and the mobile app on the left, the form on the right.
+ * At 390 px the panels stack vertically, the promo goes below as secondary.
  *
- * Форма работает с настоящим backend: `POST /api/auth/login` кладёт токен в
- * httpOnly-cookie, после чего приложение переходит на запрошенный экран.
+ * The form works with the real backend: `POST /api/auth/login` puts the token into
+ * an httpOnly cookie, then the app navigates to the requested screen.
  */
 export function LoginPage() {
   const { t } = useI18n()
@@ -41,9 +41,9 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
 
   /**
-   * Внешний вход: уводим браузер на backend, тот редиректит к провайдеру.
-   * Если ключи на сервере не заданы — ответит 503, показываем понятный тост
-   * вместо «битой» страницы.
+   * External login: send the browser to the backend, which redirects to the provider.
+   * If the keys aren't configured on the server it answers 503 — show a clear toast
+   * instead of a "broken" page.
    */
   const startOAuth = async (provider: 'github') => {
     try {
@@ -72,8 +72,8 @@ export function LoginPage() {
     }
   }
 
-  /* Уже вошёл? Форма входа не нужна: отправляем на запрошенный экран
-     (обычно главный). SessionGate к этому моменту уже проверил сессию. */
+  /* Already logged in? No login form needed: send to the requested screen
+     (usually the main one). SessionGate has already checked the session by now. */
   if (status === 'authenticated') {
     return <Navigate to={redirectTo} replace />
   }
@@ -87,7 +87,7 @@ export function LoginPage() {
           <Link to="/" className="rounded-sm focus-visible:outline-none">
             <Wordmark />
           </Link>
-          {/* На 390 px пара переключателей шире строки: в столбик на всю ширину */}
+          {/* At 390 px the pair of switchers is wider than the row: stack full-width */}
           <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
             <LanguageSwitcher />
             <ThemeSwitcher stretch />
@@ -95,7 +95,7 @@ export function LoginPage() {
         </header>
 
         <div className="grid flex-1 items-center gap-8 pb-6 lg:grid-cols-[1.15fr_minmax(380px,460px)]">
-          {/* Промо */}
+          {/* Promo */}
           <section className="order-2 lg:order-1">
             <h1 className="max-w-xl text-display font-semibold tracking-tight text-fg-primary">
               {t('login.headline')}
@@ -119,12 +119,12 @@ export function LoginPage() {
             </div>
           </section>
 
-          {/* Форма */}
+          {/* Form */}
           <section className="order-1 lg:order-2">
             <GlassSurface level="lg" className="p-6">
               <h2 className="text-title font-semibold text-fg-primary">{t('login.title')}</h2>
 
-              {/* Вход через сервисы: GitHub */}
+              {/* Login via services: GitHub */}
               <div className="mt-4 space-y-2">
                 <Button
                   variant="subtle"
@@ -186,8 +186,8 @@ export function LoginPage() {
                     autoComplete="current-password"
                     invalid={Boolean(error)}
                     onKeyDown={(event) => {
-                      // Явный submit: не все браузеры отправляют форму по Enter
-                      // из поля пароля (особенно после автозаполнения).
+                      // Explicit submit: not all browsers submit the form on Enter
+                      // from the password field (especially after autofill).
                       if (event.key === 'Enter' && !pending) {
                         event.preventDefault()
                         event.currentTarget.form?.requestSubmit()

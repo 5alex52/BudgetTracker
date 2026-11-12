@@ -15,11 +15,11 @@ export interface GlassClassOptions {
 }
 
 /**
- * Классы материала — единственное место, где собирается стекло.
+ * Material classes — the single place where glass is assembled.
  *
- * Компоненты, которым нельзя обернуть разметку в `GlassSurface` (Radix Content
- * требует `asChild`, кнопки и переключатели — свой элемент), берут классы отсюда:
- * так материал остаётся одним, а не копией в шести файлах.
+ * Components that can't wrap their markup in `GlassSurface` (Radix Content
+ * requires `asChild`, buttons and toggles have their own element) take classes from here:
+ * the material stays one implementation, not a copy across six files.
  */
 export function glassClass({
   level = 'md',
@@ -43,15 +43,15 @@ export function glassClass({
 }
 
 export interface GlassSurfaceProps extends HTMLAttributes<HTMLDivElement> {
-  /** Прозрачность материала */
+  /** Material transparency */
   variant?: GlassVariant
-  /** Уровень размытия и радиус */
+  /** Blur level and radius */
   level?: GlassLevel
-  /** SVG-рефракция (только Chromium, только для элементов ≤ --glass-refract-max-w) */
+  /** SVG refraction (Chromium only, only for elements ≤ --glass-refract-max-w) */
   refraction?: boolean
-  /** Блик, следящий за курсором (только Chromium/desktop, отключается системными настройками) */
+  /** Cursor-following glint (Chromium/desktop only, disabled by system settings) */
   glow?: boolean
-  /** Принудительно непрозрачный фон (модал поверх модала, fallback) */
+  /** Force an opaque background (modal over modal, fallback) */
   opaque?: boolean
   as?: 'div' | 'nav' | 'aside' | 'header' | 'section'
 }
@@ -59,11 +59,11 @@ export interface GlassSurfaceProps extends HTMLAttributes<HTMLDivElement> {
 const REFRACT_MAX = 800
 
 /**
- * Единый примитив материала «жидкое стекло».
+ * The single "liquid glass" material primitive.
  *
- * Уровень 1 — blur + saturate + обводка + внутренний блик (все браузеры).
- * Уровень 2 — SVG-рефракция через backdrop-filter: url(#...), только Chromium.
- * Уровень 3 — пружина при нажатии и блик за курсором.
+ * Level 1 — blur + saturate + border + inner glint (all browsers).
+ * Level 2 — SVG refraction via backdrop-filter: url(#...), Chromium only.
+ * Level 3 — press spring and cursor-following glint.
  */
 export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(function GlassSurface(
   {
@@ -85,7 +85,7 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(functi
   const [allowGlow, setAllowGlow] = useState(false)
   const frame = useRef<number | null>(null)
 
-  // Рефракция: только Chromium (feature-detect) и только для нешироких элементов.
+  // Refraction: Chromium only (feature-detect) and only for narrow elements.
   useEffect(() => {
     if (!refraction) return
     const el = innerRef.current
@@ -95,7 +95,7 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(functi
     setAllowRefraction(!wide)
   }, [refraction])
 
-  // Блик за курсором: только там, где есть точный указатель и разрешено движение.
+  // Cursor glint: only where there's a fine pointer and motion is allowed.
   useEffect(() => {
     if (!glow) return
     const fine = window.matchMedia('(pointer: fine)').matches

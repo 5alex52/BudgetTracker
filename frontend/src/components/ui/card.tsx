@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 import { cn } from '@/__shared__/utils/cn'
 
 /**
- * Карточка контента. ВАЖНО: без стекла — контент не получает backdrop-filter.
- * Радиус внешний 18, внутренние блоки используют --radius-nest-3.
+ * Content card. IMPORTANT: no glass — content doesn't get backdrop-filter.
+ * Outer radius 18, inner blocks use --radius-nest-3.
  */
 export function Card({
   children,

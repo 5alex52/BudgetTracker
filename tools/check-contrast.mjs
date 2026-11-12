@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * Аудит контраста текста по WCAG 2.1.
+ * Text contrast audit per WCAG 2.1.
  *
- * Для каждого видимого текста считает цвет текста и фактический фон: идёт по
- * предкам и послойно смешивает полупрозрачные фоны (стекло, поверхности,
- * подсветки) с базовым фоном страницы. Затем считает отношение контраста и
- * сравнивает с порогом: 4.5:1 для обычного текста, 3:1 для крупного
- * (≥ 24 px или ≥ 18.66 px полужирного).
+ * For every visible text it computes the text color and the actual background: walks
+ * the ancestors and blends semi-transparent backgrounds (glass, surfaces,
+ * highlights) layer by layer with the page's base background. Then computes the contrast
+ * ratio and compares it to the threshold: 4.5:1 for normal text, 3:1 for large
+ * (≥ 24 px or ≥ 18.66 px bold).
  *
- * Работает на чистом CDP, без Playwright.
+ * Runs on pure CDP, no Playwright.
  *
- * Использование:
+ * Usage:
  *   node tools/check-contrast.mjs [--base http://127.0.0.1:5199] [--theme dark|light]
  *                                [--json out.json] [--min 4.5]
  */
@@ -33,7 +33,7 @@ const theme = arg('theme', 'dark')
 const jsonOut = arg('json', null)
 const minRatio = Number(arg('min', 4.5))
 
-/** Экраны, где стоит открыть слой и проверить текст уже внутри него. */
+/** Screens where a layer should be opened and the text inside it checked. */
 const OVERLAYS = {
   '/': ['Добавить счёт', 'Выбрать период'],
   '/accounts': ['Действия со счётом'],
@@ -70,11 +70,11 @@ async function endpoint() {
         if (data.webSocketDebuggerUrl) return data.webSocketDebuggerUrl
       }
     } catch {
-      /* ждём */
+      /* wait */
     }
     await sleep(200)
   }
-  throw new Error('Chrome не отдал endpoint')
+  throw new Error('Chrome did not expose an endpoint')
 }
 
 const socket = new WebSocket(await endpoint())
@@ -106,7 +106,7 @@ function send(method, params = {}, sessionId = undefined) {
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id)
-        reject(new Error(`таймаут ${method}`))
+        reject(new Error(`timeout ${method}`))
       }
     }, 90000)
   })
@@ -123,13 +123,13 @@ async function evaluate(expression) {
   const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId)
   if (result.exceptionDetails) {
     const details = result.exceptionDetails
-    const message = details.exception?.description ?? details.text ?? 'ошибка выполнения'
+    const message = details.exception?.description ?? details.text ?? 'execution error'
     return { error: String(message).split('\n')[0] }
   }
   return { value: result.result?.value }
 }
 
-/** Считаем контраст прямо в браузере: там же доступны computed styles. */
+/** Compute contrast right in the browser: computed styles are available there. */
 const AUDIT_JS = `(() => {
   const parseColor = (value) => {
     const match = value.match(/rgba?\\(([^)]+)\\)/);
@@ -164,7 +164,7 @@ const AUDIT_JS = `(() => {
   const dark = document.documentElement.classList.contains('dark');
   const baseColor = dark ? { r: 8, g: 11, b: 10, a: 1 } : { r: 238, g: 242, b: 241, a: 1 };
 
-  /** Фактический фон под элементом: послойно смешиваем предков. */
+  /** Actual background under the element: blend the ancestors layer by layer. */
   const backgroundFor = (element) => {
     const chain = [];
     let node = element;
@@ -176,7 +176,7 @@ const AUDIT_JS = `(() => {
     for (const layer of chain) {
       const style = getComputedStyle(layer);
       if (style.backgroundImage && style.backgroundImage !== 'none') {
-        // градиент/картинка — точный цвет не посчитать, помечаем
+        // gradient/image — the exact color can't be computed, flag it
         background = { ...background, hasImage: true };
       }
       const color = parseColor(style.backgroundColor);
@@ -213,7 +213,7 @@ const AUDIT_JS = `(() => {
   const results = [];
   const seen = new Set();
 
-  // Плейсхолдеры: цвет задаётся отдельным правилом, поэтому меряем его как текст
+  // Placeholders: the color is set by a separate rule, so measure it as text
   for (const input of document.querySelectorAll('input[placeholder], textarea[placeholder]')) {
     if (!visible(input)) continue;
     const style = getComputedStyle(input);
@@ -232,7 +232,7 @@ const AUDIT_JS = `(() => {
     if (seen.has(key)) continue;
     seen.add(key);
     results.push({
-      text: 'плейсхолдер: ' + placeholderText.slice(0, 40),
+      text: 'placeholder: ' + placeholderText.slice(0, 40),
       where: describe(input),
       color: placeholder.color,
       background: 'rgb(' + [bg.r, bg.g, bg.b].map((c) => Math.round(c)).join(', ') + ')',
@@ -257,7 +257,7 @@ const AUDIT_JS = `(() => {
     if (['SCRIPT', 'STYLE', 'OPTION'].includes(el.tagName)) continue;
 
     const style = getComputedStyle(el);
-    // У SVG-текста (подписи осей и легенды recharts) цвет задаётся заливкой, а не color
+    // SVG text (axis labels and recharts legends) gets its color from fill, not color
     const isSvgText = el instanceof SVGElement;
     const raw = isSvgText ? style.fill : style.color;
     const fg = parseColor(raw);
@@ -291,7 +291,7 @@ const AUDIT_JS = `(() => {
     });
   }
 
-  // Иконки: по WCAG 1.4.11 для графических объектов порог 3:1, а не 4.5
+  // Icons: per WCAG 1.4.11 graphical objects use a 3:1 threshold, not 4.5
   for (const svg of document.querySelectorAll('svg')) {
     if (!visible(svg)) continue;
     const rect = svg.getBoundingClientRect();
@@ -304,7 +304,7 @@ const AUDIT_JS = `(() => {
     if (seen.has(key)) continue;
     seen.add(key);
     results.push({
-      text: 'иконка ' + Math.round(rect.width) + '×' + Math.round(rect.height),
+      text: 'icon ' + Math.round(rect.width) + '×' + Math.round(rect.height),
       where: describe(svg.parentElement ?? svg),
       color: style.color,
       background: 'rgb(' + [bg.r, bg.g, bg.b].map((c) => Math.round(c)).join(', ') + ')',
@@ -321,7 +321,7 @@ const AUDIT_JS = `(() => {
   return results;
 })()`
 
-/** Находит кнопку по подписи и нажимает её настоящей мышью (submit и Radix ждут pointerdown). */
+/** Finds a button by label and presses it with a real mouse (submit and Radix expect pointerdown). */
 async function pressByLabel(label) {
   const prepared = await evaluate(`(async () => {
     const label = (el) => (el.getAttribute('aria-label') || el.textContent || '').replace(/\\s+/g, ' ').trim();
@@ -360,13 +360,13 @@ for (const path of PAGES) {
   }
   report[path] = value ?? []
 
-  // Открытые слои проверяем отдельно: там стекло поверх контента и мелкий текст
+  // Opened layers are checked separately: glass over content and small text there
   for (const label of OVERLAYS[path] ?? []) {
     await send('Page.navigate', { url: `${base}${path}?theme=${theme}` }, sessionId)
     await sleep(1200)
     const opened = await pressByLabel(label)
     if (!opened) {
-      report[`${path} → «${label}»`] = [{ text: 'слой не открылся', pass: true, ratio: 21, threshold: minRatio, where: '—', color: '—', background: '—' }]
+      report[`${path} → «${label}»`] = [{ text: 'layer did not open', pass: true, ratio: 21, threshold: minRatio, where: '—', color: '—', background: '—' }]
       continue
     }
     const inner = await evaluate(AUDIT_JS)
@@ -384,22 +384,22 @@ for (const [path, items] of Object.entries(report)) {
   failed += bad.length
   for (const item of bad) failures.push({ path, ...item })
   if (bad.length === 0) {
-    console.log(`✓ ${path} — ${items.length} текстов, всё выше порога`)
+    console.log(`✓ ${path} — ${items.length} texts, all above the threshold`)
     continue
   }
-  console.log(`\n✗ ${path} — ${bad.length} из ${items.length} ниже порога`)
+  console.log(`\n✗ ${path} — ${bad.length} of ${items.length} below the threshold`)
   for (const item of bad.sort((a, b) => a.ratio - b.ratio).slice(0, 12)) {
-    console.log(`   ${String(item.ratio).padStart(5)}:1  (нужно ${item.threshold})  «${item.text}»`)
-    console.log(`          цвет ${item.color} на ${item.background} · ${Math.round(item.size)}px/${item.weight}${item.hasImage ? ' · фон с градиентом' : ''}`)
+    console.log(`   ${String(item.ratio).padStart(5)}:1  (need ${item.threshold})  «${item.text}»`)
+    console.log(`          color ${item.color} on ${item.background} · ${Math.round(item.size)}px/${item.weight}${item.hasImage ? ' · gradient background' : ''}`)
     console.log(`          ${item.where.slice(0, 150)}`)
   }
 }
 
-console.log(`\nИТОГО: проверено ${total} текстовых узлов, ниже порога — ${failed}`)
+console.log(`\nTOTAL: checked ${total} text nodes, below threshold — ${failed}`)
 
 if (jsonOut) {
   await writeFile(jsonOut, JSON.stringify({ theme, total, failed, report, failures }, null, 2))
-  console.log(`отчёт: ${jsonOut}`)
+  console.log(`report: ${jsonOut}`)
 }
 
 socket.close()

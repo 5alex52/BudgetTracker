@@ -41,12 +41,12 @@ from .utils import is_valid_password
 
 logger = logging.getLogger(__name__)
 
-# getMe ответ кэшируется на процесс: username бота не меняется
+# getMe response is cached per process: the bot's username doesn't change
 _bot_username_cache: Optional[str] = None
 
 
 async def _bot_username() -> str:
-    """Username бота из getMe (кэш); пустая строка без токена или при ошибке."""
+    """Bot username from getMe (cached); empty string if no token or on error."""
     global _bot_username_cache
     if _bot_username_cache is not None:
         return _bot_username_cache
@@ -282,7 +282,7 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
             if user is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
             if user.telegram_link_code is None:
-                user.telegram_link_code = secrets.token_hex(4)
+                user.telegram_link_code = secrets.token_hex(8)
                 await session.commit()
             chat_id = user.telegram_id
 
@@ -309,7 +309,12 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
     async def save_push_subscription(
         cls, user_id: uuid.UUID, endpoint: str, p256dh: str, auth: str, session_maker: async_sessionmaker
     ) -> None:
-        """Stores (or replaces, by endpoint) the browser's push subscription."""
+        """Stores (or replaces, by endpoint) the browser's push subscription.
+
+        The endpoint identifies one browser, so an existing row is replaced even
+        if it belongs to another user: after an account switch in the same
+        browser, reminders must not keep arriving for the previous account.
+        """
         from sqlalchemy import delete as sa_delete
 
         from src.users.models import PushSubscriptionModel
@@ -320,13 +325,19 @@ class UserService(BaseService[UserModel, UserCreate, UserUpdate]):
             await session.commit()
 
     @classmethod
-    async def remove_push_subscription(cls, endpoint: str, session_maker: async_sessionmaker) -> None:
+    async def remove_push_subscription(
+        cls, user_id: uuid.UUID, endpoint: str, session_maker: async_sessionmaker
+    ) -> None:
         from sqlalchemy import delete as sa_delete
 
         from src.users.models import PushSubscriptionModel
 
         async with session_maker() as session:
-            await session.execute(sa_delete(PushSubscriptionModel).where(PushSubscriptionModel.endpoint == endpoint))
+            await session.execute(
+                sa_delete(PushSubscriptionModel).where(
+                    PushSubscriptionModel.endpoint == endpoint, PushSubscriptionModel.user_id == user_id
+                )
+            )
             await session.commit()
 
     @classmethod
@@ -487,7 +498,7 @@ class AuthService:
         device_info: DeviceInfo,
         session_maker: async_sessionmaker,
     ) -> Token:
-        """Вход из Telegram Mini App: initData подписан ботом, пароль не нужен."""
+        """Login from Telegram Mini App: initData is signed by the bot, no password needed."""
         try:
             tg_id = telegram_user_id(init_data)
         except ValueError:

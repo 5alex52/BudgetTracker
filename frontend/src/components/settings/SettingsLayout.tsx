@@ -31,9 +31,9 @@ const GROUPS: Array<{
 ]
 
 /**
- * Общий каркас раздела настроек: слева навигация по подразделам, справа —
- * содержимое. Одинаковая структура для всех страниц настроек, чтобы переходы
- * не «прыгали», а навигация была на одном месте.
+ * Shared settings section shell: subsection navigation on the left,
+ * content on the right. The same structure for all settings pages so transitions
+ * don't "jump" and the navigation stays in one place.
  */
 export function SettingsLayout({
   title,
@@ -91,7 +91,7 @@ export function SettingsLayout({
         </div>
       }
     >
-      {/* На телефоне боковая навигация настроек скрыта — показываем её чипами */}
+      {/* On a phone the settings side navigation is hidden — show it as chips */}
       <nav aria-label={t('settings.title')} className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1 md:hidden">
         {GROUPS.flatMap((group) => group.items).map((item) => {
           const chipClass =

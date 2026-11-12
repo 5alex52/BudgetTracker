@@ -15,26 +15,26 @@ import { useToast } from '@/components/ui/toast'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 import { cn } from '@/__shared__/utils/cn'
 
-/** Разбор суммы: пускаем и «12,50», и «12.50», и пробелы-разделители тысяч. */
+/** Amount parsing: accept "12,50", "12.50" and space thousand separators. */
 function parseAmount(value: string): number | null {
   const normalized = value.replace(/\s/g, '').replace(',', '.')
   const parsed = Number(normalized)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
-/** Дата и время формы → ISO без часового пояса (сервер хранит «наивное» время). */
+/** Form date and time → ISO without a timezone (the server stores "naive" time). */
 function toIso(date: string, time: string): string {
   return `${date}T${time || '00:00'}:00`
 }
 
 /**
- * «Добавление записи» — двухколоночный стеклянный модал из референса.
+ * "Add record" — the two-column glass modal from the reference.
  *
- * Отправляет запись на сервер: правила авто-категоризации, баланс счёта и метки
- * считает backend. Поля «тип платежа», «плательщик» и «подтверждено» из макета
- * убраны: таких полей в модели данных нет, и сохранять их было бы некуда.
- * У перевода категории нет: форма спрашивает счёт-получатель, а сервер
- * подставляет служебную категорию и пересчитывает валюты по личным курсам.
+ * Sends the record to the server: auto-categorization rules, account balance and tags
+ * are computed by the backend. The "payment type", "payer" and "confirmed" fields from the mockup
+ * were dropped: the data model has no such fields, there'd be nowhere to store them.
+ * A transfer has no category: the form asks for the destination account, and the server
+ * substitutes a system category and converts currencies at personal rates.
  */
 export function AddRecordDialog({
   open,
@@ -43,7 +43,7 @@ export function AddRecordDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Если передан — модал работает в режиме редактирования записи */
+  /** If passed — the modal works in record edit mode */
   record?: RecordItem | null
 }) {
   const editing = Boolean(record)
@@ -74,7 +74,7 @@ export function AddRecordDialog({
 
   const isTransfer = type === 'transfer'
 
-  /* Категории под текущий тип записи: расход и доход не смешиваются */
+  /* Categories for the current record type: expense and income don't mix */
   const availableCategories = useMemo(
     () =>
       isTransfer
@@ -84,8 +84,8 @@ export function AddRecordDialog({
   )
 
   /**
-   * Плоский список «родитель → дети»: заголовки групп в выпадающем меню
-   * убраны по требованию, вложенность читается отступом и точкой цвета.
+   * Flat "parent → children" list: group headers in the dropdown were removed
+   * on request; nesting reads via indent and a color dot.
    */
   const categoryOptions = useMemo(() => {
     const parents = availableCategories.filter((category) => category.parentId === null)
@@ -136,7 +136,7 @@ export function AddRecordDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, record])
 
-  /* Категория по умолчанию — первая подходящая: пустой селект выглядит как ошибка */
+  /* Default category — the first suitable one: an empty select looks like an error */
   useEffect(() => {
     if (!open || editing || isTransfer) return
     if (categoryId && availableCategories.some((category) => String(category.id) === categoryId)) return
@@ -144,7 +144,7 @@ export function AddRecordDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing, isTransfer, availableCategories])
 
-  /* Получатель перевода не может совпадать с источником: держим валидный выбор */
+  /* The transfer destination can't equal the source: keep the selection valid */
   useEffect(() => {
     if (!open || !isTransfer) return
     if (toAccountId && toAccountId !== accountId) return
@@ -212,7 +212,7 @@ export function AddRecordDialog({
       } else {
         await createRecord(payload)
         toast({ title: t('records.created'), description: t('records.createSuccess'), tone: 'success' })
-        // «Сделать шаблоном» — отдельный запрос: шаблон живёт своей жизнью
+        // "Create a template" is a separate request: the template lives its own life
         if (makeTemplate) {
           await createTemplate({
             name: note.trim() || t('records.title'),
@@ -260,7 +260,7 @@ export function AddRecordDialog({
         }
       >
         <div className="grid gap-5 md:grid-cols-[1.2fr_1fr]">
-          {/* Левая колонка: сумма, счёт, категория, заметка */}
+          {/* Left column: amount, account, category, note */}
           <div className={cn('space-y-4 rounded-md border p-4', accent.border)}>
             <div className={cn('flex gap-2', accent.chip)}>
               <SegmentedControl
@@ -362,7 +362,7 @@ export function AddRecordDialog({
             </Field>
           </div>
 
-          {/* Правая колонка: «другие детали» */}
+          {/* Right column: "other details" */}
           <div className="space-y-4">
             <div className="rounded-md bg-surface-2/60 p-3">
               <p className="mb-2 flex items-center gap-1.5 text-caption font-medium uppercase tracking-wide text-fg-tertiary">

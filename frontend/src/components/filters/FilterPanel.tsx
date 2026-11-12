@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { FilterSelect } from '@/components/ui/overlays'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 
-/** Фильтры в терминах интерфейса: в параметры API их переводит страница записей. */
+/** Filters in UI terms: the records page converts them to API parameters. */
 export interface RecordFilters {
   accountIds: string[]
   categoryIds: number[]
@@ -30,11 +30,11 @@ export const EMPTY_FILTERS: RecordFilters = {
 }
 
 /**
- * Панель фильтров записей.
+ * Records filter panel.
  *
- * Набор групп сокращён до того, что реально фильтруется на сервере: счета,
- * категории, метки, валюты, тип записи и диапазон суммы. Группы вроде «статус
- * подтверждения» из макета остались бы декоративными, поэтому их нет.
+ * The group set is reduced to what the server actually filters: accounts,
+ * categories, tags, currencies, record type and amount range. Groups like
+ * "confirmation status" from the mockup would be decorative, so they're gone.
  */
 export function FilterPanel({
   value,
@@ -257,7 +257,7 @@ export function FilterPanel({
   )
 }
 
-/** Группа фильтра: раскрыта по умолчанию, сворачивается для компактности на мобиле. */
+/** Filter group: expanded by default, collapsible for compactness on mobile. */
 function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(true)
 

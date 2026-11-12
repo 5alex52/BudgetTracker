@@ -1,14 +1,14 @@
 import type { RecordItem } from '@/__shared__/types/models'
 
 /**
- * Экспорт записей. Форматы считаются на клиенте, без бэкенда:
- * CSV и TSV — плоские таблицы, JSON — полные объекты, XLS — SpreadsheetML
- * (Excel открывает его как обычную книгу), PDF — через печать браузера
- * («Сохранить как PDF» в диалоге печати).
+ * Record export. Formats are produced on the client, no backend:
+ * CSV and TSV — flat tables, JSON — full objects, XLS — SpreadsheetML
+ * (Excel opens it as a regular workbook), PDF — via browser printing
+ * ("Save as PDF" in the print dialog).
  *
- * PDF печатается не сама страница приложения, а отдельный документ: белый лист,
- * чёрный текст, тонкие линии — официальный вид, который одинаково читается
- * и на бумаге, и в электронном виде. Цвета интерфейса в печать не попадают.
+ * The PDF prints a separate document, not the app page itself: white sheet,
+ * black text, thin lines — a formal look that reads the same on paper
+ * and on screen. UI colors never reach the printout.
  */
 
 export type ExportFormat = 'csv' | 'tsv' | 'json' | 'xls' | 'pdf'
@@ -58,7 +58,7 @@ const escapeHtml = (value: string) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 
-/** Сумма по валютам: в PDF нельзя складывать разные валюты в одно число. */
+/** Totals by currency: in the PDF different currencies can't be summed into one number. */
 function totalsByCurrency(items: RecordItem[]) {
   const totals = new Map<string, number>()
   for (const item of items) {
@@ -74,8 +74,8 @@ const formatMoney = (value: number, locale: string) =>
   }).format(value)
 
 /**
- * Печать официального документа: белый фон, чёрный текст, тонкая рамка.
- * Открывается отдельным окном, поэтому стили приложения на результат не влияют.
+ * Print a formal document: white background, black text, thin border.
+ * Opens in a separate window, so app styles don't affect the result.
  */
 function printOfficialDocument(items: RecordItem[], locale: string) {
   const ru = locale === 'ru'
@@ -154,7 +154,7 @@ function printOfficialDocument(items: RecordItem[], locale: string) {
   .totals td { border: none; padding: 0.8mm 1.5mm; font-size: 10pt; }
   .totals .label { text-align: right; font-weight: 700; text-transform: uppercase; font-size: 8.5pt; letter-spacing: 0.03em; }
   footer { margin-top: 8mm; padding-top: 2mm; border-top: 0.35pt solid #808080; font-size: 8pt; }
-  /* Ничего лишнего: ни фонов, ни теней — только текст и линии */
+  /* Nothing extra: no backgrounds, no shadows — text and lines only */
   @media print { a { color: #000000; text-decoration: none; } }
 </style>
 </head>
@@ -173,7 +173,7 @@ function printOfficialDocument(items: RecordItem[], locale: string) {
 
   const printWindow = window.open('', '_blank', 'width=900,height=1200')
   if (!printWindow) {
-    // Всплывающее окно заблокировано — печатаем текущую страницу, как раньше
+    // Popup blocked — print the current page, as before
     window.print()
     return
   }
@@ -201,7 +201,7 @@ export function exportRecords(items: RecordItem[], format: ExportFormat, locale:
   const { header, body } = rows(items, locale)
 
   if (format === 'xls') {
-    // SpreadsheetML: Excel и LibreOffice открывают без предупреждений о формате.
+    // SpreadsheetML: Excel and LibreOffice open it without format warnings.
     const cell = (value: string) =>
       `<Cell><Data ss:Type="${/^-?\d+([.,]\d+)?$/.test(value) ? 'Number' : 'String'}">${value
         .replace(/&/g, '&amp;')
@@ -219,7 +219,7 @@ export function exportRecords(items: RecordItem[], format: ExportFormat, locale:
   }
 
   const delimiter = format === 'tsv' ? '\t' : ';'
-  // BOM — чтобы Excel корректно прочитал кириллицу из CSV.
+  // BOM so Excel reads Cyrillic from the CSV correctly.
   const content = '\ufeff' + [header, ...body].map((row) => row.map((v) => escapeDelimited(v, delimiter)).join(delimiter)).join('\r\n')
   download(content, `records-${stamp}.${format}`, format === 'tsv' ? 'text/tab-separated-values' : 'text/csv')
   return { filename: `records-${stamp}.${format}` }

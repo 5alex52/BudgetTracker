@@ -1,5 +1,5 @@
 #!/bin/sh
-# Точка входа backend-контейнера: применяет миграции и запускает переданную команду.
+# Backend container entrypoint: applies migrations, then runs the given command.
 set -e
 
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then

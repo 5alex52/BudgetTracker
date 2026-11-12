@@ -17,7 +17,7 @@ import { glassClass } from '@/components/glass/GlassSurface'
 /* ------------------------------- Switch ---------------------------------- */
 
 export interface SwitchProps extends ComponentPropsWithoutRef<typeof SwitchPrimitive.Root> {
-  /** Подпись справа; клик по тексту переключает (label → button) */
+  /** Label on the right; clicking the text toggles (label → button) */
   label?: ReactNode
 }
 
@@ -68,7 +68,7 @@ export const Switch = forwardRef<ElementRef<typeof SwitchPrimitive.Root>, Switch
 /* ------------------------------ Checkbox --------------------------------- */
 
 export interface CheckboxProps extends ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> {
-  /** Подпись справа; клик по тексту переключает (label → button) */
+  /** Label on the right; clicking the text toggles (label → button) */
   label?: ReactNode
 }
 
@@ -121,7 +121,7 @@ export interface SliderProps
   extends Omit<ComponentPropsWithoutRef<typeof SliderPrimitive.Root>, 'value' | 'onValueChange'> {
   value: number[]
   onValueChange?: (value: number[]) => void
-  /** Показывать значения над бегунками */
+  /** Show values above the slider thumbs */
   showValues?: boolean
 }
 
@@ -165,9 +165,9 @@ export const Slider = forwardRef<ElementRef<typeof SliderPrimitive.Root>, Slider
 
 export interface SegmentedControlItem {
   value: string
-  /** Текстовая подпись; служит доступным именем и в режиме «только иконка» */
+  /** Text label; serves as the accessible name even in icon-only mode */
   label: string
-  /** Необязательная иконка слева от подписи (в iconOnly — вместо неё) */
+  /** Optional icon to the left of the label (in iconOnly — instead of it) */
   icon?: ComponentType<{ className?: string }>
   disabled?: boolean
 }
@@ -179,16 +179,16 @@ export interface SegmentedControlProps {
   'aria-label'?: string
   className?: string
   /**
-   * Показывать только иконки. Текстовая подпись остаётся доступной через
-   * aria-label сегмента — так контрол помещается в узкую строку и не
-   * обрезается до безымянных пиктограмм.
+   * Show icons only. The text label stays available via the segment's
+   * aria-label — so the control fits a narrow row and isn't clipped
+   * down to nameless pictograms.
    */
   iconOnly?: boolean
 }
 
 /**
- * Сегментированный контрол на стекле: индикатор — пилюля, переезжающая
- * CSS-переходом (не layout-анимация, чтобы не дёргать reflow в списках).
+ * Segmented control on glass: the indicator is a pill moving via
+ * a CSS transition (not a layout animation, to avoid triggering reflow in lists).
  */
 export function SegmentedControl({ items, className, iconOnly = false, ...rest }: SegmentedControlProps) {
   return (
@@ -208,7 +208,7 @@ export function SegmentedControl({ items, className, iconOnly = false, ...rest }
             key={item.value}
             value={item.value}
             disabled={item.disabled}
-            // В iconOnly текст скрыт, поэтому доступное имя задаётся явно.
+            // In iconOnly the text is hidden, so the accessible name is set explicitly.
             aria-label={iconOnly ? item.label : undefined}
             title={iconOnly ? item.label : undefined}
             className={cn(

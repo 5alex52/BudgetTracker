@@ -29,14 +29,14 @@ export const DialogOverlay = forwardRef<
 export interface DialogContentProps extends ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   title: string
   description?: string
-  /** Скрыть кнопку закрытия (например, в двухколоночной форме со своими действиями) */
+  /** Hide the close button (e.g. in a two-column form with its own actions) */
   hideClose?: boolean
   footer?: ReactNode
 }
 
 /**
- * Стеклянная панель диалога. Радиус внешний = --glass-radius-lg,
- * у внутренних блоков считается по правилу «внешний − padding».
+ * Glass dialog panel. Outer radius = --glass-radius-lg,
+ * inner blocks follow the "outer − padding" rule.
  */
 export const DialogContent = forwardRef<ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(
   function DialogContent(
@@ -97,8 +97,8 @@ export interface SheetContentProps extends ComponentPropsWithoutRef<typeof Dialo
 }
 
 /**
- * Sheet — стеклянная панель, выезжающая с края. На мобиле используется для
- * фильтров (side="left") и меню «Ещё» (side="bottom").
+ * Sheet — a glass panel sliding in from an edge. On mobile used for
+ * filters (side="left") and the "More" menu (side="bottom").
  */
 export const SheetContent = forwardRef<ElementRef<typeof DialogPrimitive.Content>, SheetContentProps>(
   function SheetContent({ className, children, title, side = 'left', ...rest }, ref) {

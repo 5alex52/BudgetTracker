@@ -6,7 +6,7 @@ import { useI18n } from '@/i18n'
 import { Sheet, SheetContent } from '@/components/ui/dialogs'
 import { LanguageSwitcher } from './Switchers'
 
-/** Нижний стеклянный Sheet для «Ещё» на мобиле. */
+/** Bottom glass Sheet for "More" on mobile. */
 export function MoreSheet({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const { t } = useI18n()

@@ -9,8 +9,8 @@ import { MoreSheet } from './MoreSheet'
 const MOBILE_ITEMS = NAV_ITEMS
 
 /**
- * Мобильная навигация: стеклянный таб-бар с safe-area.
- * Пятый пункт открывает стеклянный Sheet «Ещё» (Инвестиции, Импорты, настройки).
+ * Mobile navigation: glass tab bar with safe-area.
+ * The fifth item opens the glass "More" Sheet (Investments, Imports, settings).
  */
 export function TabBar() {
   const { t } = useI18n()

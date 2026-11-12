@@ -13,15 +13,15 @@ import { Field, Input } from '@/components/ui/field'
 import { useToast } from '@/components/ui/toast'
 import { LanguageSwitcher, ThemeSwitcher } from '@/components/layout/Switchers'
 
-/** Минимальная длина пароля: та же проверка, что и на сервере. */
+/** Minimum password length: the same check as on the server. */
 const MIN_PASSWORD = 8
 
 /**
- * «Регистрация»: тот же каркас, что у входа.
+ * "Registration": the same shell as login.
  *
- * После успешного создания аккаунта сразу выполняем вход — пользователь не
- * должен вводить пароль дважды. Если пришли со страницы тарифов, возвращаем
- * в оплату, чтобы выбранный план не потерялся.
+ * After the account is created we log in immediately — the user shouldn't
+ * enter the password twice. If they came from the plans page, return them
+ * to checkout so the selected plan isn't lost.
  */
 export function RegisterPage() {
   const { t } = useI18n()
@@ -54,8 +54,8 @@ export function RegisterPage() {
         password,
       })
 
-      // Если почта требует подтверждения — показываем уведомление и уходим на вход.
-      // Подтверждение по ссылке из письма выполнит вход автоматически.
+      // If the email requires confirmation — show a notice and go to login.
+      // Confirming via the email link will log in automatically.
       if (!user.is_verified) {
         toast({
           title: t('register.emailSent', { email: email.trim() }),
@@ -66,7 +66,7 @@ export function RegisterPage() {
         return
       }
 
-      // LOCAL-режим без Redis: адрес уже подтверждён сервером, входим сразу.
+      // LOCAL mode without Redis: the address is already confirmed by the server, log in right away.
       await signIn(email.trim(), password)
       toast({ title: t('register.done'), tone: 'success' })
       navigate('/', { replace: true })
@@ -77,7 +77,7 @@ export function RegisterPage() {
     }
   }
 
-  /* Уже вошёл? Форма регистрации не нужна: сразу на главный экран. */
+  /* Already logged in? No registration form needed: straight to the main screen. */
   if (status === 'authenticated') {
     return <Navigate to="/" replace />
   }

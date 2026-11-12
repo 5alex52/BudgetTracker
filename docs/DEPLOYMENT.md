@@ -80,8 +80,8 @@ openssl rand -base64 32
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourorg/budgettracker.git
-cd budgettracker
+git clone https://github.com/5alex52/BudgetTracker.git
+cd BudgetTracker
 ```
 
 ### 2. Configure Environment

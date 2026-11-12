@@ -9,7 +9,7 @@ from httpx import AsyncClient
 from src.notifications.reminders import reminder_message
 from src.notifications.reminders import should_remind
 
-# --- чистая логика времени -----------------------------------------------
+# --- pure timing logic -----------------------------------------------------
 
 
 def _at(day_offset: int, hour: int, minute: int = 0) -> datetime:
@@ -40,7 +40,7 @@ def test_overdue_still_reminds_once():
     assert should_remind(_at(0, 12, 0), due, lead_days=1)
 
 
-# --- текст сообщения -------------------------------------------------------
+# --- message text ----------------------------------------------------------
 
 
 def test_message_ru_lead_variants():
@@ -61,7 +61,7 @@ def test_message_unknown_locale_falls_back_to_ru():
     assert "завтра" in reminder_message("Netflix", 9.99, "USD", 1, "de")
 
 
-# --- профиль ----------------------------------------------------------------
+# --- profile ---------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -82,7 +82,7 @@ async def test_update_me_rejects_out_of_range_lead(verified_user_client):
     assert (await async_client.patch("/api/users/me", json={"reminder_days_before": -1})).status_code == 422
 
 
-# --- push-подписки ----------------------------------------------------------
+# --- push subscriptions ----------------------------------------------------
 
 
 PUSH_PAYLOAD = {
@@ -108,7 +108,7 @@ async def test_push_subscribe_and_unsubscribe(verified_user_client):
     response = await async_client.post("/api/users/me/push", json=PUSH_PAYLOAD)
     assert response.status_code == 204
 
-    # повторная подписка тем же endpoint — upsert, без дублей
+    # subscribing again with the same endpoint — upsert, no duplicates
     response = await async_client.post("/api/users/me/push", json=PUSH_PAYLOAD)
     assert response.status_code == 204
 
@@ -121,7 +121,18 @@ async def test_push_requires_authentication(async_client: AsyncClient):
     assert (await async_client.post("/api/users/me/push", json=PUSH_PAYLOAD)).status_code == 401
 
 
-# --- привязка Telegram -------------------------------------------------------
+@pytest.mark.asyncio
+async def test_push_subscribe_rejects_http_endpoint(verified_user_client):
+    """http endpoints would let the server be aimed at internal hosts (SSRF)."""
+    async_client, _, _ = verified_user_client
+
+    payload = {**PUSH_PAYLOAD, "endpoint": "http://169.254.169.254/latest/meta-data/"}
+    response = await async_client.post("/api/users/me/push", json=payload)
+
+    assert response.status_code == 422
+
+
+# --- Telegram linking ------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -132,8 +143,8 @@ async def test_telegram_link_returns_code(verified_user_client):
 
     assert response.status_code == 200
     payload = response.json()
-    assert len(payload["code"]) == 8
-    # повторный запрос не меняет код
+    assert len(payload["code"]) == 16
+    # a repeated request does not change the code
     again = await async_client.get("/api/users/me/telegram/link")
     assert again.json()["code"] == payload["code"]
 

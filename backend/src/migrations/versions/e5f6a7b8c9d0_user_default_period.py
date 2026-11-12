@@ -17,9 +17,7 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "users",
-        sa.Column(
-            "default_period", sa.String(length=8), nullable=True, server_default="month"
-        ),
+        sa.Column("default_period", sa.String(length=8), nullable=True, server_default="month"),
     )
 
 

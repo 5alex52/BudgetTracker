@@ -1,4 +1,4 @@
-/** Счета: список, карточка, обороты, архивирование и исключение из статистики. */
+/** Accounts: list, card, turnover, archiving and exclusion from statistics. */
 import { request } from './client'
 import type {
   AccountCreate,
@@ -48,7 +48,7 @@ export function setAccountExcluded(accountId: string | number, isExcluded: boole
   })
 }
 
-/** Обороты счёта за период: карточка «Баланс / Записи» в деталях. */
+/** Account turnover for a period: the "Balance / Records" card in details. */
 export function getAccountSummary(
   accountId: string | number,
   range?: { startDate?: string; endDate?: string },
@@ -58,7 +58,7 @@ export function getAccountSummary(
   })
 }
 
-/** Остаток по всем счетам в базовой валюте; с периодом — остаток на конец периода. */
+/** Balance across all accounts in the base currency; with a period — balance at period end. */
 export function getTotalBalance(range?: { startDate?: string; endDate?: string }): Promise<BalanceOverviewDto> {
   return request<BalanceOverviewDto>('/finance/accounts/balance', {
     query: { start_date: range?.startDate, end_date: range?.endDate },

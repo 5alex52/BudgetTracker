@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-/** Переменные окружения сборки (см. `.env`). */
+/** Build environment variables (see `.env`). */
 interface ImportMetaEnv {
   readonly VITE_API_BASE?: string
   readonly VITE_API_PROXY_TARGET?: string

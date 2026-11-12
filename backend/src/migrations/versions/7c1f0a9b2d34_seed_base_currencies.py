@@ -4,9 +4,9 @@ Revision ID: 7c1f0a9b2d34
 Revises: eaca08a294fc
 Create Date: 2026-11-01 23:10:00.000000
 
-Справочник валют нужен до создания счетов: на него ссылаются accounts.currency_id
-и transactions.currency_id. Без валют приложение не может создать ни один счёт,
-поэтому стартовый набор валют заводится миграцией.
+The currency catalog must exist before accounts are created: accounts.currency_id
+and transactions.currency_id reference it. Without currencies the app cannot
+create a single account, so the initial currency set is seeded by a migration.
 """
 
 from datetime import datetime
@@ -52,9 +52,7 @@ currencies = sa.table(
 
 def upgrade() -> None:
     connection = op.get_bind()
-    existing = {
-        code for (code,) in connection.execute(sa.text("SELECT code FROM currencies"))
-    }
+    existing = {code for (code,) in connection.execute(sa.text("SELECT code FROM currencies"))}
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     rows = [

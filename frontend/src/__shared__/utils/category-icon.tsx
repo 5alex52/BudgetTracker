@@ -49,9 +49,9 @@ import {
 } from 'lucide-react'
 
 /**
- * Имена иконок в демо-данных заданы строками (как в API).
- * Здесь — единственная точка сопоставления: импортируются только нужные иконки,
- * поэтому tree-shaking сохраняется.
+ * Icon names in the demo data are strings (as in the API).
+ * This is the single mapping point: only the needed icons are imported,
+ * so tree-shaking is preserved.
  */
 const ICONS: Record<string, LucideIcon> = {
   utensils: Utensils,
@@ -72,7 +72,7 @@ const ICONS: Record<string, LucideIcon> = {
   scale: Scale,
   wallet: Wallet,
   cash: CircleDollarSign,
-  // Расширенный набор: техника, транспорт, здоровье, дом, работа, досуг
+  // Extended set: tech, transport, health, home, work, leisure
   coffee: Coffee,
   car: Car,
   fuel: Fuel,
@@ -113,5 +113,5 @@ function CategoryIconImpl({
   return <Icon className={className} aria-hidden="true" strokeWidth={1.75} />
 }
 
-/** Иконка категории: мемоизирована — в списках их десятки. */
+/** Category icon: memoized — lists have dozens of them. */
 export const CategoryIcon = memo(CategoryIconImpl)

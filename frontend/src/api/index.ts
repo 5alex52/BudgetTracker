@@ -1,4 +1,4 @@
-/** Точка входа слоя API: один импорт на страницу. */
+/** API layer entry point: one import per page. */
 export * as accountsApi from './accounts'
 export * as adminApi from './admin'
 export * as analyticsApi from './analytics'

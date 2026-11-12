@@ -12,15 +12,15 @@ import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { useToast } from '@/components/ui/toast'
 
 /**
- * «Настройки → Валюты».
+ * "Settings → Currencies".
  *
- * Справочник курсов общий для всех — его ведёт сервис. Пользователь может
- * задать свой курс для любой валюты: он используется только в его расчётах
- * (`PUT /currencies/{code}/rate`) и сбрасывается к справочному одним нажатием.
+ * The rate catalog is shared by everyone — the service maintains it. The user can
+ * set a personal rate for any currency: it's used only in their calculations
+ * (`PUT /currencies/{code}/rate`) and resets to the catalog one with a single click.
  *
- * Валюты, которые пользователь использует в своих счетах, показываются сверху
- * в обычном цвете. Остальные идут ниже приглушённым тоном — это справочник,
- * который может пригодиться, если счёт будет открыт в новой валюте.
+ * Currencies the user has in their accounts are shown on top in the regular color.
+ * The rest go below in a muted tone — a catalog that may come in handy if an account
+ * is opened in a new currency.
  */
 export function SettingsCurrenciesPage() {
   const { t } = useI18n()
@@ -37,7 +37,7 @@ export function SettingsCurrenciesPage() {
 
   const base = rates.find((item) => item.base) ?? rates[0]
 
-  /** Валюты, которые уже встречаются в открытых счетах пользователя */
+  /** Currencies that already appear in the user's open accounts */
   const usedCurrencies = useMemo(() => {
     const codes = new Set<string>()
     accounts.forEach((account) => {
@@ -46,7 +46,7 @@ export function SettingsCurrenciesPage() {
     return codes
   }, [accounts])
 
-  /** Справочник валют: активные сверху, остальные ниже приглушённые */
+  /** Currency catalog: active ones on top, the rest below muted */
   const { active, inactive } = useMemo(() => {
     const activeList: CurrencyRate[] = []
     const inactiveList: CurrencyRate[] = []
@@ -62,7 +62,7 @@ export function SettingsCurrenciesPage() {
 
   const openEdit = (rate: CurrencyRate) => {
     setDraft(rate)
-    // Курс в справочнике — «сколько валюты за 1 базовую», его и редактируем
+    // The catalog rate is "how much currency per 1 base unit" — that's what we edit
     setValue(String(rate.rate).replace('.', ','))
   }
 
@@ -150,7 +150,7 @@ export function SettingsCurrenciesPage() {
                   </td>
                 </tr>
               )}
-              {/* Сначала активные валюты (в счетах пользователя) */}
+              {/* Active currencies first (in the user's accounts) */}
               {active.map((item, index) => (
                 <tr key={item.code} className={index > 0 ? 'border-t border-stroke-subtle' : undefined}>
                   <th scope="row" className="px-3 py-2.5 text-left font-normal sm:px-4">
@@ -223,7 +223,7 @@ export function SettingsCurrenciesPage() {
                   </td>
                 </tr>
               ))}
-              {/* Неактивные валюты справочника — приглушённым тоном */}
+              {/* Inactive catalog currencies — in a muted tone */}
               {inactive.length > 0 && (
                 <>
                   {active.length > 0 && (

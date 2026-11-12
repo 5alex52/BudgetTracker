@@ -1,4 +1,4 @@
-# локальные переменные окружения
+# local environment variables
 .env
 .env.local
 *.env.prod
@@ -22,7 +22,7 @@ report.html
 node_modules/
 dist/
 
-# design/ref анализ: рабочие артефакты инструментов (кэши, кропы, состояние modlens с ключом)
+# design/ref analysis: working tool artifacts (caches, crops, modlens state with a key)
 tools/.npmcache/
 tools/.mcache/
 tools/home/
@@ -30,7 +30,7 @@ tools/crops/
 tools/out/
 tools/fontcheck/
 
-# артефакты скриншот-проверки
+# screenshot-check artifacts
 tools/shots/
 tools/chrome-profile/
 tools/crash/
@@ -39,8 +39,11 @@ tools/*.txt
 tools/test-*.png
 tools/fontcheck/
 
-# тяжёлые артефакты прогона
+# heavy run artifacts
 tools/mockup-log.txt
 
-# Бэкенд — часть проекта: docker compose собирает образ из ./backend,
-# поэтому каталог не игнорируется (иначе в клоне/CI не будет контекста сборки).
+# Ansible secrets (deploy-time vault file, never commit)
+ansible/group_vars/vault.yml
+
+# The backend is part of the project: docker compose builds the image from ./backend,
+# so the directory is NOT ignored (otherwise a clone/CI would have no build context).

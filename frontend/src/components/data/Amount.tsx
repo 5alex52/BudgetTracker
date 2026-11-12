@@ -3,7 +3,7 @@ import type { Currency } from '@/__shared__/types/models'
 import { useI18n } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 
-/** Значки валют; для остальных кодов показываем сам код. */
+/** Currency symbols; for other codes we show the code itself. */
 const SUFFIX: Record<string, string> = {
   BYN: 'BYN',
   RUB: '₽',
@@ -16,7 +16,7 @@ const symbolOf = (currency: Currency) => SUFFIX[currency] ?? currency
 export interface AmountProps {
   value: number
   currency?: Currency
-  /** Показывать знак + для положительных */
+  /** Show a + sign for positive values */
   signed?: boolean
   tone?: 'auto' | 'neutral' | 'positive' | 'negative'
   size?: 'xs' | 'sm' | 'md' | 'lg'
@@ -31,8 +31,8 @@ const SIZE: Record<NonNullable<AmountProps['size']>, string> = {
 }
 
 /**
- * Сумма с валютой. Дробная часть набирается Medeo Mono: цифры не «пляшут»
- * при обновлении и выравниваются в таблицах.
+ * Amount with currency. The fractional part is set in Medeo Mono: digits don't jitter
+ * on updates and line up in tables.
  */
 function AmountImpl({
   value,
@@ -75,14 +75,14 @@ function AmountImpl({
   )
 }
 
-/** Значок изменения: стрелка + проценты. Цвет дублируется направлением стрелки. */
+/** Change badge: arrow + percent. Color is duplicated by the arrow direction. */
 export function TrendBadge({
   value,
   invert = false,
   className,
 }: {
   value: number
-  /** Расходы: рост трат — плохо, поэтому цвет инвертируется, стрелка — нет. */
+  /** Expenses: growing spending is bad, so the color is inverted, the arrow is not. */
   invert?: boolean
   className?: string
 }) {
@@ -122,5 +122,5 @@ export function CurrencyTag({ currency, className }: { currency: Currency; class
   )
 }
 
-/** Сумма: мемо, чтобы списки не перерисовывали форматирование зря. */
+/** Amount: memo so lists don't re-run formatting for nothing. */
 export const Amount = memo(AmountImpl)

@@ -1,21 +1,21 @@
-"""Администратор со стандартными доступами для локальной разработки.
+"""Administrator with default credentials for local development.
 
-Скрипт создаёт суперпользователя с фиксированными логином и паролем либо
-приводит уже существующего к ним же: почта, пароль и флаги ``is_superuser``,
-``is_verified``, ``is_active`` выставляются заново. Так «стандартный пароль»
-всегда восстанавливается одной командой, даже если его успели сменить.
+The script creates a superuser with a fixed login and password, or brings an
+existing one back to them: email, password and the ``is_superuser``,
+``is_verified``, ``is_active`` flags are set anew. This way the "default
+password" can always be restored with a single command, even if it was changed.
 
-Данные админу не создаются: это управленческая учётная запись, наполнение
-для демонстрации делает ``scripts.seed_demo``.
+No data is created for the admin: it is a management account; demo content
+is seeded by ``scripts.seed_demo``.
 
-Запуск — внутри контейнера backend (из корня проекта)::
+Run inside the backend container (from the project root)::
 
     docker compose exec backend python -m scripts.seed_admin
-    docker compose exec backend python -m scripts.seed_admin --keep-password   # не менять пароль
+    docker compose exec backend python -m scripts.seed_admin --keep-password   # keep the password
 
-Логин по умолчанию: ``admin`` + домен ниже / ``admin12345``.
-Почту и пароль можно переопределить переменными окружения
-``ADMIN_USER_EMAIL`` и ``ADMIN_USER_PASSWORD``.
+Default login: ``admin`` + the domain below / ``admin12345``.
+Email and password can be overridden with the ``ADMIN_USER_EMAIL`` and
+``ADMIN_USER_PASSWORD`` environment variables.
 """
 
 from __future__ import annotations
@@ -33,9 +33,9 @@ from src.finance import models as _finance_models  # noqa: F401
 from src.users.models import UserModel
 from src.users.utils import get_password_hash
 
-# Модели финансов и биллинга нужны, чтобы SQLAlchemy связал relationship'ы UserModel
+# Finance and billing models are needed so SQLAlchemy can wire up UserModel relationships
 
-# Логин собираем из частей: так адрес проще заменить целиком
+# Build the login from parts: makes it easier to replace the whole address
 _ADMIN_LOGIN = "admin"
 _ADMIN_DOMAIN = "budgettracker.local"
 ADMIN_EMAIL = os.getenv("ADMIN_USER_EMAIL") or f"{_ADMIN_LOGIN}{'@'}{_ADMIN_DOMAIN}"
@@ -60,15 +60,15 @@ async def seed_admin(keep_password: bool = False) -> None:
                 base_currency="BYN",
                 locale="ru",
                 theme="system",
-                # Колонка уникальная и NOT NULL: 0 занят демо-пользователем,
-                # отрицательный id не может совпасть с настоящим Telegram
+                # The column is unique and NOT NULL: 0 is taken by the demo user,
+                # and a negative id can never collide with a real Telegram one
                 telegram_id=-1,
             )
             session.add(user)
             await session.commit()
-            print(f"[admin] создан суперпользователь {ADMIN_EMAIL}")
+            print(f"[admin] superuser created: {ADMIN_EMAIL}")
         else:
-            # Почта могла быть изменена — возвращаем стандартную
+            # The email may have been changed — restore the default one
             user.email = ADMIN_EMAIL
             user.is_superuser = True
             user.is_verified = True
@@ -76,18 +76,18 @@ async def seed_admin(keep_password: bool = False) -> None:
             if not keep_password:
                 user.password = get_password_hash(ADMIN_PASSWORD)
             await session.commit()
-            print(f"[admin] обновлён суперпользователь {ADMIN_EMAIL}")
+            print(f"[admin] superuser updated: {ADMIN_EMAIL}")
 
-    print("[admin] готово")
-    print(f"[admin] вход: {ADMIN_EMAIL} / " + ("пароль не менялся" if keep_password else ADMIN_PASSWORD))
+    print("[admin] done")
+    print(f"[admin] login: {ADMIN_EMAIL} / " + ("password unchanged" if keep_password else ADMIN_PASSWORD))
 
 
 def main(argv: Optional[List[str]] = None) -> None:
-    parser = argparse.ArgumentParser(description="Администратор BudgetTracker со стандартными доступами")
+    parser = argparse.ArgumentParser(description="BudgetTracker administrator with default credentials")
     parser.add_argument(
         "--keep-password",
         action="store_true",
-        help="не сбрасывать пароль существующего пользователя на стандартный",
+        help="do not reset an existing user's password to the default",
     )
     args = parser.parse_args(argv)
     asyncio.run(seed_admin(keep_password=args.keep_password))

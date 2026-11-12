@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Сквозная проверка API так, как его вызывает фронтенд.
+# End-to-end API check, exactly as the frontend calls it.
 set -uo pipefail
 BASE=http://127.0.0.1:8000/api
 JAR=$(mktemp)
@@ -15,7 +15,7 @@ say "POST /auth/login" "$(code -X POST "$BASE/auth/login" \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode "username=$LOGIN@$DOMAIN" --data-urlencode "password=$PASS")"
 TOKEN_OK=$(grep -c access_token "$JAR" || true)
-say "cookies в jar" "$TOKEN_OK"
+say "cookies in jar" "$TOKEN_OK"
 
 say "GET /users/me" "$(code "$BASE/users/me")"
 say "GET /finance/accounts/" "$(code "$BASE/finance/accounts/")"
@@ -27,7 +27,7 @@ say "GET /finance/rules/" "$(code "$BASE/finance/rules/")"
 say "GET /finance/currencies/rates" "$(code "$BASE/finance/currencies/rates")"
 say "GET /finance/transactions/?with_total=true" "$(code "$BASE/finance/transactions/?with_total=true&limit=5")"
 TOTAL=$(curl -s -D /tmp/smoke-head.txt -o /tmp/smoke-body.json -b "$JAR" -A "$UA" "$BASE/finance/transactions/?with_total=true&limit=5" >/dev/null; grep -i '^x-total-count' /tmp/smoke-head.txt | tr -d '\r' | awk '{print $2}')
-say "X-Total-Count записей" "${TOTAL:-нет}"
+say "X-Total-Count records" "${TOTAL:-none}"
 
 say "GET /analytics/summary" "$(code "$BASE/analytics/summary")"
 say "GET /analytics/timeseries?metric=balance" "$(code "$BASE/analytics/timeseries?metric=balance&group_by=day")"

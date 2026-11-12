@@ -1,7 +1,8 @@
-"""Проверка подписи Telegram Mini App initData.
+"""Telegram Mini App initData signature validation.
 
-Telegram передаёт данные запуска WebApp строкой initData (query-string) и
-подписью hash. Подпись проверяется HMAC-SHA256 по схеме из документации:
+Telegram passes the WebApp launch data as an initData string (query-string)
+with a hash signature. The signature is verified with HMAC-SHA256 per the
+scheme from the documentation:
 https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
 """
 
@@ -14,14 +15,14 @@ from urllib.parse import parse_qsl
 
 from src.config import settings
 
-# initData старше суток не принимаем: защита от повторного использования украденной строки
+# Reject initData older than 24 hours: protects against replay of a stolen string
 MAX_AGE_SECONDS = 24 * 60 * 60
 
 
 def validate_init_data(init_data: str, bot_token: Optional[str] = None) -> dict:
-    """Проверяет подпись и свежесть initData; возвращает разобранные поля.
+    """Validate the initData signature and freshness; return the parsed fields.
 
-    Бросает ValueError при неверной подписи, отсутствии токена или устаревании.
+    Raises ValueError on an invalid signature, missing token, or stale data.
     """
     token = bot_token if bot_token is not None else settings.TELEGRAM_BOT_TOKEN
     if not token:
@@ -45,14 +46,18 @@ def validate_init_data(init_data: str, bot_token: Optional[str] = None) -> dict:
         auth_ts = int(auth_date)
     except ValueError:
         raise ValueError("initData auth_date is not a number")
-    if time.time() - auth_ts > MAX_AGE_SECONDS:
+    now = time.time()
+    # Allow a small clock skew, but reject data "from the future" outright.
+    if auth_ts > now + 300:
+        raise ValueError("initData auth_date is in the future")
+    if now - auth_ts > MAX_AGE_SECONDS:
         raise ValueError("initData is too old")
 
     return pairs
 
 
 def telegram_user_id(init_data: str, bot_token: Optional[str] = None) -> int:
-    """Извлекает telegram id пользователя из проверенного initData."""
+    """Extract the user's telegram id from validated initData."""
     pairs = validate_init_data(init_data, bot_token)
     user_raw = pairs.get("user")
     if not user_raw:

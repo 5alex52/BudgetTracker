@@ -1,18 +1,18 @@
 /**
- * Telegram Mini App (WebApp) интеграция.
+ * Telegram Mini App (WebApp) integration.
  *
- * Приложение может открываться внутри Telegram как Mini App. В этом случае
- * Telegram передаёт подписанные данные `initData`, по которым backend
- * опознаёт пользователя без пароля. Здесь мы:
- *  - определяем, что запущены внутри Telegram;
- *  - подгружаем официальный SDK только в этом окружении (в обычном браузере
- *    лишний скрипт не нужен);
- *  - красим шапку/фон под тему Telegram, чтобы webapp не «выпадал» из клиента.
+ * The app can be opened inside Telegram as a Mini App. In that case
+ * Telegram passes signed `initData` that the backend uses to recognize
+ * the user without a password. Here we:
+ *  - detect that we are running inside Telegram;
+ *  - load the official SDK only in that environment (a regular browser
+ *    doesn't need the extra script);
+ *  - tint the header/background to the Telegram theme so the webapp doesn't look out of place.
  *
- * В обычном браузере все функции — no-op, поведение приложения не меняется.
+ * In a regular browser every function is a no-op; app behavior is unchanged.
  */
 
-/** Минимальный тип официального SDK: только то, что используем. */
+/** Minimal type for the official SDK: only what we use. */
 export interface TelegramWebApp {
   initData: string
   initDataUnsafe?: { user?: { id: number } }
@@ -33,11 +33,11 @@ declare global {
 
 const SDK_URL = 'https://telegram.org/js/telegram-web-app.js'
 
-/** Цвета совпадают с темой приложения (index.html): тёмная и светлая. */
+/** Colors match the app theme (index.html): dark and light. */
 const DARK_BG = '#080b0a'
 const LIGHT_BG = '#eef2f1'
 
-/** Запущены ли мы внутри клиента Telegram (а не в обычном браузере). */
+/** Whether we are running inside the Telegram client (not a regular browser). */
 export function isTelegramEnv(): boolean {
   if (typeof window === 'undefined') return false
   if (window.Telegram?.WebApp?.initData) return true
@@ -49,8 +49,8 @@ export function isTelegramEnv(): boolean {
 let loadPromise: Promise<TelegramWebApp | null> | null = null
 
 /**
- * Подгружает SDK Telegram и возвращает объект WebApp (или null вне Telegram /
- * при ошибке загрузки). Результат кешируется — повторные вызовы не дёргают сеть.
+ * Loads the Telegram SDK and returns the WebApp object (or null outside Telegram /
+ * on load failure). The result is cached — repeated calls don't hit the network.
  */
 export function loadTelegramWebApp(): Promise<TelegramWebApp | null> {
   if (typeof window === 'undefined' || !isTelegramEnv()) {
@@ -72,17 +72,17 @@ export function loadTelegramWebApp(): Promise<TelegramWebApp | null> {
   return loadPromise
 }
 
-/** Сообщаем Telegram, что приложение готово, разворачиваем на всю высоту и красим фон. */
+/** Tell Telegram the app is ready, expand to full height and tint the background. */
 export function initTelegramWebApp(wa: TelegramWebApp): void {
   try {
     wa.ready()
     wa.expand()
-    // Свайп вниз внутри Mini App закрывает окно — отключаем, чтобы не терять скролл списка.
+    // Swiping down inside a Mini App closes the window — disable it so list scroll isn't lost.
     wa.disableVerticalSwipes?.()
     const bg = wa.colorScheme === 'light' ? LIGHT_BG : DARK_BG
     wa.setHeaderColor?.(bg)
     wa.setBackgroundColor?.(bg)
   } catch {
-    // Оформление не критично: при ошибке приложение продолжает работать как есть.
+    // Styling is not critical: on error the app keeps working as is.
   }
 }

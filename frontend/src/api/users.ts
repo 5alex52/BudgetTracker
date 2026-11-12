@@ -1,4 +1,4 @@
-/** Профиль пользователя: настройки, смена пароля, выгрузка и удаление аккаунта. */
+/** User profile: settings, password change, account export and deletion. */
 import { request } from './client'
 import type {
   PushPublicKeyDto,
@@ -28,12 +28,12 @@ export function exportAccountData(): Promise<UserExportDto> {
   return request<UserExportDto>('/users/me/export')
 }
 
-/** Удаление аккаунта требует пароль: сервер не должен удалять данные «по клику». */
+/** Account deletion requires a password: the server must not delete data "on a click". */
 export function deleteAccount(password: string): Promise<void> {
   return request<void>('/users/me', { method: 'DELETE', body: { password } })
 }
 
-/* --------------------- уведомления: Telegram + Web Push -------------------- */
+/* --------------------- notifications: Telegram + Web Push ------------------- */
 
 export function getTelegramLink(): Promise<TelegramLinkDto> {
   return request<TelegramLinkDto>('/users/me/telegram/link')

@@ -21,11 +21,11 @@ import type {
 import type { Account, Category, CurrencyRate, Subcategory } from '@/__shared__/types/models'
 
 /**
- * Справочные данные приложения: счета, категории, метки, шаблоны, курсы.
+ * App reference data: accounts, categories, tags, templates, rates.
  *
- * Их читают почти все экраны, поэтому они живут в одном сторе и подгружаются
- * один раз (`loadAll`), а не в каждом компоненте. Мутации сразу правят локальный
- * список, чтобы интерфейс не мигал повторной загрузкой.
+ * Almost every screen reads it, so it lives in one store and is loaded once
+ * (`loadAll`) rather than per component. Mutations update the local list
+ * immediately so the UI doesn't flicker with a re-fetch.
  */
 interface FinanceState {
   accounts: Account[]
@@ -37,13 +37,13 @@ interface FinanceState {
   baseCurrency: string
   loading: boolean
   error: string | null
-  /** Загружены ли справочники: защита от повторных запросов */
+  /** Whether reference data is loaded: guards against duplicate requests */
   ready: boolean
-  /** Счётчик изменений данных: виджеты перезапрашивают отчёты после записи */
+  /** Data change counter: widgets re-fetch reports after a write */
   revision: number
 
   loadAll: (options?: { force?: boolean }) => Promise<void>
-  /** Сбросить справочники: выход из аккаунта и смена пользователя */
+  /** Reset reference data: logout and user switch */
   clearData: () => void
   reloadAccounts: () => Promise<void>
   reloadCategories: () => Promise<void>
@@ -53,9 +53,9 @@ interface FinanceState {
 
   accountById: (id: string | number) => Account | undefined
   categoryById: (id: number) => Category | undefined
-  /** Подкатегории для формы записи */
+  /** Subcategories for the record form */
   subcategories: () => Subcategory[]
-  /** Коды валют, которые встречаются в счетах и справочнике */
+  /** Currency codes that appear in accounts and the catalog */
   currencyCodes: () => string[]
 
   createAccount: (payload: AccountCreate, tint?: string) => Promise<Account>
@@ -92,7 +92,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   revision: 0,
 
   clearData: () => {
-    // Данные принадлежат пользователю: при выходе их нельзя показывать следующему
+    // Data belongs to the user: on logout it must not be shown to the next one
     set({
       accounts: [],
       categories: [],
@@ -132,8 +132,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         loading: false,
       })
     } catch (caught) {
-      // Ошибку показываем текстом, но экран не блокируем: часть данных могла
-      // загрузиться, а вечная заглушка хуже пустого списка с сообщением.
+      // Show the error as text but don't block the screen: some data may have
+      // loaded, and an eternal placeholder is worse than an empty list with a message.
       set({
         loading: false,
         ready: true,
@@ -144,7 +144,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   reloadAccounts: async () => {
     const list = await accountsApi.listAccounts({ includeArchived: true, includeExcluded: true })
-    // Бампаем ревизию: суммы в счетах изменились, значит и отчёты устарели
+    // Bump the revision: account amounts changed, so reports are stale too
     set({ accounts: list.map(toAccount), revision: get().revision + 1 })
   },
 
@@ -185,8 +185,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       saveAccountTint(account.id, tint)
       account.tint = tint
     }
-    // Перезагружаем список целиком: создание меняет лимит и блокировки
-    // остальных счетов на бесплатном тарифе.
+    // Reload the whole list: creation changes the limit and locks of
+    // other accounts on the free plan.
     await get().reloadAccounts()
     return get().accountById(account.id) ?? account
   },
@@ -198,14 +198,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       saveAccountTint(account.id, tint)
       account.tint = tint
     }
-    // Архивация/смена валюты пересчитывает блокировки всех счетов.
+    // Archiving/currency change recomputes locks for all accounts.
     await get().reloadAccounts()
     return get().accountById(account.id) ?? account
   },
 
   deleteAccount: async (id) => {
     await accountsApi.deleteAccount(id)
-    // Удаление освобождает слот бесплатного тарифа для других счетов.
+    // Deletion frees a free-plan slot for other accounts.
     await get().reloadAccounts()
   },
 
@@ -273,7 +273,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
 }))
 
-/** Дерево → плоский список: подкатегории и полный набор нужны форме записи. */
+/** Tree → flat list: the record form needs subcategories and the full set. */
 function flattenCategories(nodes: Awaited<ReturnType<typeof categoriesApi.getCategoryTree>>): Category[] {
   const result: Category[] = []
   const walk = (items: typeof nodes) => {

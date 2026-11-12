@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
 
-/** Меню «Экспорт»: форматы файлов, которые реально формируются на клиенте. */
+/** Export menu: file formats actually produced on the client. */
 const EXPORT_FORMATS: Array<{ value: ExportFormat; labelKey: TranslationKey; icon: typeof FileSpreadsheet }> = [
   { value: 'csv', labelKey: 'export.csv', icon: FileText },
   { value: 'tsv', labelKey: 'export.tsv', icon: FileText },
@@ -25,24 +25,24 @@ const EXPORT_FORMATS: Array<{ value: ExportFormat; labelKey: TranslationKey; ico
 ]
 
 /**
- * Меню «Экспорт».
+ * Export menu.
  *
- * Две группы: пять форматов собираются на клиенте из загруженной страницы
- * (включая PDF через печать), а CSV и JSON выгружает сервер — он отдаёт весь
- * список под текущими фильтрами, а не только то, что успело загрузиться.
+ * Two groups: five formats are built on the client from the loaded page
+ * (including PDF via printing), while CSV and JSON are exported by the server —
+ * it returns the whole list under the current filters, not just what has loaded.
  */
 export function ExportMenu({
   items,
   serverFilters,
 }: {
   items: RecordItem[]
-  /** Фильтры для серверной выгрузки: без них вторая группа не показывается */
+  /** Filters for the server-side export: without them the second group isn't shown */
   serverFilters?: TransactionFilters
 }) {
   const { t, locale } = useI18n()
   const { toast } = useToast()
 
-  /** Серверная выгрузка: переход по ссылке, cookie уедет вместе с запросом. */
+  /** Server-side export: navigate to a link, the cookie travels with the request. */
   const downloadFromServer = (format: 'csv' | 'json') => {
     if (!serverFilters) return
     const link = document.createElement('a')

@@ -18,11 +18,11 @@ import {
 import { cn } from '@/__shared__/utils/cn'
 
 /**
- * Графики на recharts: интерактивность (наведение, подсказки с точными
- * значениями) из коробки, оформление — на наших токенах через CSS-переменные.
+ * Charts on recharts: interactivity (hover, tooltips with exact values)
+ * out of the box, styling on our tokens via CSS variables.
  *
- * Публичный API сохранён: страницы по-прежнему передают `points` / `segments`,
- * поэтому переход с ручного SVG не потребовал правок на местах.
+ * The public API is preserved: pages still pass `points` / `segments`,
+ * so the move from hand-rolled SVG required no changes at call sites.
  */
 
 export interface SeriesPoint {
@@ -30,7 +30,7 @@ export interface SeriesPoint {
   value: number
 }
 
-/* ------------------------------- подсказка -------------------------------- */
+/* ------------------------------- tooltip ----------------------------------- */
 
 function ChartTooltip({
   active,
@@ -74,12 +74,12 @@ const axisProps = {
   axisLine: false,
 } as const
 
-/* -------------------------------- линейный -------------------------------- */
+/* -------------------------------- line chart ------------------------------- */
 
-/** Палитра мультилинийного режима (по активам / кошелькам). */
+/** Palette for multi-line mode (by asset / wallet). */
 const SERIES_COLORS = ['#2ba7d6', '#3aa76d', '#e08a3c', '#d94b4b', '#8b6fd6', '#e06fa0', '#5b8fd6', '#c26bd6']
 
-/** Точка графика: label обязателен, остальное — числовые поля-серии (у одиночного режима — `value`). */
+/** Chart point: label is required, the rest are numeric series fields (single mode uses `value`). */
 export type ChartPoint = { label: string } & Record<string, string | number>
 export type ChartSeries = { key: string; name: string }
 
@@ -93,7 +93,7 @@ function LineChartImpl({
   ariaLabel,
 }: {
   points: ChartPoint[]
-  /** Мультилинийный режим: одна линия на entry (dataKey — поле точки); без него рисуется `value`. */
+  /** Multi-line mode: one line per entry (dataKey is a point field); without it `value` is drawn. */
   series?: ChartSeries[]
   height?: number
   color?: string
@@ -153,9 +153,9 @@ function LineChartImpl({
   )
 }
 
-/* -------------------------------- столбчатый ------------------------------- */
+/* -------------------------------- bar chart --------------------------------- */
 
-/** Столбцы «доход / расход» по периодам — как в дашборде и аналитике. */
+/** "Income / expense" bars by period — as on the dashboard and in analytics. */
 export interface CashflowPoint {
   label: string
   income: number
@@ -195,9 +195,9 @@ function BarChartImpl({
   )
 }
 
-/* ------------------------------ один столбец ------------------------------ */
+/* ------------------------------ single bar --------------------------------- */
 
-/** Односерийный столбчатый график (списания подписок): без income/expense. */
+/** Single-series bar chart (subscription charges): no income/expense. */
 function ValueBarChartImpl({
   points,
   height = 160,
@@ -228,9 +228,9 @@ function ValueBarChartImpl({
   )
 }
 
-/* --------------------------------- кольцо --------------------------------- */
+/* --------------------------------- donut ----------------------------------- */
 
-/** Активный сегмент чуть выдвигается наружу вместо прямоугольной обводки. */
+/** The active segment is pushed out slightly instead of a rectangular outline. */
 function renderActiveSector(props: unknown) {
   const sector = props as {
     cx: number
@@ -299,10 +299,10 @@ function DonutChartImpl({
 }
 
 /*
- * Кеширование компонентов графика: страница перерисовывается на любое
- * изменение состояния (фильтры, меню, тосты), а сам график зависит только от
- * `points`. `memo` отсекает повторный ре-рендер дерева recharts — это самое
- * дорогое, что есть на «Обзоре» и «Аналитике». Данные при этом не кешируются.
+ * Chart component caching: the page re-renders on any state change
+ * (filters, menus, toasts), while the chart itself depends only on
+ * `points`. `memo` cuts repeated re-renders of the recharts tree — the most
+ * expensive thing on Overview and Analytics. The data itself is not cached.
  */
 export const LineChart = memo(LineChartImpl)
 export const BarChart = memo(BarChartImpl)

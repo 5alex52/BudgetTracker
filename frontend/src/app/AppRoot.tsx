@@ -5,9 +5,9 @@ import { ToastProvider } from '@/components/ui/toast'
 import { TooltipProvider } from '@/components/ui/overlays'
 
 /**
- * Корень приложения: провайдеры оверлеев и SVG-фильтры для рефракции.
- * Рендерится один раз, вне роутов — чтобы стеклянные поповеры/тосты
- * имели доступ к порталам и фильтрам.
+ * App root: overlay providers and SVG filters for refraction.
+ * Rendered once, outside the routes, so glass popovers/toasts
+ * have access to portals and filters.
  */
 export function AppRoot({ children }: { children: ReactNode }) {
   return (

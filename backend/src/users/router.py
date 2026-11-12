@@ -35,7 +35,6 @@ from .schemas import UserCreate
 from .schemas import UserExport
 from .utils import get_device_info
 from .schemas import UserProfileUpdate
-from .schemas import UserUpdate
 from .viewsets import AuthViewSet
 from .viewsets import UserViewSet
 
@@ -89,7 +88,7 @@ async def login_telegram(
     payload: TelegramAuthRequest,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Token:
-    """Вход из Telegram Mini App по подписанным initData (без пароля)."""
+    """Login from Telegram Mini App via signed initData (no password)."""
     return await AuthViewSet.login_telegram(
         request=request,
         response=response,
@@ -411,33 +410,4 @@ async def unsubscribe_push(
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
 ) -> Response:
     await UserViewSet.unsubscribe_push(obj_data=payload, user=user, session_maker=session_maker)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@users_router.get("/{user_id}", status_code=status.HTTP_200_OK)
-async def get_one(
-    user_id: uuid.UUID,
-    user: User = Depends(get_current_active_user),
-    session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> User:
-    return await UserViewSet.retrieve(user=user, session_maker=session_maker, obj_id=user_id)
-
-
-@users_router.patch("/{user_id}", status_code=status.HTTP_200_OK)
-async def update(
-    user_id: uuid.UUID,
-    user_data: UserUpdate,
-    user: User = Depends(get_current_active_user),
-    session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> User:
-    return await UserViewSet.update(user=user, session_maker=session_maker, obj_id=user_id, obj_data=user_data)
-
-
-@users_router.delete("/{user_id}")
-async def delete(
-    user_id: uuid.UUID,
-    user: User = Depends(get_current_active_user),
-    session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> Response:
-    await UserViewSet.delete(user=user, session_maker=session_maker, obj_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

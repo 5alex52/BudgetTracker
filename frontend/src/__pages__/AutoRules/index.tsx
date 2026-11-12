@@ -23,7 +23,7 @@ const FREQUENCIES: Array<{ value: ServiceSubFrequency; labelKey: TranslationKey 
   { value: 'yearly', labelKey: 'subs.freqYearly' },
 ]
 
-/** Сервер знает и daily/weekly — UI предлагает только три периода. */
+/** The server also knows daily/weekly — the UI offers only three periods. */
 function normalizeFrequency(value: string): ServiceSubFrequency {
   return value === 'quarterly' || value === 'yearly' ? value : 'monthly'
 }
@@ -72,8 +72,8 @@ function draftFromSub(sub: ServiceSubDto): PaymentDraft {
 }
 
 /**
- * Форма регулярного платежа: создание и редактирование в одном диалоге.
- * В отличие от подписки, иконки нет, а счёт обязателен — иначе списывать некуда.
+ * Recurring payment form: create and edit in one dialog.
+ * Unlike a subscription there is no icon, and the account is required — otherwise there's nowhere to charge.
  */
 function PaymentDialog({
   open,
@@ -92,7 +92,7 @@ function PaymentDialog({
   const accounts = useFinanceStore((state) => state.accounts)
   const [draft, setDraft] = useState<PaymentDraft>(EMPTY_DRAFT)
   const [pending, setPending] = useState(false)
-  // Повторное открытие диалога может быть с другим платежом — синхронизируем черновик.
+  // Reopening the dialog may be for a different payment — sync the draft.
   const [lastKey, setLastKey] = useState<string | null>(null)
   const key = open ? String(sub?.id ?? 'new') : null
   if (key !== lastKey) {
@@ -220,16 +220,16 @@ function PaymentDialog({
 }
 
 /**
- * Автоправила: подписки и регулярные платежи с привязанным счётом списывают
- * себя сами. При открытии страницы создаются пропущенные списания, периодичность
- * и пауза правятся прямо в строке, а новый платёж (например, по кредиту)
- * добавляется без иконки сервиса.
+ * Auto rules: subscriptions and recurring payments with a linked account charge
+ * themselves. On page open, missed charges are created; frequency and pause are
+ * edited right in the row, and a new payment (e.g. a loan) is added without
+ * a service icon.
  */
 export function AutoRulesPage() {
   const { t, locale } = useI18n()
   const { toast } = useToast()
   const accountById = useFinanceStore((state) => state.accountById)
-  /* Сначала доводим расписание: наступившие даты списания превращаются в записи. */
+  /* First bring the schedule up to date: due charge dates become records. */
   const list = useApiQuery(async () => {
     await serviceSubsApi.collectServiceSubs().catch(() => undefined)
     return serviceSubsApi.listServiceSubs()
@@ -315,7 +315,7 @@ export function AutoRulesPage() {
       }
     >
       <div className="space-y-4">
-        {/* Итог в базовой валюте */}
+        {/* Total in the base currency */}
         <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
           <div>
             <p className="text-caption text-fg-tertiary">{t('subs.total')}</p>
@@ -328,7 +328,7 @@ export function AutoRulesPage() {
           <p className="text-caption text-fg-tertiary">{t('subs.count', { count: rules.length })}</p>
         </Card>
 
-        {/* График списаний по расписанию */}
+        {/* Charges chart by schedule */}
         {chartPoints.length > 0 && (
           <Card className="p-4">
             <CardHeader title={t('autoRules.chartTitle')} subtitle={t('subs.chartSubtitle')} />
@@ -390,7 +390,7 @@ export function AutoRulesPage() {
                   </div>
                 </div>
 
-                {/* Правило списания: периодичность, дата и пауза — прямо в строке */}
+                {/* Charge rule: frequency, date and pause — right in the row */}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-stroke-subtle bg-surface-2/60 px-3 py-2">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span

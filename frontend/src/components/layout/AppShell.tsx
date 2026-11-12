@@ -9,21 +9,21 @@ import { TabBar } from './TabBar'
 
 export interface AppShellProps {
   children: ReactNode
-  /** Левая панель (фильтры, навигация настроек) — на стекле */
+  /** Left panel (filters, settings navigation) — on glass */
   sidebar?: ReactNode
-  /** Содержимое шапки страницы (заголовок + действия) */
+  /** Page header content (title + actions) */
   header?: ReactNode
-  /** Контекст страницы в верхней панели (хлебная крошка) */
+  /** Page context in the top bar (breadcrumb) */
   context?: ReactNode
   onAddRecord?: () => void
 }
 
 /**
- * Каркас всех рабочих экранов.
+ * Shell for all working screens.
  *
- * Слои: фон-пятна (fixed) → навбар/таб-бар/сайдбар (стекло) → контент (surface-1).
- * Правило: контент никогда не получает backdrop-filter, чтобы не тратить композицию
- * и не «сплющивать» эффект стека.
+ * Layers: blob background (fixed) → navbar/tab bar/sidebar (glass) → content (surface-1).
+ * Rule: content never gets backdrop-filter, to avoid spending compositing
+ * and "flattening" the stack effect.
  */
 export function AppShell({ children, sidebar, header, context, onAddRecord }: AppShellProps) {
   const recordDialog = useRecordDialog()

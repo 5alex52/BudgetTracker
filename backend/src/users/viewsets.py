@@ -135,7 +135,9 @@ class UserViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
         **kwargs,
     ) -> None:
-        await cls.service.remove_push_subscription(endpoint=obj_data.endpoint, session_maker=session_maker)
+        await cls.service.remove_push_subscription(
+            user_id=user.id, endpoint=obj_data.endpoint, session_maker=session_maker
+        )
 
     @classmethod
     @check_permissions(action="delete_own_account")

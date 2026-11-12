@@ -714,3 +714,19 @@ async def test_balance_series_includes_wallet_value(user, account, currencies, s
     )  # before the first snapshot: opening 1 BTC × earliest price
     assert values[yesterday] == pytest.approx(51000.0)  # 1 BTC carried, priced at 50000
     assert values[today] == pytest.approx(61000.0)  # today's snapshot × today's price = current total
+
+
+def test_bucket_bounds_snap_to_date_trunc_grid():
+    """Bounds must match the DAO's date_trunc buckets even for unaligned period edges."""
+    start = datetime(2025, 10, 8, 15, 30)  # a Wednesday
+    end = datetime(2025, 10, 12, 9, 0)
+
+    day = AnalyticsService._bucket_bounds("day", start, end)
+    assert day[0] == datetime(2025, 10, 8)
+    assert all(b.hour == 0 and b.minute == 0 and b.second == 0 for b in day)
+
+    week = AnalyticsService._bucket_bounds("week", start, end)
+    assert week[0] == datetime(2025, 10, 6)  # Monday of that week
+
+    month = AnalyticsService._bucket_bounds("month", start, datetime(2025, 12, 20, 9, 0))
+    assert month == [datetime(2025, 10, 1), datetime(2025, 11, 1), datetime(2025, 12, 1)]

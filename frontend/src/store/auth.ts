@@ -5,11 +5,11 @@ import type { UserDto } from '@/api/types'
 import { initTelegramWebApp, loadTelegramWebApp } from '@/__shared__/utils/telegram'
 
 /**
- * Сессия пользователя.
+ * User session.
  *
- * Токен живёт в httpOnly-cookie, поэтому «восстановление сессии» — это запрос
- * `/users/me`: если он ответил, пользователь вошёл. Никаких токенов в
- * localStorage не держим — их нельзя прочитать из JS и это правильно.
+ * The token lives in an httpOnly cookie, so "session restoration" is a request
+ * to `/users/me`: if it answers, the user is logged in. We keep no tokens in
+ * localStorage — the cookie can't be read from JS, and that's how it should be.
  */
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
 
@@ -17,13 +17,13 @@ interface AuthState {
   user: UserDto | null
   status: AuthStatus
   error: string | null
-  /** Проверка сессии при старте приложения */
+  /** Session check at app startup */
   bootstrap: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
-  /** Обновить профиль после правки настроек */
+  /** Update the profile after editing settings */
   setUser: (user: UserDto) => void
-  /** Локальный разлогин: вызывается клиентом API при 401 */
+  /** Local logout: called by the API client on 401 */
   clear: () => void
 }
 
@@ -34,7 +34,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   bootstrap: async () => {
     set({ status: 'loading', error: null })
-    // Внутри Telegram Mini App поднимаем SDK и красим окно под тему клиента.
+    // Inside a Telegram Mini App we boot the SDK and tint the window to the client theme.
     const webApp = await loadTelegramWebApp()
     if (webApp) initTelegramWebApp(webApp)
     try {
@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user, status: 'authenticated', error: null })
     } catch (caught) {
       const unauthorized = caught instanceof ApiError && caught.status === 401
-      // Нет сессии, но мы в Telegram и есть подписанные initData — входим по ним.
+      // No session, but we're in Telegram and have signed initData — log in with it.
       if (unauthorized && webApp?.initData) {
         try {
           await authApi.telegramLogin(webApp.initData)
@@ -50,12 +50,12 @@ export const useAuthStore = create<AuthState>((set) => ({
           set({ user, status: 'authenticated', error: null })
           return
         } catch {
-          // Аккаунт не привязан или initData недействителен — показываем обычный вход.
+          // The account isn't linked or initData is invalid — show the regular login.
           set({ user: null, status: 'anonymous', error: null })
           return
         }
       }
-      // 401 — обычная ситуация «не вошёл»; остальное показываем текстом ошибки
+      // 401 is the normal "not logged in" case; anything else is shown as error text
       const error = caught instanceof ApiError && !unauthorized ? caught.detail : null
       set({ user: null, status: 'anonymous', error })
     }
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authApi.logout()
     } catch {
-      // Сессия могла уже истечь: выходить всё равно нужно
+      // The session may have already expired: we still need to log out
     }
     set({ user: null, status: 'anonymous', error: null })
   },

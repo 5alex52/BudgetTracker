@@ -13,13 +13,13 @@ import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
 
 /**
- * «Настройки»: профиль, оформление, язык и базовая валюта.
+ * "Settings": profile, appearance, language and base currency.
  *
- * Профиль пишется на сервер через `PATCH /users/me`; язык дублируется
- * в профиле, чтобы настройки переезжали между устройствами, но интерфейс
- * реагирует мгновенно — локально, без ожидания ответа.
- * Тема выбирается только в выпадающем меню пользователя, а базовая валюта —
- * только в блоке «Внешний вид»: в форме профиля она была продублирована.
+ * The profile is written to the server via `PATCH /users/me`; the language is mirrored
+ * in the profile so settings travel between devices, but the UI reacts instantly —
+ * locally, without waiting for the response.
+ * The theme is picked only in the user dropdown menu, and the base currency —
+ * only in the Appearance block: it used to be duplicated in the profile form.
  */
 export function SettingsPage() {
   const { t, locale, setLocale } = useI18n()
@@ -46,7 +46,7 @@ export function SettingsPage() {
   const [pushBusy, setPushBusy] = useState(false)
   const [telegramLink, setTelegramLink] = useState<TelegramLinkDto | null>(null)
 
-  /* Профиль приходит асинхронно: заполняем форму, когда он появился */
+  /* The profile arrives asynchronously: fill the form once it's here */
   useEffect(() => {
     if (!user) return
     setFirstname(user.firstname ?? '')
@@ -92,14 +92,14 @@ export function SettingsPage() {
     void usersApi.updateProfile({ locale: next }).catch(() => undefined)
   }
 
-  /* Базовая валюта из блока «Внешний вид» сохраняется сразу: без кнопки «Обновить» */
+  /* The base currency from the Appearance block is saved immediately: no "Update" button */
   const changeCurrency = async (next: string) => {
     if (next === currency) return
     setCurrency(next)
     try {
       const updated = await usersApi.updateProfile({ base_currency: next })
       setUser(updated)
-      // От базовой валюты зависят суммы в аналитике — перечитываем курсы
+      // Analytics amounts depend on the base currency — re-read the rates
       await useFinanceStore.getState().reloadRates()
       toast({ title: t('profile.saved'), tone: 'success' })
     } catch (caught) {
@@ -112,7 +112,7 @@ export function SettingsPage() {
     }
   }
 
-  /* Базовый период тоже сохраняется сразу: от него зависят «Обзор» и «Аналитика» */
+  /* The base period is also saved immediately: Overview and Analytics depend on it */
   const changePeriod = async (next: 'day' | 'week' | 'month') => {
     if (next === period) return
     setPeriod(next)
@@ -129,7 +129,7 @@ export function SettingsPage() {
     }
   }
 
-  /* Напоминания о подписках: за сколько дней предупреждать (сохраняется сразу) */
+  /* Subscription reminders: how many days ahead to warn (saved immediately) */
   const changeRemind = async (next: '0' | '1' | '2') => {
     if (next === remind) return
     setRemind(next)
@@ -212,7 +212,7 @@ export function SettingsPage() {
     }
   }
 
-  /* Привязка подтверждается ботом асинхронно: «Проверить» перечитывает профиль */
+  /* The link is confirmed by the bot asynchronously: "Check" re-reads the profile */
   const checkTelegram = async () => {
     const updated = await usersApi.getProfile()
     setUser(updated)
@@ -283,8 +283,8 @@ export function SettingsPage() {
                   ariaLabel={t('profile.baseCurrency')}
                   value={currency}
                   onValueChange={(next) => void changeCurrency(next)}
-                  // В закрытом селекте — только код: полное «код · название» не
-                  // помещается в узкий триггер и обрезается. Список остаётся полным.
+                  // In the closed select — code only: the full "code · name" doesn't
+                  // fit the narrow trigger and gets clipped. The list stays full.
                   renderValue={currency}
                   options={rates.map((rate) => ({
                     value: rate.code,
@@ -377,7 +377,7 @@ export function SettingsPage() {
   )
 }
 
-/** VAPID-ключ приходит base64url — PushManager ждёт байты. */
+/** The VAPID key arrives base64url — PushManager expects bytes. */
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4)
   const normalized = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -409,7 +409,7 @@ function SettingRow({
         </p>
         {hint && <p className="mt-0.5 max-w-md text-caption text-fg-tertiary">{hint}</p>}
       </div>
-      {/* Контрол не сжимается сам и на узком экране занимает всю ширину */}
+      {/* The control doesn't shrink on its own and takes full width on a narrow screen */}
       <div className="min-w-0 shrink-0 basis-auto max-w-full [&_[role=group]]:max-w-full">{children}</div>
     </div>
   )

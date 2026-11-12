@@ -1,4 +1,4 @@
-/* Конфиг ESLint (legacy .eslintrc для ESLint 8). */
+/* ESLint config (legacy .eslintrc for ESLint 8). */
 module.exports = {
   root: true,
   env: { browser: true, es2022: true },
@@ -12,7 +12,7 @@ module.exports = {
   parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } },
   plugins: ['react-refresh'],
   rules: {
-    // Контекст-провайдер и хук рядом — нормальная практика; правило только шумит
+    // A context provider next to its hook is normal practice; the rule only adds noise
     'react-refresh/only-export-components': 'off',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     '@typescript-eslint/triple-slash-reference': 'off',

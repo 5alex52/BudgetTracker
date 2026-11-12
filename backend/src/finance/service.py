@@ -474,7 +474,7 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             await session.commit()
             # refresh is needed before closing the session: updated_at is computed
             # on the DB side (onupdate), and without it response serialization
-            # raises DetachedInstanceError → «срабатывает только со второго раза»
+            # raises DetachedInstanceError → "only works on the second try"
             await session.refresh(account)
         await _invalidate_analytics()
         return account

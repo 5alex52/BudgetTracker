@@ -16,7 +16,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { useToast } from '@/components/ui/toast'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 
-/** Палитра для выбора цвета категории. */
+/** Palette for picking a category color. */
 const PALETTE = [
   '#e0913c',
   '#e06fa0',
@@ -26,14 +26,14 @@ const PALETTE = [
   '#8b6fd6',
   '#c26bd6',
   '#5b8fd6',
-  // Дополнительные оттенки: тёплый песочный, лаймовый, бирюзовый, графитовый
+  // Extra shades: warm sand, lime, turquoise, graphite
   '#c9a227',
   '#7cb342',
   '#009688',
   '#607d8b',
 ]
 
-/** Иконки, которые умеет рисовать `CategoryIcon`. */
+/** Icons that `CategoryIcon` can render. */
 const ICONS = [
   'utensils',
   'theater',
@@ -80,12 +80,12 @@ const ICONS = [
 ]
 
 /**
- * «Настройки → Категории».
+ * "Settings → Categories".
  *
- * Слева родительские категории, справа — подкатегории выбранной. Всё пишется
- * на сервер сразу: создание, переименование, цвет, иконка и удаление.
- * «Характер расходов» и «скрыть» из макета убраны: в модели данных категории
- * есть только название, тип, родитель, иконка и цвет.
+ * Parent categories on the left, subcategories of the selected one on the right.
+ * Everything is written to the server immediately: create, rename, color, icon, delete.
+ * "Spending character" and "hide" from the mockup were dropped: the category data model
+ * only has name, type, parent, icon and color.
  */
 export function SettingsCategoriesPage() {
   const { t } = useI18n()
@@ -103,7 +103,7 @@ export function SettingsCategoriesPage() {
   const [creating, setCreating] = useState(false)
   const [pending, setPending] = useState(false)
 
-  /* Дерево приходит асинхронно: держим выбор валидным при первой загрузке */
+  /* The tree arrives asynchronously: keep the selection valid on first load */
   useEffect(() => {
     if (activeParent === null && parents[0]) setActiveParent(parents[0].id)
   }, [parents, activeParent])
@@ -143,7 +143,7 @@ export function SettingsCategoriesPage() {
           icon: draft.icon,
           color: draft.color,
         })
-        // Корневую сразу открываем, чтобы её можно было наполнить подкатегориями
+        // Open the root right away so it can be filled with subcategories
         if (draft.parentId === null) setActiveParent(created.id)
         toast({ title: t('settings.categories.saved'), description: draft.name, tone: 'success' })
       } else {
@@ -198,7 +198,7 @@ export function SettingsCategoriesPage() {
       }
     >
       <div className="grid gap-4 md:grid-cols-[260px_1fr]">
-        {/* Родительские категории */}
+        {/* Parent categories */}
         <Card className="h-fit p-2">
           {parents.length === 0 && (
             <p className="px-2 py-4 text-caption text-fg-tertiary">{t('state.empty')}</p>
@@ -236,7 +236,7 @@ export function SettingsCategoriesPage() {
           </ul>
         </Card>
 
-        {/* Подкатегории выбранного родителя */}
+        {/* Subcategories of the selected parent */}
         <Card className="overflow-hidden p-0">
           <div className="flex items-center justify-between gap-2 border-b border-stroke-subtle px-4 py-2.5">
             <h2 className="text-label font-semibold text-fg-primary">

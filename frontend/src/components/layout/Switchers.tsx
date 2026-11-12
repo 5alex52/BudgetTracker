@@ -11,10 +11,10 @@ const THEME_ITEMS: Array<{ value: ThemeMode; icon: typeof Sun; labelKey: 'settin
 ]
 
 /**
- * Тема: три состояния (светлая / тёмная / как в браузере).
+ * Theme: three states (light / dark / as in the browser).
  *
- * Переключатель показывается значками с tooltip: компактнее, чем текст,
- * и на узком экране не обрезается.
+ * The switcher is shown as icons with tooltips: more compact than text
+ * and doesn't get clipped on a narrow screen.
  */
 export function ThemeSwitcher({
   compact = false,
@@ -23,7 +23,7 @@ export function ThemeSwitcher({
 }: {
   compact?: boolean
   className?: string
-  /** Растянуть на всю ширину, сегменты делят её поровну (для узких экранов) */
+  /** Stretch to full width, segments split it evenly (for narrow screens) */
   stretch?: boolean
 }) {
   const { mode, setMode } = useTheme()
@@ -42,8 +42,8 @@ export function ThemeSwitcher({
       value={mode}
       onValueChange={(next: string) => next && setMode(next as ThemeMode)}
       iconOnly
-      // flex-1 вешаем на сегменты: прямой потомок Root — это сам ToggleGroup,
-      // поэтому прежний [&>*] растягивал не то.
+      // flex-1 goes on the segments: Root's direct child is the ToggleGroup itself,
+      // so the old [&>*] stretched the wrong thing.
       className={[compact ? 'text-[11px]' : '', stretch ? 'w-full [&>button]:flex-1' : '', className ?? '']
         .filter(Boolean)
         .join(' ')}
@@ -51,7 +51,7 @@ export function ThemeSwitcher({
   )
 }
 
-/** Язык интерфейса RU / EN. */
+/** UI language RU / EN. */
 export function LanguageSwitcher() {
   const { locale, setLocale, t } = useI18n()
 

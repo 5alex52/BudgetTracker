@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Собирает статическую витрину макетов: docs/design/mockups/index.html.
- * Открывается двойным кликом, без сервера — для ревью дизайна.
+ * Builds a static mockup showcase: docs/design/mockups/index.html.
+ * Opens with a double click, no server — for design review.
  */
 import { readdir, writeFile } from 'node:fs/promises'
 
@@ -136,4 +136,4 @@ ${section(
 </html>`
 
 await writeFile(`${dir}/index.html`, html, 'utf8')
-console.log(`витрина: ${dir}/index.html, изображений: ${files.length + webkitFiles.length} (EN: ${enFiles.length})`)
+console.log(`showcase: ${dir}/index.html, images: ${files.length + webkitFiles.length} (EN: ${enFiles.length})`)

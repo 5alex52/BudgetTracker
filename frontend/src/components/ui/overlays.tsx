@@ -9,8 +9,8 @@ import { cn } from '@/__shared__/utils/cn'
 import { glassClass } from '@/components/glass/GlassSurface'
 
 /**
- * Стеклянные оверлеи. Правило: внутри стекла не размещаем ещё одно стекло,
- * поэтому элементы меню используют surface-2/3, а не backdrop-filter.
+ * Glass overlays. Rule: no glass inside glass,
+ * so menu items use surface-2/3 rather than backdrop-filter.
  */
 
 const glassContent = cn(
@@ -103,11 +103,11 @@ export const SelectLabel = forwardRef<
   )
 })
 
-/** Готовый «компактный» селект для панели фильтров: иконка + значение + шеврон. */
+/** Ready-made "compact" select for the filter panel: icon + value + chevron. */
 export interface FilterSelectOption {
   value: string
   label: string
-  /** Вложенный уровень: подкатегории показываются с отступом и точкой цвета */
+  /** Nested level: subcategories are shown with an indent and a color dot */
   indent?: boolean
   dotColor?: string
 }
@@ -116,18 +116,18 @@ export interface FilterSelectProps {
   icon?: ReactNode
   value: string
   options: FilterSelectOption[]
-  /** Сгруппированный список: заголовок группы — родительская категория */
+  /** Grouped list: the group header is the parent category */
   groups?: Array<{ label: string; options: FilterSelectOption[] }>
-  /** Не вызывается, пока селект заблокирован (``disabled``) */
+  /** Not called while the select is disabled (``disabled``) */
   onValueChange?: (value: string) => void
   ariaLabel: string
   className?: string
-  /** Заблокированный селект: значение видно, но изменить его нельзя */
+  /** Disabled select: the value is visible but can't be changed */
   disabled?: boolean
   /**
-   * Что показывать в закрытом триггере. По умолчанию Radix подставляет текст
-   * выбранной опции; если подпись опции длиннее кода, стоит задать своё значение
-   * (например, только код валюты), чтобы оно не обрезалось в узком триггере.
+   * What to show in the closed trigger. By default Radix inserts the selected
+   * option's text; if the option label is longer than the code, set a custom value
+   * (e.g. the currency code only) so it isn't clipped in the narrow trigger.
    */
   renderValue?: ReactNode
 }

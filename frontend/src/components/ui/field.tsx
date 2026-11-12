@@ -20,9 +20,9 @@ const sizeMap: Record<InputSize, string> = {
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   inputSize?: InputSize
-  /** Иконка слева (по одной из lucide, 16–20 px) */
+  /** Icon on the left (one of lucide, 16–20 px) */
   iconLeft?: ReactNode
-  /** Слот справа: единица валюты, кнопка очистки */
+  /** Right slot: currency unit, clear button */
   slotRight?: ReactNode
   invalid?: boolean
 }
@@ -89,7 +89,7 @@ export interface FieldProps {
   className?: string
 }
 
-/** Обёртка поля: подпись + контрол + подсказка/ошибка с корректной связкой aria. */
+/** Field wrapper: label + control + hint/error with proper aria wiring. */
 export function Field({ label, htmlFor, hint, error, required, children, className }: FieldProps) {
   const autoId = useId()
   const id = htmlFor ?? autoId

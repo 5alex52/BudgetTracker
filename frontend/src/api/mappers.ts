@@ -1,9 +1,9 @@
 /**
- * Перевод ответов backend в UI-модели.
+ * Mapping backend responses to UI models.
  *
- * Здесь же собраны «косметические» правила, которых в API нет: цвет маркера
- * счёта, иконка категории по умолчанию, знак суммы. Логика одна на всё
- * приложение, поэтому список, детали и графики выглядят одинаково.
+ * Also collects the "cosmetic" rules the API doesn't have: account marker color,
+ * default category icon, amount sign. One logic for the whole app, so lists,
+ * details and charts look consistent.
  */
 import type {
   AccountDto,
@@ -27,7 +27,7 @@ import type {
   Subcategory,
 } from '@/__shared__/types/models'
 
-/** Палитра маркеров счетов: тем же набором красится иконка в списке. */
+/** Account marker palette: the same set colors the icon in the list. */
 export const ACCOUNT_TINTS = [
   '#d94b4b',
   '#e06fa0',
@@ -39,18 +39,18 @@ export const ACCOUNT_TINTS = [
   '#c26bd6',
 ]
 
-/** Цвет категории, если пользователь его не выбрал. */
+/** Category color when the user hasn't picked one. */
 export const DEFAULT_CATEGORY_COLOR = '#7d8a86'
-/** Иконка категории, если пользователь её не выбрал. */
+/** Category icon when the user hasn't picked one. */
 export const DEFAULT_CATEGORY_ICON = 'circle'
 export const TRANSFER_ICON = 'arrow-left-right'
 
 const TINTS_KEY = 'bt-account-tints'
 
 /**
- * Маркер счёта хранится только на клиенте (такого поля в API нет).
- * Выбор цвета детерминирован по id, а ручной выбор пользователя запоминается
- * в localStorage, чтобы карточки не перекрашивались при каждой загрузке.
+ * The account marker is stored on the client only (the API has no such field).
+ * Color choice is deterministic by id, and the user's manual pick is remembered
+ * in localStorage so cards don't get repainted on every load.
  */
 function readTintOverrides(): Record<string, string> {
   try {
@@ -67,7 +67,7 @@ export function saveAccountTint(accountId: string, tint: string) {
   try {
     localStorage.setItem(TINTS_KEY, JSON.stringify({ ...readTintOverrides(), [accountId]: tint }))
   } catch {
-    /* приватный режим — просто не запоминаем */
+    /* private mode — just don't remember */
   }
 }
 
@@ -107,7 +107,7 @@ export function toCategory(dto: CategoryDto): Category {
   }
 }
 
-/** Плоский список из дерева: подкатегории нужны и вне дерева (форма записи). */
+/** Flat list from the tree: subcategories are needed outside the tree too (record form). */
 export function flattenTree(nodes: CategoryNodeDto[], type?: Category['type']): Category[] {
   const result: Category[] = []
   const walk = (items: CategoryNodeDto[]) => {
@@ -142,7 +142,7 @@ export function toCategoryTree(nodes: CategoryNodeDto[]): Category[] {
   }))
 }
 
-/** Подкатегории в форме записи: «родитель → дети» одним плоским списком. */
+/** Subcategories in the record form: "parent → children" as one flat list. */
 export function toSubcategories(categories: Category[]): Subcategory[] {
   return categories
     .filter((category) => category.parentId !== null)
@@ -156,7 +156,7 @@ export function toSubcategories(categories: Category[]): Subcategory[] {
     }))
 }
 
-/** ISO-дата сервера → дата, время и исходная строка. */
+/** Server ISO date → date, time and the original string. */
 export function splitDateTime(iso: string): { date: string; time: string; iso: string } {
   if (!iso) return { date: '', time: '', iso: '' }
   const parsed = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso)
@@ -171,7 +171,7 @@ export function splitDateTime(iso: string): { date: string; time: string; iso: s
   }
 }
 
-/** Сумма со знаком: расход и перевод вычитаются, доход прибавляется. */
+/** Signed amount: expense and transfer are subtracted, income is added. */
 export function signedAmount(type: string, amount: number): number {
   const abs = Math.abs(amount)
   return type === 'income' ? abs : -abs
@@ -218,9 +218,9 @@ export function toCurrencyRate(dto: CurrencyRateDto): CurrencyRate {
   }
 }
 
-/* ------------------------------- графики -------------------------------- */
+/* ------------------------------- charts ---------------------------------- */
 
-/** Подпись точки на оси: «11 окт.» — компактно и переводимо через Intl. */
+/** Axis point label: "Oct 11" — compact and localizable via Intl. */
 export function pointLabel(iso: string, locale: 'ru' | 'en'): string {
   const parsed = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso)
   if (Number.isNaN(parsed.getTime())) return iso
@@ -253,7 +253,7 @@ export function toDonutSegments(items: CategoryShareDto[], limit = 5) {
   }))
 }
 
-/** Бары для столбчатой диаграммы: категория + сумма + цвет. */
+/** Bars for the column chart: category + amount + color. */
 export function toBarSegments(items: CategoryShareDto[], limit = 8) {
   return items.slice(0, limit).map((item) => ({
     label: item.name,
@@ -263,14 +263,14 @@ export function toBarSegments(items: CategoryShareDto[], limit = 8) {
   }))
 }
 
-/** Строки отчёта «категории × месяцы»: суммы расходов со знаком минус. */
+/** Rows of the "categories × months" report: expense amounts with a minus sign. */
 /**
- * Матрица «категории × месяцы».
+ * The "categories × months" matrix.
  *
- * Бэкенд всегда отдаёт абсолютные значения ( amount_base ≥ 0 ). Для расходов
- *_UI_ показывает их со знаком «−», чтобы было видно, что деньги уходят.
- * Доходы остаются положительными — иначе в отчёте о доходах всё выглядело бы
- * как убыток.
+ * The backend always returns absolute values ( amount_base ≥ 0 ). For expenses
+ * the _UI_ shows them with a "−" sign so it's visible that money is going out.
+ * Income stays positive — otherwise the income report would look like
+ * a loss.
  */
 export function toAnalyticsRows(
   matrix: MatrixDto,
@@ -299,7 +299,7 @@ export function toAccountShares(items: AccountShareDto[]) {
   }))
 }
 
-/** «Месяц год» из ключа `2025-10`. */
+/** "Month year" from a `2025-10` key. */
 export function monthLabel(key: string, locale: 'ru' | 'en'): string {
   const parsed = new Date(`${key}-01T00:00:00`)
   if (Number.isNaN(parsed.getTime())) return key
@@ -309,7 +309,7 @@ export function monthLabel(key: string, locale: 'ru' | 'en'): string {
   }).format(parsed)
 }
 
-/** Точки денежного потока для графика на дашборде (только расход и доход). */
+/** Cashflow points for the dashboard chart (expense and income only). */
 export function seriesToPoints(points: SeriesPointDto[], locale: 'ru' | 'en') {
   return points.map((point) => ({ label: pointLabel(point.date, locale), point }))
 }

@@ -23,7 +23,7 @@
     min-height: 100dvh;
   }
 
-  /* Фокус: видимый всегда, согласован по всему приложению */
+  /* Focus: always visible, consistent across the app */
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: var(--focus-offset);
@@ -67,9 +67,9 @@
 
 @layer components {
   /* ---------------------------------------------------------------------------
-     Стекло, уровень 1 (все браузеры).
-     Для -webkit-backdrop-filter значения заданы буквально: Safari не разрешает
-     var() внутри этого свойства.
+     Glass, level 1 (all browsers).
+     For -webkit-backdrop-filter the values are literal: Safari doesn't allow
+     var() inside this property.
      --------------------------------------------------------------------------- */
   .glass {
     position: relative;
@@ -83,7 +83,7 @@
     border-radius: var(--glass-radius-md);
   }
 
-  /* Спекуляр по верхней грани: градиент, а не анимируемый blur */
+  /* Top-edge specular: a gradient, not an animated blur */
   .glass::before {
     content: '';
     position: absolute;
@@ -130,14 +130,14 @@
     box-shadow: var(--glass-highlight), var(--glass-shadow-lg);
   }
 
-  /* Плотный фон: включается при reduced-transparency / contrast: more */
+  /* Dense background: enabled under reduced-transparency / contrast: more */
   .glass--opaque {
     background-color: var(--surface-1);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  /* Числа: моноширинный набор для сумм и таблиц */
+  /* Numbers: monospaced set for amounts and tables */
   .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -151,7 +151,7 @@
 }
 
 @layer components {
-  /* ------------------------- Фон под стеклом (пятна) ------------------------ */
+  /* ------------------------- Background under the glass (blobs) -------------- */
   .glass-backdrop {
     position: fixed;
     inset: 0;
@@ -212,7 +212,7 @@
     background: radial-gradient(circle at 50% 50%, var(--blob-4), transparent 62%);
   }
 
-  /* Тонкое зерно: снимает «мыльность» больших градиентов */
+  /* Fine grain: removes the "soapy" look of large gradients */
   .glass-backdrop__grain {
     position: absolute;
     inset: 0;
@@ -221,9 +221,9 @@
     mix-blend-mode: overlay;
   }
 
-  /* ----------------------- Уровень 2: SVG-рефракция ------------------------ */
+  /* ----------------------- Level 2: SVG refraction -------------------------- */
   .glass--refract {
-    -webkit-backdrop-filter: none; /* Safari иначе «съедает» фон */
+    -webkit-backdrop-filter: none; /* otherwise Safari "eats" the background */
     backdrop-filter: url(#glass-refract) blur(2px) saturate(165%) brightness(1.06);
   }
 
@@ -234,7 +234,7 @@
     overflow: hidden;
   }
 
-  /* ------------------------ Уровень 3: блик за курсором -------------------- */
+  /* ------------------------ Level 3: cursor glint --------------------------- */
   .glass--glow::after {
     content: '';
     position: absolute;
@@ -255,7 +255,7 @@
     opacity: 1;
   }
 
-  /* Нажатие: лёгкое сжатие (пружина задаётся в motion-конфиге) */
+  /* Press: slight compression (the spring is set in the motion config) */
   [data-glass][data-pressable='true'] {
     transition:
       transform var(--dur-fast) var(--ease-out),
@@ -277,7 +277,7 @@
 }
 
 @layer components {
-  /* Прокрутка без видимой полосы: мобильный таб-бар и прочие карусели. */
+  /* Scrolling without a visible bar: the mobile tab bar and other carousels. */
   .scrollbar-none {
     scrollbar-width: none;
   }
@@ -285,8 +285,8 @@
     display: none;
   }
 
-  /* Карточка контента: очень лёгкая просвечиваемость фона, БЕЗ backdrop-filter
-     (правило «не стекло на стекло» + экономия композиции при скролле). */
+  /* Content card: very slight background show-through, NO backdrop-filter
+     (the "no glass on glass" rule + saving compositing during scroll). */
   .content-card {
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -296,12 +296,12 @@
 }
 
 /* -----------------------------------------------------------------------------
-   Календарь выбора диапазона (react-day-picker).
-   Библиотека по умолчанию красит выбранные даты в чистый синий, а полосу
-   диапазона — в почти белый #f0f0ff: в тёмной теме это выглядит как светлячок
-   на стекле. Переводим все её переменные на наши токены: полоса диапазона —
-   мягкая акцентная подложка, крайние даты — заливка акцента с белой цифрой
-   (4.6:1), сегодняшняя дата — акцентный текст.
+   Date-range calendar (react-day-picker).
+   By default the library paints selected dates pure blue and the range
+   strip almost white #f0f0ff: in the dark theme that looks like a firefly
+   on glass. We move all its variables to our tokens: the range strip —
+   a soft accent base, the edge dates — accent fill with a white digit
+   (4.6:1), today — accent text.
    -------------------------------------------------------------------------- */
 @layer components {
   .rdp-glass {
@@ -362,13 +362,13 @@
     font-weight: 600;
   }
 
-  /* Крайние даты диапазона: цифра белая на заливке акцента (4.6:1).
-     Правило идёт после общего «цвет наследуется», иначе оно перебивает заливку. */
+  /* Range edge dates: white digit on accent fill (4.6:1).
+     The rule goes after the general "color is inherited" one — otherwise that one overrides the fill. */
   .rdp-glass .rdp-range_start .rdp-day_button,
   .rdp-glass .rdp-range_end .rdp-day_button {
     color: var(--accent-fg);
     background-color: var(--accent-fill);
-    /* у крайних дат заливка уже задаёт форму — рамка была бы лишним контуром */
+    /* edge dates already get their shape from the fill — a border would be an extra outline */
     border-color: transparent;
   }
 
@@ -381,8 +381,8 @@
     background-color: transparent;
   }
 
-  /* Даты соседних месяцев: приглушаем цветом, а не прозрачностью —
-     цифры должны оставаться читаемыми (4.5:1). */
+  /* Adjacent-month dates: muted by color, not transparency —
+     the digits must stay readable (4.5:1). */
   .rdp-glass .rdp-outside {
     color: var(--text-tertiary);
   }

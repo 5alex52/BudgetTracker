@@ -25,7 +25,7 @@ const toneIcon: Record<ToastTone, ReactNode> = {
   error: <AlertTriangle className="size-4 text-negative" aria-hidden="true" />,
 }
 
-/** Стеклянные тосты снизу-справа; максимум 3 одновременно. */
+/** Glass toasts at the bottom right; at most 3 at a time. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([])
 
@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             )}
             style={{ bottom: `calc(1rem + ${items.indexOf(item) * 76}px)` }}
             onPointerMove={(event) => {
-              // Тот же блик за курсором, что у шапки: позиция передаётся в CSS-переменные
+              // Same cursor glint as the header: the position is passed via CSS variables
               const rect = event.currentTarget.getBoundingClientRect()
               event.currentTarget.style.setProperty('--glass-mx', `${event.clientX - rect.left}px`)
               event.currentTarget.style.setProperty('--glass-my', `${event.clientY - rect.top}px`)

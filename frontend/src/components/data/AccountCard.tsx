@@ -6,9 +6,9 @@ import { useI18n } from '@/i18n'
 import { Amount } from './Amount'
 
 /**
- * Плитка счёта на дашборде. В референсе это цветные карточки 268×50.
- * Здесь цвет остаётся маркером счёта (узнаваемость), но приглушён: насыщенная
- * заливка спорила бы со стеклом и мешала контрасту сумм.
+ * Account tile on the dashboard. In the reference these are colored 268×50 cards.
+ * Here the color stays an account marker (recognizability) but muted: a saturated
+ * fill would clash with the glass and hurt amount contrast.
  */
 function AccountCardImpl({
   account,
@@ -17,7 +17,7 @@ function AccountCardImpl({
 }: {
   account: Account
   className?: string
-  /** Открыть детали счёта: карточка становится ссылкой на /accounts/:id */
+  /** Open account details: the card becomes a link to /accounts/:id */
   onOpen?: () => void
 }) {
   const { t } = useI18n()
@@ -53,5 +53,5 @@ function AccountCardImpl({
   )
 }
 
-/** Карточка счёта: перерисовывается только при смене данных счёта. */
+/** Account card: re-renders only when the account data changes. */
 export const AccountCard = memo(AccountCardImpl)

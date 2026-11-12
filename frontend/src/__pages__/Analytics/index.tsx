@@ -46,7 +46,7 @@ type ReportSection = {
 
 type CategoryMeta = { name: string; icon: string | null; color: string | null }
 
-/** Процент к предыдущему месяцу; для первого месяца базы нет. */
+/** Percent vs the previous month; the first month has no baseline. */
 function trendSeries(values: number[]): Array<number | null> {
   return values.map((value, index) => {
     if (index === 0) return null
@@ -78,7 +78,7 @@ function toReportRow(
   }
 }
 
-/** Родители собираются из подкатегорий: строка родителя может быть без прямых трат. */
+/** Parents are rolled up from subcategories: a parent row may have no direct spending. */
 function buildReportSection(
   matrix: MatrixDto,
   key: 'income' | 'expense',
@@ -140,12 +140,12 @@ function buildReportSection(
 }
 
 /**
- * «Аналитика»: отчёт месяцы × категории, динамика баланса, денежный поток
- * и структура расходов.
+ * "Analytics": months × categories report, balance dynamics, cashflow
+ * and spending breakdown.
  *
- * Все четыре вкладки живут на одном приложении аналитики: матрица — это
- * `/analytics/matrix`, линии и столбцы — `/analytics/timeseries`, доли —
- * `/analytics/by-category` и `/analytics/by-account`.
+ * All four tabs live on one analytics app: the matrix is
+ * `/analytics/matrix`, lines and bars — `/analytics/timeseries`, shares —
+ * `/analytics/by-category` and `/analytics/by-account`.
  */
 export function AnalyticsPage() {
   const { t, locale } = useI18n()
@@ -161,7 +161,7 @@ export function AnalyticsPage() {
   const startDate = range?.from ? range.from.toISOString().slice(0, 10) : undefined
   const endDate = range?.to ? range.to.toISOString().slice(0, 10) : undefined
 
-  /* Конец месяца отчёта: текущий или сдвинутый стрелками назад. */
+  /* Report month end: current or shifted back with the arrows. */
   const reportEndDate = useMemo(() => {
     if (range?.to) return range.to.toISOString().slice(0, 10)
     const date = new Date()
@@ -172,8 +172,8 @@ export function AnalyticsPage() {
   }, [range?.to, reportOffset])
 
   /*
-   * Для тренда первого видимого месяца нужен ещё один месяц слева —
-   * поэтому запрашиваем на один месяц больше, чем показываем.
+   * The trend of the first visible month needs one more month to the left —
+   * so we request one month more than we show.
    */
   const reportMonths = monthCount + 1
   const expenseMatrix = useApiQuery(
@@ -189,7 +189,7 @@ export function AnalyticsPage() {
     [startDate, endDate],
   )
 
-  /* Три временных ряда: остаток, поток и структура расходов */
+  /* Three time series: balance, cashflow and spending breakdown */
   const balanceSeries = useApiQuery(
     () => analyticsApi.getTimeseries({ metric: 'balance', groupBy: 'week', startDate, endDate }),
     [startDate, endDate],
@@ -294,7 +294,7 @@ export function AnalyticsPage() {
         </div>
       }
     >
-      {/* Вкладки: на мобиле прокручиваются горизонтально, без переноса строк */}
+      {/* Tabs: scroll horizontally on mobile, no line wrapping */}
       <div className="mb-4 overflow-x-auto pb-1">
         <div className="min-w-max">
           <SegmentedControl
@@ -311,7 +311,7 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Итоги периода */}
+      {/* Period totals */}
       <QueryError
         error={
           incomeMatrix.error ??
@@ -590,7 +590,7 @@ export function AnalyticsPage() {
             )}
           </Card>
 
-          {/* Доли счетов: видно, где лежат деньги */}
+          {/* Account shares: shows where the money sits */}
           <Card>
             <CardHeader title={t('nav.accounts')} />
             <ul className="mt-3 space-y-2">
@@ -642,7 +642,7 @@ export function AnalyticsPage() {
       {tab === 'advanced' && (
         <div className="space-y-4">
           <>
-              {/* Сравнение с предыдущим периодом */}
+              {/* Comparison with the previous period */}
               <Card className="p-4">
                 <CardHeader title={t('dashboard.periodComparison')} subtitle={t('dashboard.vsPrevious')} />
                 {totals?.previous ? (
@@ -689,7 +689,7 @@ export function AnalyticsPage() {
                 )}
               </Card>
 
-              {/* Доходы по категориям */}
+              {/* Income by category */}
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
                   <CardHeader title={t('dashboard.incomes')} subtitle={t('analytics.byCategory')} />
@@ -709,7 +709,7 @@ export function AnalyticsPage() {
                   )}
                 </Card>
 
-                {/* Расходы по категориям */}
+                {/* Expenses by category */}
                 <Card>
                   <CardHeader title={t('dashboard.expenses')} subtitle={t('analytics.byCategory')} />
                   {expenseSegments.length > 0 ? (
@@ -729,7 +729,7 @@ export function AnalyticsPage() {
                 </Card>
               </div>
 
-              {/* Дополнительные графики */}
+              {/* Additional charts */}
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
                   <CardHeader title={t('analytics.categoryTrends')} subtitle={t('analytics.last3Months')} />

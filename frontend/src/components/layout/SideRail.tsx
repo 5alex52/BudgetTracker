@@ -23,12 +23,12 @@ export const RAIL_ITEMS: RailItem[] = [
 ]
 
 /**
- * Вертикальный рельс навигации на стекле.
+ * Vertical navigation rail on glass.
  *
- * Сознательное отличие от референса: там горизонтальная полоса меню на всю
- * ширину экрана — самый узнаваемый элемент чужого продукта. Здесь навигация
- * живёт в плавающем рельсе слева, а верхняя панель отвечает только за контекст
- * страницы, поиск и действия.
+ * A deliberate departure from the reference: there a horizontal menu bar spans
+ * the whole screen — the most recognizable element of someone else's product. Here navigation
+ * lives in a floating rail on the left, and the top bar handles only page context,
+ * search and actions.
  */
 export function SideRail() {
   const { t } = useI18n()

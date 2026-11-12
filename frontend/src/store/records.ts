@@ -7,11 +7,11 @@ import type { RecordItem } from '@/__shared__/types/models'
 import { useFinanceStore } from './finance'
 
 /**
- * Записи: источник правды — backend.
+ * Records: the backend is the source of truth.
  *
- * Раньше список жил в localStorage-сторе и фильтровался на клиенте. Теперь
- * фильтры уходят на сервер (он умеет и поиск, и диапазон сумм, и метки), а
- * стор хранит текущую страницу, итог и состояние загрузки.
+ * The list used to live in a localStorage store and was filtered on the client. Now
+ * filters go to the server (it handles search, amount ranges and tags), and the
+ * store keeps the current page, the total and loading state.
  */
 interface RecordsState {
   items: RecordItem[]
@@ -20,7 +20,7 @@ interface RecordsState {
   error: string | null
   filters: TransactionFilters
 
-  /** Загрузить страницу с учётом фильтров; `append` — догрузка «показать ещё» */
+  /** Load a page with the current filters; `append` — "show more" loading */
   load: (filters?: TransactionFilters, options?: { append?: boolean }) => Promise<void>
   setFilters: (filters: TransactionFilters) => void
   reset: () => void
@@ -72,7 +72,7 @@ export const useRecordsStore = create<RecordsState>((set, get) => ({
     const dto = await transactionsApi.createTransaction(payload)
     const item = await refreshItem(dto.id)
     await useFinanceStore.getState().reloadAccounts()
-    // Свежая запись могла измениться правилами: берём данные с сервера
+    // A fresh record may have been changed by rules: take the data from the server
     set((state) => ({ items: [item, ...state.items], total: state.total + 1 }))
     return item
   },
@@ -108,7 +108,7 @@ export const useRecordsStore = create<RecordsState>((set, get) => ({
   },
 }))
 
-/** Индекс счетов по числовому id: по нему маппер берёт маркер цвета. */
+/** Accounts indexed by numeric id: the mapper uses it to get the color marker. */
 function accountIndex() {
   const accounts = useFinanceStore.getState().accounts
   const byId = new Map<number, (typeof accounts)[number]>()
@@ -116,7 +116,7 @@ function accountIndex() {
   return byId
 }
 
-/** Детали записи для списка: сервер отдаёт их вместе с названиями счёта и категории. */
+/** Record details for the list: the server returns them with account and category names. */
 async function refreshItem(id: number): Promise<RecordItem> {
   const dto: TransactionWithDetailsDto = await transactionsApi.getTransaction(id)
   return toRecordItem(dto, { accounts: accountIndex() })

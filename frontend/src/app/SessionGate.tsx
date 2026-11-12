@@ -7,10 +7,10 @@ import { useRecordsStore } from '@/store/records'
 import { useI18n } from '@/i18n'
 
 /**
- * Проверка сессии при старте.
+ * Session check at startup.
  *
- * Токен в httpOnly-cookie, поэтому «вошёл или нет» узнаём запросом профиля.
- * Пока идёт проверка, экран не мигает формой входа — показываем заглушку.
+ * The token is in an httpOnly cookie, so "logged in or not" is determined by a profile request.
+ * While the check runs, the screen doesn't flash the login form — we show a placeholder.
  */
 function SessionGate({ children }: { children: ReactNode }) {
   const status = useAuthStore((state) => state.status)
@@ -19,7 +19,7 @@ function SessionGate({ children }: { children: ReactNode }) {
   const clearData = useFinanceStore((state) => state.clearData)
   const ready = useFinanceStore((state) => state.ready)
   const clear = useAuthStore((state) => state.clear)
-  /** Кто вошёл: смена пользователя должна стирать данные предыдущего */
+  /** Who is logged in: a user switch must wipe the previous user's data */
   const userId = useAuthStore((state) => state.user?.id ?? null)
   const { t } = useI18n()
 
@@ -27,22 +27,22 @@ function SessionGate({ children }: { children: ReactNode }) {
     void bootstrap()
   }, [bootstrap])
 
-  // Любой 401 от API — сессия истекла: сбрасываем состояние и уводим на вход
+  // Any 401 from the API means the session expired: reset state and go to login
   useEffect(() => {
     onUnauthorized(() => clear())
     return () => onUnauthorized(null)
   }, [clear])
 
-  /* Справочники читают почти все экраны, поэтому грузим их при входе.
-     Ключ — id пользователя: при выходе данные стираем, при смене аккаунта
-     стираем и загружаем заново, иначе новый пользователь увидел бы чужое. */
+  /* Almost every screen reads reference data, so we load it on login.
+     Keyed by user id: on logout the data is wiped, on account switch
+     it's wiped and reloaded, otherwise the new user would see someone else's. */
   useEffect(() => {
     clearData()
     useRecordsStore.getState().reset()
     if (userId) void loadAll()
   }, [userId, clearData, loadAll])
 
-  /* Ждём и сессию, и справочники: иначе первый кадр показывает пустые экраны */
+  /* Wait for both the session and reference data: otherwise the first frame shows empty screens */
   if (status === 'loading' || (status === 'authenticated' && !ready)) {
     return (
       <div className="grid min-h-dvh place-items-center">
@@ -56,7 +56,7 @@ function SessionGate({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/** Роут только для суперпользователей: остальным — на главную. */
+/** Superusers-only route: everyone else goes to the main page. */
 export function RequireSuperuser({ children }: { children: ReactNode }) {
   const user = useAuthStore((state) => state.user)
 
@@ -66,7 +66,7 @@ export function RequireSuperuser({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/** Роут только для вошедших: иначе — на страницу входа с запоминанием адреса. */
+/** Logged-in-only route: otherwise — to the login page, remembering the address. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const status = useAuthStore((state) => state.status)
   const location = useLocation()

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Сквозная проверка записи: payload'ы ровно те, что отправляет фронтенд.
+"""End-to-end write check: payloads exactly as the frontend sends them.
 
-Запуск: python3 tools/smoke_write.py
-Требует поднятый backend на 127.0.0.1:8000 и демо-данные (scripts.seed_demo).
+Run: python3 tools/smoke_write.py
+Requires a running backend at 127.0.0.1:8000 and demo data (scripts.seed_demo).
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def call(method: str, path: str, body: dict | None = None, form: dict | None = N
         with opener.open(request) as response:
             raw = response.read()
             status = response.status
-    except urllib.error.HTTPError as error:  # 4xx/5xx — тоже результат проверки
+    except urllib.error.HTTPError as error:  # 4xx/5xx is also a check result
         raw = error.read()
         status = error.code
     payload = None
@@ -57,7 +57,7 @@ def call(method: str, path: str, body: dict | None = None, form: dict | None = N
     marker = "ok " if 200 <= status < 300 else "!! "
     print(f"{marker}{method:6} {path:46} {status}")
     if status >= 400:
-        print(f"     тело: {str(payload)[:300]}")
+        print(f"     body: {str(payload)[:300]}")
     return payload
 
 
@@ -68,7 +68,7 @@ def main() -> int:
         form={"username": f"{LOGIN}@{DOMAIN}", "password": PASSWORD},
     )
     if not login:
-        print("логин не удался — проверьте, что демо-данные засеяны")
+        print("login failed — check that the demo data is seeded")
         return 1
 
     accounts = call("GET", "/finance/accounts/") or []
@@ -77,7 +77,7 @@ def main() -> int:
     categories = call("GET", "/finance/categories/") or []
     category_id = next(item["id"] for item in categories if item["type"] == "expense")
 
-    # --- запись: создание, правка, чтение, удаление
+    # --- record: create, edit, read, delete
     record = call(
         "POST",
         "/finance/transactions/",
@@ -100,12 +100,12 @@ def main() -> int:
     )
     call("GET", f"/finance/transactions/{transaction_id}")
 
-    # --- метки
+    # --- tags
     tag = call("POST", "/finance/tags/", {"name": "smoke-tag", "color": "#3aa76d"})
     tag_id = tag["id"]
     call("PATCH", f"/finance/tags/{tag_id}", {"name": "smoke-tag-2"})
 
-    # --- шаблоны: создание и применение
+    # --- templates: create and apply
     template = call(
         "POST",
         "/finance/templates/",
@@ -120,17 +120,15 @@ def main() -> int:
             "tag_ids": [],
         },
     )
-    template_id = (
-        template["id"] if isinstance(template, dict) and "id" in template else None
-    )
+    template_id = template["id"] if isinstance(template, dict) and "id" in template else None
     applied_id = None
     if template_id:
         applied = call("POST", f"/finance/templates/{template_id}/apply")
-        # Шаблон создаёт настоящую запись — её тоже нужно убрать за собой
+        # The template creates a real record — clean that up too
         if isinstance(applied, dict) and applied.get("id"):
             applied_id = applied["id"]
 
-    # --- правила: создание, прогон, переключение
+    # --- rules: create, run, toggle
     rule = call(
         "POST",
         "/finance/rules/",
@@ -150,11 +148,11 @@ def main() -> int:
     if rule_id:
         call("PATCH", f"/finance/rules/{rule_id}", {"is_active": False})
 
-    # --- личный курс валюты
+    # --- personal currency rate
     call("PUT", "/finance/currencies/USD/rate", {"rate": 3.11})
     call("DELETE", "/finance/currencies/USD/rate")
 
-    # --- массовое удаление и серверная выгрузка (кнопки на экране «Записи»)
+    # --- bulk delete and server-side export (buttons on the Records screen)
     extra = call(
         "POST",
         "/finance/transactions/",
@@ -174,10 +172,10 @@ def main() -> int:
     call("GET", "/finance/transactions/export?format=csv")
     call("GET", "/finance/transactions/export?format=json")
 
-    # --- профиль
+    # --- profile
     call("PATCH", "/users/me", {"timezone": "Europe/Moscow"})
 
-    # --- уборка
+    # --- cleanup
     call("DELETE", f"/finance/transactions/{transaction_id}")
     if applied_id:
         call("DELETE", f"/finance/transactions/{applied_id}")
@@ -190,11 +188,11 @@ def main() -> int:
     failed = [(name, status) for name, status in results if status >= 400]
     print()
     if failed:
-        print(f"ПРОВАЛЕНО: {len(failed)} из {len(results)}")
+        print(f"FAILED: {len(failed)} of {len(results)}")
         for name, status in failed:
             print(f"  {status}  {name}")
         return 1
-    print(f"Успешно: {len(results)} запросов, все 2xx")
+    print(f"OK: {len(results)} requests, all 2xx")
     return 0
 
 

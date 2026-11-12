@@ -38,7 +38,7 @@ const buttonVariants = cva(
 export interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  /** Показывает спиннер и блокирует повторные нажатия */
+  /** Shows a spinner and blocks repeated presses */
   loading?: boolean
 }
 

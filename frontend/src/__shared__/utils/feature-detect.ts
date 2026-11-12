@@ -1,18 +1,18 @@
 /**
- * Feature-detect для рефракции в backdrop-filter.
+ * Feature detection for refraction in backdrop-filter.
  *
- * Требование ТЗ: не UA-sniffing. Проверяем ровно то, что нужно для уровня 2:
- * 1) браузер понимает url(#id) как значение backdrop-filter;
- * 2) браузер уважает color-interpolation-filters: sRGB (без него рефракция «грязнит» цвета);
- * 3) элемент реально получает backdrop-filter в CSSOM.
+ * Spec requirement: no UA sniffing. We check exactly what level 2 needs:
+ * 1) the browser understands url(#id) as a backdrop-filter value;
+ * 2) the browser honors color-interpolation-filters: sRGB (without it refraction "muddies" colors);
+ * 3) the element actually gets backdrop-filter in the CSSOM.
  *
- * ВАЖНО (проверено снимками WKWebView): WebKit принимает значение с url() и
- * сохраняет его в CSSOM, но смещение через feDisplacementMap в backdrop-filter
- * не рисует. Объявление при этом не ломает уровень 1 — базовый blur остаётся,
- * то есть откат происходит сам собой. Функция отвечает на вопрос «движок
- * заявляет поддержку», а не «движок рисует рефракцию».
+ * IMPORTANT (verified with WKWebView snapshots): WebKit accepts the url() value
+ * and keeps it in the CSSOM, but does not render feDisplacementMap displacement
+ * in backdrop-filter. The declaration does not break level 1 — the base blur stays,
+ * so the fallback happens on its own. The function answers "does the engine
+ * claim support", not "does the engine render refraction".
  *
- * Результат считается один раз и кешируется.
+ * The result is computed once and cached.
  */
 
 let cached: boolean | null = null
@@ -32,8 +32,8 @@ export function supportsBackdropRefraction(): boolean {
     return cached
   }
 
-  // Финальная проверка: применяется ли backdrop-filter с url() к живому элементу.
-  // Safari возвращает пустую строку — значит синтаксис принят, но не поддержан.
+  // Final check: does backdrop-filter with url() apply to a live element.
+  // Safari returns an empty string — the syntax is accepted but not supported.
   const probe = document.createElement('div')
   probe.style.backdropFilter = 'url(#probe)'
   probe.style.setProperty('-webkit-backdrop-filter', 'url(#probe)')
@@ -49,7 +49,7 @@ export function supportsBackdropRefraction(): boolean {
   return cached
 }
 
-/** Сброс кеша — только для тестов и повторной проверки возможностей. */
+/** Cache reset — for tests and re-checking capabilities only. */
 export function resetFeatureDetectCache(): void {
   cached = null
 }

@@ -1,8 +1,8 @@
-# Основной стек для локальной разработки:
+# Main stack for local development:
 #   docker compose up --build
 #
-# Все параметры имеют значения по умолчанию, поэтому файл работает без .env.
-# Переопределить их можно через .env (см. .env.example) или переменные окружения.
+# Every setting has a default, so the file works without .env.
+# Override via .env (see .env.example) or environment variables.
 
 name: budgettracker
 
@@ -19,7 +19,7 @@ x-backend-env: &backend-env
   POSTGRES_DB: ${POSTGRES_DB:-budgettracker}
   POSTGRES_USER: ${POSTGRES_USER:-budget}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
-  # отдельная БД для pytest (создаётся/удаляется тестами автоматически)
+  # separate database for pytest (created/dropped by the tests automatically)
   TEST_POSTGRES_HOST: postgres
   TEST_POSTGRES_PORT: 5432
   TEST_POSTGRES_DB: ${POSTGRES_DB:-budgettracker}
@@ -32,20 +32,22 @@ x-backend-env: &backend-env
   RABBIT_PORT: 5672
   RABBIT_USER: ${RABBIT_USER:-guest}
   RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
-  # cors: адрес vite dev-сервера (значение по умолчанию, переопределяется CORS_ORIGINS в .env)
+  # cors: vite dev-server address (default; override with CORS_ORIGINS in .env)
   CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173","http://127.0.0.1:5173"]}'
   CORS_HEADERS: '["Content-Type","Set-Cookie","Access-Control-Allow-Headers","Access-Control-Allow-Origin","Authorization"]'
   CORS_METHODS: '["GET","POST","PUT","PATCH","DELETE","OPTIONS"]'
-  # OAuth и адрес фронтенда для писем/редиректов (провайдеры пока заглушки)
+  # OAuth and frontend URL for emails/redirects
   OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
   OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
   OAUTH_RETURN_URL: ${OAUTH_RETURN_URL:-http://localhost:5173/}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-  # Telegram-бот напоминаний о подписках и ключи Web Push (значения в .env)
+  # Telegram bot (subscription reminders + Mini App login) and Web Push keys (values in .env)
   TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
   VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
   VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
   VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@budgettracker.local}
+  # optional: Etherscan key enables EVM balance-history backfill (current balance works without it)
+  CRYPTO_ETHERSCAN_API_KEY: ${CRYPTO_ETHERSCAN_API_KEY:-}
 
 services:
   postgres:
@@ -58,7 +60,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      # наружу только 5555 (dev): 5432 остаётся за локальным Postgres/PgAdmin
+      # only 5555 is exposed (dev): 5432 stays with the local Postgres/PgAdmin
       - "${POSTGRES_HOST_PORT:-5555}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -89,11 +91,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        # в dev-стеке нужны pytest/black внутри контейнера
+        # the dev stack needs pytest/black inside the container
         INSTALL_DEV: "true"
     container_name: budgettracker-backend
     restart: unless-stopped
-    # код монтируется томом, поэтому включаем autoreload
+    # code is volume-mounted, so enable autoreload
     command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
       <<: *backend-env
@@ -122,21 +124,21 @@ services:
     container_name: budgettracker-frontend
     restart: unless-stopped
     environment:
-      # vite проксирует /api на backend внутри docker-сети
+      # vite proxies /api to the backend inside the docker network
       VITE_API_PROXY_TARGET: ${VITE_API_PROXY_TARGET:-http://backend:8000}
       VITE_PORT: 5173
     ports:
       - "${FRONTEND_HOST_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
-      # анонимный том, чтобы node_modules из образа не перекрывались хостовым
+      # anonymous volume so the image's node_modules is not shadowed by the host
       - /app/node_modules
     depends_on:
       backend:
         condition: service_healthy
 
-  # Фоновые задачи: брокер и воркер собраны в одном файле, но вынесены в профиль,
-  # чтобы обычный запуск их не поднимал:
+  # Background jobs: broker and worker live in this file but sit behind a profile
+  # so a regular start does not bring them up:
   #   docker compose --profile workers up --build
   #   docker compose -f docker-compose.prod.yml --profile workers up --build -d
   rabbitmq:

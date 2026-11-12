@@ -1,6 +1,6 @@
 #!/bin/bash
-# Проверяет каждый экран на обрезанный контент (scrollWidth > clientWidth).
-# Выводит строку OVERFLOW <экран> <ширина>: виновники, или ok.
+# Checks every screen for clipped content (scrollWidth > clientWidth).
+# Prints a line OVERFLOW <screen> <width>: the culprits, or ok.
 set -u
 export PATH=/usr/local/bin:$PATH
 cd "$(dirname "$0")/.." || exit 1
@@ -12,7 +12,7 @@ PROBE='(() => {
     const style = getComputedStyle(node);
     if (style.position === "fixed") return;
     if (node.classList.contains("sr-only")) return;
-    // SVG-текст не имеет clientWidth: сравнение для него бессмысленно
+    // SVG text has no clientWidth: the comparison is meaningless for it
     if (node instanceof SVGElement) return;
     if (node.closest("[role=dialog]")) return;
     if (node.scrollWidth > node.clientWidth + 1 && node.clientWidth > 0) {
@@ -33,7 +33,7 @@ for entry in dashboard:/ accounts:/accounts records:/records analytics:/analytic
     node tools/cdp-shot.mjs --url "$BASE${path}?theme=dark" --out /tmp/probe.png \
       --width "$width" --height "$height" --dpr 1 --theme dark \
       --actions "[{\"eval\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$PROBE")}]" 2>&1 \
-      | grep -E "OVERFLOW|нет цели" | sed "s/^/[$name $width] /"
+      | grep -E "OVERFLOW|no target" | sed "s/^/[$name $width] /"
   done
 done
-echo "ПРОВЕРКА ЗАВЕРШЕНА"
+echo "CHECK COMPLETE"

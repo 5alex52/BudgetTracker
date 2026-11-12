@@ -31,7 +31,7 @@ class UserCreate(UserBase):
     firstname: str
     lastname: str
     email: str
-    password: str
+    password: str = Field(..., min_length=8)
     timezone: Optional[str] = Field(None)
     git_username: Optional[str] = Field(None)
 
@@ -150,6 +150,15 @@ class PushSubscribeRequest(BaseModel):
 
     endpoint: str = Field(..., max_length=1024)
     keys: "PushKeys"
+
+    @field_validator("endpoint")
+    @classmethod
+    def endpoint_https_only(cls, value: str) -> str:
+        # The server POSTs to this URL (pywebpush): plain http would let a client
+        # aim the backend at internal hosts (SSRF). Real push services use https.
+        if not value.startswith("https://"):
+            raise ValueError("Push endpoint must use https")
+        return value
 
 
 class PushKeys(BaseModel):

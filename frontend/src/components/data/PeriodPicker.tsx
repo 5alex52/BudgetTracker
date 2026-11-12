@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/overlays'
 import 'react-day-picker/style.css'
 
-/** Одна ли колонка календаря: на узких экранах два месяца не помещаются. */
+/** Whether the calendar is single-column: two months don't fit on narrow screens. */
 function useCompactLayout() {
   const [compact, setCompact] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches,
@@ -24,21 +24,21 @@ function useCompactLayout() {
 }
 
 /**
- * Выбор периода: стрелки на месяц + календарь диапазона дат.
+ * Period picker: month arrows + a date-range calendar.
  *
- * Для календаря взята `react-day-picker` — стандартная библиотека выбора дат
- * в экосистеме shadcn/Radix: поддерживает режим диапазона, локали за нас и
- * доступность с клавиатуры, без собственного велосипеда на 400 строк.
- * Текст над календарём показывает текущий выбор так же, как в референсе.
+ * The calendar uses `react-day-picker` — the standard date-picking library
+ * in the shadcn/Radix ecosystem: range mode, locales for us and keyboard
+ * accessibility, without a 400-line homegrown wheel.
+ * The text above the calendar shows the current selection just like the reference.
  */
 export interface PeriodPickerProps {
-  /** Подпись периода по умолчанию: «октябрь 2025» / «1–31 октября 2025» */
+  /** Default period label: "October 2025" / "October 1–31, 2025" */
   label: string
   onPrev?: () => void
   onNext?: () => void
   range?: DateRange
   onRangeChange?: (range: DateRange | undefined) => void
-  /** Месяц, с которого открывается календарь (по умолчанию — текущий) */
+  /** Month the calendar opens on (current by default) */
   defaultMonth?: Date
   className?: string
 }

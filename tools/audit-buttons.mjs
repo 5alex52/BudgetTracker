@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Аудит кнопок: прокликивает все <button> на каждом экране и проверяет, что
- * после нажатия что-то происходит — открывается модал/меню/поповер, меняется
- * состояние или адрес. Кнопки, после которых ничего не меняется, попадают в
- * отчёт как «мёртвые» — их и нужно дорисовать.
+ * Button audit: clicks every <button> on each screen and checks that something
+ * happens after the press — a modal/menu/popover opens, state or the address changes.
+ * Buttons after which nothing changes land in the report as "dead" —
+ * those are the ones to finish.
  *
- * Работает на чистом CDP (Node 22+ с глобальным WebSocket), без Playwright.
+ * Runs on pure CDP (Node 22+ with global WebSocket), no Playwright.
  *
- * Использование:
+ * Usage:
  *   node tools/audit-buttons.mjs [--base http://127.0.0.1:5199] [--json out.json]
  */
 import { spawn } from 'node:child_process'
@@ -76,11 +76,11 @@ async function endpoint() {
         if (data.webSocketDebuggerUrl) return data.webSocketDebuggerUrl
       }
     } catch {
-      /* ждём */
+      /* wait */
     }
     await sleep(200)
   }
-  throw new Error('Chrome не отдал endpoint')
+  throw new Error('Chrome did not expose an endpoint')
 }
 
 const socket = new WebSocket(await endpoint())
@@ -112,7 +112,7 @@ function send(method, params = {}, sessionId = undefined) {
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id)
-        reject(new Error(`таймаут ${method}`))
+        reject(new Error(`timeout ${method}`))
       }
     }, 180000)
   })
@@ -132,12 +132,12 @@ async function evaluate(expression) {
     sessionId,
   )
   if (result.exceptionDetails) {
-    return { error: result.exceptionDetails.text ?? 'ошибка выполнения' }
+    return { error: result.exceptionDetails.text ?? 'execution error' }
   }
   return { value: result.result?.value }
 }
 
-/** Собираем список кнопок страницы: подпись + видимость. */
+/** Collect the page's button list: label + visibility. */
 const LIST_JS = `(() => {
   const visible = (el) => {
     const r = el.getBoundingClientRect();
@@ -174,7 +174,7 @@ const SIG = `(() => {
   ].join('~');
 })()`
 
-/** Готовим нажатие: находим кнопку, запоминаем адрес центра и исходное состояние. */
+/** Prepare the press: find the button, remember its center point and the initial state. */
 const prepareJs = (label) => `(async () => {
   const label = (el) =>
     ((el.getAttribute('aria-label') || el.textContent || '').replace(/\\s+/g, ' ').trim() ||
@@ -199,7 +199,7 @@ const prepareJs = (label) => `(async () => {
   };
 })()`
 
-/** Измеряем результат уже после настоящего нажатия мышью. */
+/** Measure the result after a real mouse press. */
 const measureJs = (before, pathBefore, alreadyActive) => `(async () => {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(500);
@@ -211,18 +211,18 @@ const measureJs = (before, pathBefore, alreadyActive) => `(async () => {
   await wait(80);
   return {
     status: opened
-      ? 'открывает слой'
+      ? 'opens a layer'
       : navigated
-        ? 'переход'
+        ? 'navigation'
         : changed
-          ? 'меняет состояние'
+          ? 'changes state'
           : ${JSON.stringify(Boolean(alreadyActive))}
-            ? 'уже выбрано'
-            : 'ничего не происходит',
+            ? 'already selected'
+            : 'nothing happens',
   };
 })()`
 
-/** Ждём, пока страница реально отрендерится (React привяжет обработчики). */
+/** Wait until the page has actually rendered (React attaches handlers). */
 async function waitForReady() {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const state = await evaluate('document.readyState + "|" + (document.querySelector("header") ? "h" : "-") + "|" + document.body.innerText.length')
@@ -244,7 +244,7 @@ for (const [name, path] of PAGES) {
 
   const listed = await evaluate(LIST_JS)
   if (listed.error || !Array.isArray(listed.value)) {
-    report[name] = [{ label: listed.error ?? 'не удалось прочитать кнопки', status: 'ошибка аудита' }]
+    report[name] = [{ label: listed.error ?? 'failed to read buttons', status: 'audit error' }]
     continue
   }
 
@@ -255,13 +255,13 @@ for (const [name, path] of PAGES) {
 
     const prepared = await evaluate(prepareJs(label))
     if (!prepared.value) {
-      items.push({ label, status: 'кнопка не найдена' })
+      items.push({ label, status: 'button not found' })
       continue
     }
 
     const { x, y, before, alreadyActive } = prepared.value
     const pathBefore = new URL(url).pathname
-    // Настоящее нажатие мышью: только так срабатывают submit у форм и pointerdown у Radix
+    // A real mouse press: only this way do form submit and Radix pointerdown fire
     for (const type of ['mousePressed', 'mouseReleased']) {
       await send(
         'Input.dispatchMouseEvent',
@@ -272,7 +272,7 @@ for (const [name, path] of PAGES) {
     }
 
     const outcome = await evaluate(measureJs(before, pathBefore, alreadyActive))
-    items.push({ label, status: outcome.value?.status ?? outcome.error ?? 'нет ответа' })
+    items.push({ label, status: outcome.value?.status ?? outcome.error ?? 'no response' })
   }
 
   if (path !== name) {
@@ -285,23 +285,23 @@ for (const [name, path] of PAGES) {
 const dead = []
 for (const [page, items] of Object.entries(report)) {
   for (const item of items) {
-    if (item.status === 'ничего не происходит') dead.push({ page, ...item })
+    if (item.status === 'nothing happens') dead.push({ page, ...item })
   }
 }
 
 for (const [page, items] of Object.entries(report)) {
-  console.log(`\n=== ${page} (${items.length} кнопок)`)
+  console.log(`\n=== ${page} (${items.length} buttons)`)
   for (const item of items) {
-    const mark = item.status === 'ничего не происходит' ? '✗' : '·'
+    const mark = item.status === 'nothing happens' ? '✗' : '·'
     console.log(`  ${mark} ${item.status.padEnd(18)} ${item.label}`)
   }
 }
 
-console.log(`\nИТОГО: мёртвых кнопок — ${dead.length}`)
+console.log(`\nTOTAL: dead buttons — ${dead.length}`)
 if (jsonOut) {
   const { writeFile } = await import('node:fs/promises')
   await writeFile(jsonOut, JSON.stringify({ report, dead }, null, 2))
-  console.log(`отчёт: ${jsonOut}`)
+  console.log(`report: ${jsonOut}`)
 }
 
 socket.close()

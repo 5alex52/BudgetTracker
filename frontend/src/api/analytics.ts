@@ -1,4 +1,4 @@
-/** Аналитика: отдельное приложение backend, префикс `/api/analytics`. */
+/** Analytics: a separate backend app, prefix `/api/analytics`. */
 import { request } from './client'
 import type {
   AccountShareDto,

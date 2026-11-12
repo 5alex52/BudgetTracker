@@ -1,12 +1,12 @@
-/** Авторизация и сессия. */
+/** Authentication and session. */
 import { request } from './client'
 import type { TokenDto, UserDto } from './types'
 
 /**
- * Вход по логину и паролю.
+ * Login with username and password.
  *
- * Backend ждёт `application/x-www-form-urlencoded` (OAuth2), а токен кладёт
- * в httpOnly-cookie — поэтому в браузере ничего сохранять не нужно.
+ * The backend expects `application/x-www-form-urlencoded` (OAuth2) and puts the token
+ * into an httpOnly cookie — so nothing needs to be stored in the browser.
  */
 export function login(email: string, password: string): Promise<TokenDto> {
   return request<TokenDto>('/auth/login', {
@@ -26,8 +26,8 @@ export function refresh(): Promise<TokenDto> {
 }
 
 /**
- * Вход через Telegram Mini App: backend проверяет подпись `initData` токеном
- * бота и выдаёт сессию по привязанному telegram_id. Токены — в httpOnly-cookie.
+ * Login via Telegram Mini App: the backend verifies the `initData` signature with the bot
+ * token and issues a session for the linked telegram_id. Tokens go into httpOnly cookies.
  */
 export function telegramLogin(initData: string): Promise<TokenDto> {
   return request<TokenDto>('/auth/telegram', {
@@ -38,12 +38,12 @@ export function telegramLogin(initData: string): Promise<TokenDto> {
   })
 }
 
-/** Текущий пользователь: используется для восстановления сессии при загрузке. */
+/** Current user: used to restore the session on load. */
 export function me(): Promise<UserDto> {
   return request<UserDto>('/users/me', { skipAuthRedirect: true })
 }
 
-/** Регистрация: backend создаёт пользователя, счёт по умолчанию и набор категорий. */
+/** Registration: the backend creates the user, a default account and a set of categories. */
 export function register(payload: {
   firstname: string
   lastname: string
@@ -58,7 +58,7 @@ export function register(payload: {
   })
 }
 
-/** Подтверждение адреса по ссылке из письма. */
+/** Confirm the address via the link from the email. */
 export function verifyEmail(token: string): Promise<{ message: string }> {
   return request<{ message: string }>('/auth/verify-email', {
     method: 'POST',
@@ -68,7 +68,7 @@ export function verifyEmail(token: string): Promise<{ message: string }> {
   })
 }
 
-/** Повторная отправка письма подтверждения. */
+/** Resend the confirmation email. */
 export function resendVerification(email: string): Promise<{ message: string }> {
   return request<{ message: string }>('/auth/send-verification-email', {
     method: 'POST',
@@ -78,7 +78,7 @@ export function resendVerification(email: string): Promise<{ message: string }> 
   })
 }
 
-/** Вход через внешний сервис: ссылка на провайдера (github). */
+/** Login via an external service: link to the provider (github). */
 export function oauthStartUrl(provider: 'github'): string {
   const base = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/api'
   return `${base.replace(/\/$/, '')}/auth/oauth/${provider}`

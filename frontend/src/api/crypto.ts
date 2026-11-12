@@ -1,4 +1,4 @@
-/** Трекер криптокошельков: адреса, балансы, синхронизация, обзор в базовой валюте. */
+/** Crypto wallet tracker: addresses, balances, sync, overview in the base currency. */
 import { request } from './client'
 import type {
   CryptoAddressCreatePayload,
@@ -58,7 +58,7 @@ export function getTimeseries(period: CryptoPeriod, groupBy: CryptoGroupBy): Pro
   return request<CryptoTimeseriesDto>('/crypto/timeseries', { query: { period, group_by: groupBy } })
 }
 
-/** Коды активов для ручного редактора балансов. */
+/** Asset codes for the manual balance editor. */
 export function listAssets(): Promise<{ items: string[] }> {
   return request<{ items: string[] }>('/crypto/assets')
 }

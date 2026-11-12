@@ -1,10 +1,10 @@
 /**
- * Фон под стеклом.
+ * Background under the glass.
  *
- * Стекло на однотонном фоне выглядит серой заливкой, поэтому под плавающим слоем
- * всегда лежат насыщенные размытые пятна. Слой fixed, не перехватывает события.
- * Пятна сделаны радиальными градиентами (без filter: blur) — это один дешёвый
- * композитный слой, который не участвует в пересчёте при скролле контента.
+ * Glass on a solid background looks like a gray fill, so saturated blurred blobs
+ * always sit under the floating layer. The layer is fixed and doesn't intercept events.
+ * The blobs are radial gradients (no filter: blur) — one cheap composite layer
+ * that takes no part in recomputation when content scrolls.
  */
 export function GlassBackdrop() {
   return (
@@ -20,9 +20,9 @@ export function GlassBackdrop() {
 }
 
 /**
- * SVG-фильтры для уровня 2 (рефракция). Рендерятся один раз в корне приложения.
- * color-interpolation-filters="sRGB" обязателен: без него браузер интерполирует
- * смещение в linearRGB и стекло «грязнит» цвета.
+ * SVG filters for level 2 (refraction). Rendered once at the app root.
+ * color-interpolation-filters="sRGB" is required: without it the browser interpolates
+ * the displacement in linearRGB and the glass "muddies" colors.
  */
 export function GlassFilters() {
   return (

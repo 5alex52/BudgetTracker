@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Скриншот-инструмент на чистом CDP (без Playwright/Puppeteer): Node 22+ даёт
- * глобальный WebSocket, этого достаточно.
+ * Screenshot tool on pure CDP (no Playwright/Puppeteer): Node 22+ provides
+ * a global WebSocket, that's enough.
  *
- * Зачем: нужны не только «страница целиком», но и состояния после кликов
- * (модал, поповеры, тема, вкладки) — их обычный --screenshot не поймает.
+ * Why: we need not just "the whole page" but also states after clicks
+ * (modal, popovers, theme, tabs) — a plain --screenshot won't capture those.
  *
- * Использование:
+ * Usage:
  *   node tools/cdp-shot.mjs --url http://127.0.0.1:5199/ --out file.png \
  *     [--width 1440] [--height 900] [--dpr 1] [--theme dark|light] \
  *     [--actions '[{"click":"text=Запись"}]'] [--full]
  *
- * Действия: {click: css}, {clickText: строка}, {wait: мс}, {eval: js}
+ * Actions: {click: css}, {clickText: string}, {wait: ms}, {eval: js}
  */
 import { spawn } from 'node:child_process'
 import { mkdtemp, writeFile } from 'node:fs/promises'
@@ -38,7 +38,7 @@ const actions = JSON.parse(arg('actions', '[]'))
 const port = 9000 + Math.floor(Math.random() * 900)
 
 if (!url) {
-  console.error('нужен --url')
+  console.error('--url is required')
   process.exit(1)
 }
 
@@ -74,11 +74,11 @@ async function endpoint() {
         if (data.webSocketDebuggerUrl) return data.webSocketDebuggerUrl
       }
     } catch {
-      /* браузер ещё поднимается */
+      /* the browser is still starting */
     }
     await sleep(200)
   }
-  throw new Error('Chrome не отдал отладочный endpoint')
+  throw new Error('Chrome did not expose a debug endpoint')
 }
 
 const wsUrl = await endpoint()
@@ -112,7 +112,7 @@ function send(method, params = {}, sessionId = undefined) {
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id)
-        reject(new Error(`таймаут ${method}`))
+        reject(new Error(`timeout ${method}`))
       }
     }, 40000)
   })
@@ -142,7 +142,7 @@ await sleep(1200)
 const clickByText = (text) => `(() => {
   const nodes = [...document.querySelectorAll('button, a, [role="tab"], [role="menuitem"]')]
   const target = nodes.find((node) => node.textContent.trim().includes(${JSON.stringify(text)}))
-  if (!target) return 'нет цели: ' + ${JSON.stringify(text)}
+  if (!target) return 'no target: ' + ${JSON.stringify(text)}
   target.click()
   return 'ok'
 })()`
@@ -156,18 +156,18 @@ for (const action of actions) {
     action.clickText !== undefined
       ? clickByText(action.clickText)
       : action.click !== undefined
-        ? `(() => { const node = document.querySelector(${JSON.stringify(action.click)}); if (!node) return 'нет цели'; node.click(); return 'ok' })()`
+        ? `(() => { const node = document.querySelector(${JSON.stringify(action.click)}); if (!node) return 'no target'; node.click(); return 'ok' })()`
         : action.eval ?? 'void 0'
   const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId)
   if (result.exceptionDetails) {
-    console.error('ошибка действия:', JSON.stringify(result.exceptionDetails.exception?.description ?? result))
+    console.error('action error:', JSON.stringify(result.exceptionDetails.exception?.description ?? result))
   } else if (result.result?.value && result.result.value !== 'ok') {
-    console.error('действие:', result.result.value)
+    console.error('action:', result.result.value)
   }
   await sleep(450)
 }
 
-// Ждём веб-шрифты, иначе макет покажет подменный шрифт
+// Wait for web fonts, otherwise the layout shows the fallback font
 await send('Runtime.evaluate', { expression: 'document.fonts.ready', awaitPromise: true }, sessionId)
 await sleep(300)
 

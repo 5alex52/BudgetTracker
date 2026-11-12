@@ -1,6 +1,6 @@
 /**
- * Иконки популярных сервисов подписки: пути из simple-icons (CC0), одна `<path>`.
- * Ключ используется как значение `icon` в API; дополнительно поддерживается data: URL загруженной картинки.
+ * Icons of popular subscription services: paths from simple-icons (CC0), one `<path>`.
+ * The key is used as the `icon` value in the API; a data: URL of an uploaded image is also supported.
  */
 import type { ReactNode } from 'react'
 
@@ -98,7 +98,7 @@ export const SERVICE_ICONS: ServiceIconDef[] = [
   }
 ]
 
-/** Иконка по ключу; 'data:' — загруженная пользователем картинка; неизвестный ключ — пусто. */
+/** Icon by key; 'data:' — a user-uploaded image; unknown key — empty. */
 export function ServiceIcon({ name, size = 24 }: { name?: string | null; size?: number }): ReactNode {
   if (!name) return null
   if (name.startsWith('data:')) {

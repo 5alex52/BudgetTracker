@@ -9,12 +9,12 @@ import { Wordmark } from '@/components/brand/Logo'
 import { UserMenu } from './UserMenu'
 
 /**
- * Плавающая верхняя панель: не на всю ширину, а «капсулой» с отступами,
- * в духе панелей macOS 26. Слева — бренд, затем контекст страницы (хлебная
- * крошка), справа — поиск по записям, «+ Запись» и меню пользователя.
+ * Floating top bar: not full-width but a "capsule" with insets,
+ * in the spirit of macOS 26 panels. Brand on the left, then page context
+ * (breadcrumb), on the right — record search, "+ Record" and the user menu.
  *
- * Отличие от референса: там шапка — это ещё и главное меню на всю ширину.
- * Здесь меню вынесено в левый рельс, а панель отвечает за контекст.
+ * Difference from the reference: there the header is also the full-width main menu.
+ * Here the menu moved to the left rail, and the bar handles context.
  */
 export function TopBar({
   onAddRecord,

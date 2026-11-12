@@ -185,7 +185,10 @@ async def poll_telegram_linking(session_maker: async_sessionmaker, next_offset: 
             await session.commit()
             if user.telegram_id:
                 lang = "en" if (user.locale or "").startswith("en") else "ru"
-                await send_notification("telegram", str(user.telegram_id), None, _LINK_CONFIRM[lang])
+                try:
+                    await send_notification("telegram", str(user.telegram_id), None, _LINK_CONFIRM[lang])
+                except Exception as caught:  # noqa: BLE001 — the link is already saved; confirmation is best-effort
+                    logger.warning("Telegram link confirmation to %s failed: %s", user.telegram_id, caught)
     return next_offset
 
 

@@ -4,7 +4,7 @@
 
 ### Personal Finance Management System
 
-[![License](https://img.shields.io/badge/license-proprietary-red?style=flat-square)](./LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19+-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org/)
@@ -36,15 +36,36 @@
 
 ### Core Functionality
 - **Multi-currency accounts** with automatic conversion and personal exchange rates
-- **Smart categorization** with auto-rules and category tree
+- **Smart categorization** with auto-rules, category tree, tags, and record templates
 - **Transfers between accounts** with real-time balance updates
-- **Advanced analytics** with period comparison, trends, and category breakdowns
+- **Records management**: bulk operations, CSV import, export to CSV / TSV / JSON / XLS / PDF
+- **Advanced analytics** with period comparison, trends, category breakdowns, and category × month matrix
+- **Subscriptions** with charge reminders (see below)
+- **Session management**: view active devices and sign out remotely
 - **Admin panel** for user management
-- Fully free and open-source: every feature is available to everyone
 - Budget limits per category
+- Fully free and open-source: every feature is available to everyone
+
+### Crypto
+- **Crypto accounts alongside regular ones** — unified balance and analytics in your base currency
+- **On-chain sync of watched addresses** (read-only, public endpoints): EVM, BTC, TON, TRON, Solana, Avalanche; optional Etherscan/Moralis keys unlock richer EVM backfill
+- Wallet kinds: Trust, Telegram, or manual
+- **Live prices via CoinGecko**, balance history and charts
+
+### Subscriptions & Notifications
+- Track recurring charges with price, currency, and billing interval
+- **Reminders via Web Push and Telegram**: 0 / 1 / 2 days before the charge, delivered at 12:00 in the user's timezone
+- Localized notifications (Russian / English), one reminder per charge (no duplicates)
+- Installable **PWA** with Web Push support
+
+### Telegram Mini App
+- The app **opens inside Telegram as a Mini App** — no password needed
+- Auto-login via cryptographically signed `initData` (HMAC-SHA256 with the bot token); falls back to the normal login form when Telegram is not linked
+- Link your Telegram account in Settings via the bot, then use the same bot for reminders
 
 ### Security & Privacy
 - JWT authentication in httpOnly cookies (no localStorage)
+- GitHub OAuth and email/password sign-in with email verification
 - Bcrypt password hashing (work factor 12)
 - Row-level isolation: all queries filtered by `user_id`
 - CORS restricted to configured origins
@@ -59,8 +80,8 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourorg/budgettracker.git
-cd budgettracker
+git clone https://github.com/5alex52/BudgetTracker.git
+cd BudgetTracker
 ```
 
 ### 2. Configure environment
@@ -109,7 +130,7 @@ docker compose exec backend python -m scripts.seed_admin
 | [AGENTS.md](./AGENTS.md) | Architecture guide for AI agents and developers |
 | [API Reference](http://localhost:8000/docs) | Interactive Swagger UI (after starting the stack) |
 | [Deployment Guide](./docs/DEPLOYMENT.md) | Production deployment with Ansible |
-| [CI/CD Pipeline](./.github/workflows/README.md) | Automated testing and deployment |
+| [CI/CD Pipeline](./.github/workflows/ci.yml) | Automated testing and deployment |
 | [Contributing](./CONTRIBUTING.md) | Development workflow and code style |
 
 ### Architecture Overview
@@ -125,7 +146,7 @@ docker compose exec backend python -m scripts.seed_admin
 ┌────────────────────▼────────────────────────────────────┐
 │  Backend (FastAPI + SQLAlchemy + Pydantic)              │
 │  ├── Layered architecture: Router → ViewSet → Service   │
-│  ├── Domain modules: users, finance, analytics          │
+│  ├── Domains: users, finance, crypto, analytics         │
 │  ├── JWT auth in httpOnly cookies                       │
 │  └── Redis caching with scope invalidation              │
 └────────────────────┬────────────────────────────────────┘
@@ -210,6 +231,13 @@ See [.env.example](./.env.example) for all available options.
 - `ENVIRONMENT` — Set to `PROD` for secure cookies
 - `CORS_ORIGINS` — Allowed frontend origins
 
+**Optional integrations:**
+- `TELEGRAM_BOT_TOKEN` — Telegram reminders and Mini App login (create a bot via [@BotFather](https://t.me/BotFather))
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` — Web Push (generate with `npx web-push generate-vapid-keys`)
+- `OAUTH_GITHUB_CLIENT_ID` / `OAUTH_GITHUB_CLIENT_SECRET` — GitHub sign-in
+
+**Telegram Mini App setup:** deploy the app to a public HTTPS URL, set the bot's Menu Button / Web App URL to that address in @BotFather, and link Telegram in the app's Settings. Auto-login works for linked accounts; everyone else gets the normal login form inside Telegram.
+
 ## 📖 API Examples
 
 ### Authentication
@@ -254,11 +282,9 @@ curl "http://localhost:8000/api/analytics/by-category?start_date=2026-01-01&end_
 
 ## 🤖 AI Agent Support
 
-This repository includes comprehensive documentation for AI coding agents:
+This repository includes documentation for AI coding agents:
 
 - **AGENTS.md** — Architecture, conventions, and development workflow
-- **.cursorrules** — Cursor IDE configuration
-- **.github/copilot-instructions.md** — GitHub Copilot instructions
 
 AI agents can understand the codebase structure, run tests, create migrations, and implement new features following the established patterns.
 
@@ -270,13 +296,11 @@ AI agents can understand the codebase structure, run tests, create migrations, a
 - **CORS**: Restricted to configured origins
 - **Rate limiting**: Ready for implementation (TODO)
 
-**Reporting vulnerabilities:** Contact security@yourorg.com
+**Reporting vulnerabilities:** please use [GitHub private vulnerability reporting](https://github.com/5alex52/BudgetTracker/security/advisories/new) — do not open public issues for security problems.
 
 ## 📄 License
 
-**Proprietary License** — See [LICENSE](./LICENSE) for details.
-
-This software is confidential and may not be copied, modified, or distributed without explicit permission from the copyright holder.
+**MIT License** — see [LICENSE](./LICENSE) for details. You are free to use, copy, modify, and distribute this software, including for commercial purposes, as long as the copyright notice and permission notice are included in all copies or substantial portions of the Software.
 
 ## 🙏 Acknowledgments
 

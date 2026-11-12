@@ -60,11 +60,12 @@ class TelegramNotifier(BaseNotifier):
                     json={"chat_id": chat_id, "text": message, "disable_notification": False},
                 )
             if response.status_code != 200:
-                logger.warning(
-                    "Telegram delivery to %s failed: %s %s", chat_id, response.status_code, response.text[:200]
-                )
-        except Exception as caught:  # noqa: BLE001 — delivery must not break the loop
+                raise RuntimeError(f"Telegram API returned {response.status_code}: {response.text[:200]}")
+        except Exception as caught:
+            # Propagate so callers never mark a failed delivery as sent
+            # (reminder dedup would otherwise swallow the reminder forever).
             logger.warning("Telegram delivery to %s error: %s", chat_id, caught)
+            raise
 
 
 NOTIFIERS: Dict[str, BaseNotifier] = {

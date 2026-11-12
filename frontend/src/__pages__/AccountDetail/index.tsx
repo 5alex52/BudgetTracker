@@ -41,11 +41,11 @@ const KIND_LABEL: Record<AccountKind, TranslationKey> = {
 }
 
 /**
- * «Детали счёта».
+ * "Account details".
  *
- * Баланс, обороты за период и график берутся из `/accounts/{id}/summary` и
- * `/analytics/timeseries` (остаток по всем счетам — отдельная метрика сервиса),
- * записи — из общего стора с фильтром по счёту.
+ * Balance, period turnover and the chart come from `/accounts/{id}/summary` and
+ * `/analytics/timeseries` (balance across all accounts is a separate service metric),
+ * records — from the shared store filtered by account.
  */
 export function AccountDetailPage() {
   const { openCreate: onAddRecord, openEdit: onEditRecord } = useRecordDialog()
@@ -62,7 +62,7 @@ export function AccountDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [dedupeOpen, setDedupeOpen] = useState(false)
   const [dedupeScanning, setDedupeScanning] = useState(false)
-  /** Группы совпадений: первая запись остаётся, остальные предлагаем удалить */
+  /** Match groups: the first record stays, the rest are offered for deletion */
   const [duplicates, setDuplicates] = useState<Array<{ keep: RecordItem; extras: RecordItem[] }>>([])
   const [dupeSelection, setDupeSelection] = useState<string[]>([])
   const [tab, setTab] = useState<'balance' | 'records'>('balance')
@@ -70,8 +70,8 @@ export function AccountDetailPage() {
 
   const account = accounts.find((item) => item.id === String(accountId))
 
-  /* Записи именно этого счёта: страница открывается и по прямой ссылке,
-     поэтому список грузим здесь, а не берём из общего стора «Записей» */
+  /* Records of this exact account: the page can be opened via a direct link,
+     so we load the list here instead of taking it from the shared Records store */
   const recordsQuery = useApiQuery(
     () =>
       transactionsApi
@@ -80,7 +80,7 @@ export function AccountDetailPage() {
     [accountId],
   )
 
-  /* Обороты счёта и график остатка: два независимых запроса под вкладкой «Баланс» */
+  /* Account turnover and balance chart: two independent requests under the Balance tab */
   const summary = useApiQuery(
     () => (accountId ? analyticsApi.getByAccount() : Promise.resolve({ items: [], total: 0 })),
     [accountId],
@@ -116,9 +116,9 @@ export function AccountDetailPage() {
     )
   }
 
-  /* Поиск дубликатов: тот же список, что показывает вкладка, но по всей истории
-     счёта (до 500 записей — предел одного запроса). Совпадением считаем одну
-     сумму, дату с точностью до минуты и категорию. */
+  /* Duplicate search: the same list the tab shows, but over the account's whole
+     history (up to 500 records — the limit of one request). A match is the same
+     amount, date to the minute and category. */
   const scanDuplicates = async () => {
     setDedupeOpen(true)
     setDedupeScanning(true)

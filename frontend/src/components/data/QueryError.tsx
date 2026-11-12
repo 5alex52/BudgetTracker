@@ -3,10 +3,10 @@ import type { ApiError } from '@/api'
 import { useI18n } from '@/i18n'
 
 /**
- * Сообщение о неудачном запросе.
+ * Failed-request message.
  *
- * Без него сбой сервера выглядит как «нет данных»: графики рисуют нули,
- * а пользователь не понимает, что цифры не настоящие.
+ * Without it a server failure looks like "no data": charts draw zeros
+ * and the user doesn't realize the numbers aren't real.
  */
 export function QueryError({ error, className }: { error: ApiError | null; className?: string }) {
   const { t } = useI18n()

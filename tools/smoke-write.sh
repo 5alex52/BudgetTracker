@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Проверка записи: то, что UI отправляет при создании/правке/удалении.
+# Write check: what the UI sends on create/edit/delete.
 set -uo pipefail
 BASE=http://127.0.0.1:8000/api
 JAR=$(mktemp)
@@ -10,7 +10,7 @@ curl -s -o /dev/null -b "$JAR" -c "$JAR" -A "$UA" -X POST "$BASE/auth/login" \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode "username=$LOGIN@$DOMAIN" --data-urlencode "password=$PASS"
 
-call() { # метод путь тело
+call() { # method path body
   local method=$1 path=$2 body=${3:-}
   if [ -n "$body" ]; then
     curl -s -o /tmp/w.json -w '%{http_code}' -b "$JAR" -c "$JAR" -A "$UA" -X "$method" \
@@ -23,14 +23,14 @@ say() {
   printf '%-44s %s\n' "$1" "$2"
   case "$2" in
     2*) ;;
-    *) printf '    тело: %s\n' "$(head -c 300 /tmp/w.json)" ;;
+    *) printf '    body: %s\n' "$(head -c 300 /tmp/w.json)" ;;
   esac
 }
 
 ACC=$(curl -s -b "$JAR" -A "$UA" "$BASE/finance/accounts/" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["id"], d[0]["currency_id"])')
 ACCOUNT=${ACC% *}; CCY=${ACC#* }
 CAT=$(curl -s -b "$JAR" -A "$UA" "$BASE/finance/categories/" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(c["id"] for c in d if c["type"]=="expense"))')
-say "счёт / валюта / категория" "$ACCOUNT $CCY $CAT"
+say "account / currency / category" "$ACCOUNT $CCY $CAT"
 
 BODY=$(python3 -c "
 import json,datetime

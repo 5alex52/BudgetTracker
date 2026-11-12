@@ -88,3 +88,7 @@ class Settings(BaseSettings):
 
 
 settings: Settings = Settings()
+
+#: Refuse to start in production with a guessable JWT signing key.
+if settings.ENVIRONMENT == "PROD" and len(settings.SECRET_KEY) < 32:
+    raise RuntimeError("PROD requires a strong SECRET_KEY (at least 32 characters)")

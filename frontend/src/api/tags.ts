@@ -1,4 +1,4 @@
-/** Метки записей. */
+/** Record tags. */
 import { request } from './client'
 import type { TagCreate, TagDto, TagUpdate } from './types'
 

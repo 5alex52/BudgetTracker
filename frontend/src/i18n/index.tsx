@@ -1,10 +1,10 @@
 /**
- * Минимальный i18n без внешних зависимостей.
+ * Minimal i18n with no external dependencies.
  *
- * - словари на русском и английском (~130 ключей на экраны из референсов);
- * - параметры через {name};
- * - выбор языка хранится в localStorage, дефолт — язык браузера (ru → ru, иначе en);
- * - <html lang> синхронизируется.
+ * - Russian and English dictionaries (~130 keys for the reference screens);
+ * - parameters via {name};
+ * - language choice stored in localStorage, default — browser language (ru → ru, otherwise en);
+ * - <html lang> is kept in sync.
  */
 import {
   createContext,
@@ -40,7 +40,7 @@ function detectLocale(): Locale {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored === 'ru' || stored === 'en') return stored
   } catch {
-    /* игнорируем */
+    /* ignore */
   }
   const nav = window.navigator?.language ?? 'ru'
   return nav.toLowerCase().startsWith('ru') ? 'ru' : 'en'
@@ -54,7 +54,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, locale)
     } catch {
-      /* игнорируем */
+      /* ignore */
     }
   }, [locale])
 

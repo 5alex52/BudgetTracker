@@ -4,14 +4,14 @@ import { cn } from '@/__shared__/utils/cn'
 import { Button } from '@/components/ui/button'
 
 export interface MonthNavigatorProps {
-  /** «октябрь 2025» в нужном языке — формируется вызывающим кодом */
+  /** "October 2025" in the active language — built by the caller */
   label: string
   onPrev?: () => void
   onNext?: () => void
   className?: string
 }
 
-/** Навигатор месяца: ‹ октябрь 2025 ›. */
+/** Month navigator: ‹ October 2025 ›. */
 export function MonthNavigator({ label, onPrev, onNext, className }: MonthNavigatorProps) {
   const { t } = useI18n()
 

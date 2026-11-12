@@ -11,7 +11,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>BudgetTracker — личные финансы</title>
 
-    <!-- Шрифт: self-host, основное начертание — preload (латиница + кириллица) -->
+    <!-- Fonts: self-hosted, the main style is preloaded (Latin + Cyrillic) -->
     <link
       rel="preload"
       as="font"
@@ -27,7 +27,7 @@
       crossorigin="anonymous"
     />
 
-    <!-- Тема до первой отрисовки: иначе вспышка светлой темы -->
+    <!-- Theme before first paint: otherwise a flash of the light theme -->
     <script>
       ;(() => {
         try {
@@ -45,7 +45,7 @@
           document.documentElement.classList.toggle('dark', dark)
           document.documentElement.dataset.theme = mode
         } catch {
-          /* приватный режим — остаёмся на преференсе системы */
+          /* private mode — stay with the system preference */
         }
       })()
     </script>

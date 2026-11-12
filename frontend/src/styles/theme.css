@@ -1,46 +1,46 @@
 /* =============================================================================
-   BudgetTracker — токены дизайн-системы «Liquid Glass»
-   Единственное место, где задаются значения. Компоненты читают только var(--*).
-   Порядок: цвет → стекло → типографика → сетка/радиусы → движение.
+   BudgetTracker — "Liquid Glass" design system tokens
+   The single place where values are defined. Components read only var(--*).
+   Order: color → glass → typography → grid/radii → motion.
    ============================================================================= */
 
-/* ------------------------------- 1. Палитра ------------------------------- */
+/* ------------------------------- 1. Palette -------------------------------- */
 
 :root {
   color-scheme: light;
 
-  /* нижние слои */
+  /* bottom layers */
   --bg-base: #eef2f1;
   --bg-elevated: #f7faf9;
 
-  /* поверхности контента (без стекла) */
+  /* content surfaces (no glass) */
   --surface-1: #ffffff;
   --surface-2: #f1f5f4;
   --surface-3: #e7edeb;
   --surface-inset: #eaf0ee;
 
-  /* текст */
+  /* text */
   --text-primary: #0e1513;
   --text-secondary: #4e5c58;
   --text-tertiary: #5f6b66;
   --text-inverse: #ffffff;
 
-  /* акцент — синий #2563EB */
+  /* accent — blue #2563EB */
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --accent-strong: #1e40af;
-  /* заливка кнопок: на неё кладётся белый текст, поэтому она темнее акцента-текста */
+  /* button fill: white text goes on it, so it's darker than the accent text */
   --accent-fill: #2563eb;
   --accent-fill-hover: #1d4ed8;
-  /* акцентный текст на мягкой подложке (аватары, бейджи) */
+  /* accent text on a soft base (avatars, badges) */
   --accent-on-soft: #1d4ed8;
   --accent-fg: #ffffff;
   --accent-soft: rgba(37, 99, 235, 0.12);
   --accent-ring: rgba(37, 99, 235, 0.45);
 
-  /* семантика сумм (не брендовая) */
+  /* amount semantics (not brand) */
   --positive: #0a7042;
-  /* заливка семантических кнопок: на неё кладётся белый текст */
+  /* semantic button fill: white text goes on it */
   --positive-fill: #0a7042;
   --positive-soft: rgba(15, 138, 82, 0.12);
   --negative: #c63a3a;
@@ -50,16 +50,16 @@
   --warning-soft: rgba(169, 106, 8, 0.14);
   --info: #2563eb;
 
-  /* границы */
+  /* borders */
   --border-subtle: rgba(9, 20, 17, 0.1);
   --border-strong: rgba(9, 20, 17, 0.18);
   --border-control: rgba(9, 20, 17, 0.14);
 
-  /* фокус */
+  /* focus */
   --focus-ring: var(--accent);
   --focus-offset: 2px;
 
-  /* фон под стеклом: пятна */
+  /* background under the glass: blobs */
   --blob-1: rgba(45, 212, 152, 0.72);
   --blob-2: rgba(96, 165, 250, 0.62);
   --blob-3: rgba(167, 139, 250, 0.5);
@@ -67,7 +67,7 @@
   --backdrop-grain-opacity: 0.3;
   --backdrop-tint: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.75), transparent 70%);
 
-  /* карточки контента: слегка просвечивают, но без backdrop-filter */
+  /* content cards: slightly translucent, but no backdrop-filter */
   --card-bg: rgba(255, 255, 255, 0.86);
   --card-border: rgba(9, 20, 17, 0.08);
   --card-shadow: 0 1px 2px rgba(4, 12, 9, 0.05), 0 12px 28px -18px rgba(4, 12, 9, 0.28);
@@ -92,17 +92,17 @@
   --accent: #3b82f6;
   --accent-hover: #60a5fa;
   --accent-strong: #2563eb;
-  /* на #3b82f6 белый текст даёт 3.35:1 — для заливки берём шаг темнее */
+  /* white text on #3b82f6 gives 3.35:1 — for the fill we take a step darker */
   --accent-fill: #2563eb;
   --accent-fill-hover: #1d4ed8;
-  /* на мягкой подложке нужен светлый акцент: тёмный синий на ней не читается */
+  /* a soft base needs a light accent: dark blue doesn't read on it */
   --accent-on-soft: #93c5fd;
   --accent-fg: #ffffff;
   --accent-soft: rgba(59, 130, 246, 0.18);
   --accent-ring: rgba(59, 130, 246, 0.55);
 
   --positive: #3dd68c;
-  /* на светлом #3dd68c белый текст даёт 2:1 — для заливки берём глубже */
+  /* white text on light #3dd68c gives 2:1 — for the fill we go deeper */
   --positive-fill: #157f4f;
   --positive-soft: rgba(61, 214, 140, 0.16);
   --negative: #ff6b6b;
@@ -128,10 +128,10 @@
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
 }
 
-/* --------------------------- 2. Материал стекла --------------------------- */
+/* --------------------------- 2. Glass material ----------------------------- */
 
 :root {
-  /* уровни размытия */
+  /* blur levels */
   --glass-blur-sm: 10px;
   --glass-blur-md: 20px;
   --glass-blur-lg: 34px;
@@ -139,37 +139,37 @@
   --glass-saturate: 165%;
   --glass-brightness: 1.06;
 
-  /* прозрачность по вариантам */
+  /* transparency by variant */
   --glass-bg-regular: rgba(255, 255, 255, 0.78);
   --glass-bg-clear: rgba(255, 255, 255, 0.34);
   --glass-bg-tinted: rgba(37, 99, 235, 0.16);
 
-  /* обводка: светлая верхняя грань, тёмная нижняя */
+  /* border: light top edge, dark bottom */
   --glass-border: rgba(255, 255, 255, 0.72);
   --glass-border-bottom: rgba(9, 20, 17, 0.08);
 
-  /* внутренний блик */
+  /* inner glint */
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.92),
     inset 0 2px 6px -4px rgba(255, 255, 255, 0.6),
     inset 0 0 0 1px rgba(255, 255, 255, 0.16),
     inset 0 -1px 0 rgba(255, 255, 255, 0.3);
 
-  /* внешние тени */
+  /* outer shadows */
   --glass-shadow-sm: 0 2px 8px rgba(4, 12, 9, 0.1), 0 1px 2px rgba(4, 12, 9, 0.06);
   --glass-shadow-md: 0 12px 32px rgba(4, 12, 9, 0.16), 0 2px 8px rgba(4, 12, 9, 0.1);
   --glass-shadow-lg: 0 28px 64px rgba(4, 12, 9, 0.24), 0 8px 20px rgba(4, 12, 9, 0.14);
 
-  /* радиусы стекла */
+  /* glass radii */
   --glass-radius-sm: 14px;
   --glass-radius-md: 20px;
   --glass-radius-lg: 28px;
   --glass-radius-pill: 999px;
 
-  /* рефракция (Chromium, уровень 2) */
+  /* refraction (Chromium, level 2) */
   --glass-refract-scale: 14;
   --glass-refract-max-w: 800px;
 
-  /* вуаль: повышается автоматически при низком контрасте/плотном фоне */
+  /* veil: raised automatically under low contrast / dense background */
   --glass-veil: 0;
 }
 
@@ -191,7 +191,7 @@
   --glass-shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.48), 0 8px 20px rgba(0, 0, 0, 0.32);
 }
 
-/* ----------------------------- 3. Типографика ----------------------------- */
+/* ----------------------------- 3. Typography ------------------------------- */
 
 :root {
   --font-sans: 'Medeo Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -256,10 +256,10 @@
   }
 }
 
-/* --------------------------- 4. Сетка и радиусы --------------------------- */
+/* --------------------------- 4. Grid and radii ----------------------------- */
 
 :root {
-  /* ритм 4px */
+  /* 4px rhythm */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -271,7 +271,7 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* каркас */
+  /* shell */
   --container-max: 1360px;
   --container-pad: clamp(16px, 3vw, 202px);
   --nav-h: 56px;
@@ -281,7 +281,7 @@
   --sidebar-w: 272px;
   --sidebar-gap: 20px;
 
-  /* высоты контролов */
+  /* control heights */
   --control-h-sm: 32px;
   --control-h-md: 40px;
   --control-h-lg: 48px;
@@ -293,7 +293,7 @@
   --avatar-md: 32px;
   --avatar-lg: 40px;
 
-  /* радиусы */
+  /* radii */
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -302,13 +302,13 @@
   --radius-2xl: 28px;
   --radius-pill: 999px;
 
-  /* вложенные радиусы: внутренний = внешний − padding */
+  /* nested radii: inner = outer − padding */
   --radius-nest-1: calc(var(--radius-2xl) - var(--space-3));
   --radius-nest-2: calc(var(--radius-xl) - var(--space-3));
   --radius-nest-3: calc(var(--radius-lg) - var(--space-2));
 }
 
-/* ------------------------------ 5. Движение ------------------------------- */
+/* ------------------------------ 5. Motion ---------------------------------- */
 
 :root {
   --dur-instant: 90ms;
@@ -320,7 +320,7 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
-  /* пружины задаются в motion-конфиге (src/shared/motion.ts) */
+  /* springs are set in the motion config (src/shared/motion.ts) */
   --z-backdrop: 0;
   --z-sticky: 30;
   --z-nav: 40;
@@ -332,8 +332,8 @@
   --z-toast: 90;
 }
 
-/* --------------------------- 6. Спец-режимы ------------------------------- */
-/* Плотный фон: непрозрачное стекло, без размытия. */
+/* --------------------------- 6. Special modes ------------------------------ */
+/* Dense background: opaque glass, no blur. */
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {

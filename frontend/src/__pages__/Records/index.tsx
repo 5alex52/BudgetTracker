@@ -29,7 +29,7 @@ import { useToast } from '@/components/ui/toast'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/dialogs'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 
-/** Порядок сортировки: по времени (новые сверху) — как в референсе. */
+/** Sort order: by time (newest first) — as in the reference. */
 type SortKey = 'timeDesc' | 'timeAsc' | 'amountDesc' | 'amountAsc'
 
 const SORT_LABEL_KEYS: Record<SortKey, TranslationKey> = {
@@ -39,7 +39,7 @@ const SORT_LABEL_KEYS: Record<SortKey, TranslationKey> = {
   amountAsc: 'records.sortByAmountAsc',
 }
 
-/** Порядок в интерфейсе → параметр `sort` сервера. */
+/** UI order → the server's `sort` parameter. */
 const SORT_PARAM = {
   timeDesc: 'date_desc',
   timeAsc: 'date_asc',
@@ -57,11 +57,11 @@ function formatDay(date: string, locale: 'ru' | 'en') {
 }
 
 /**
- * «Записи»: фильтры в сайдбаре, список по дням, итог за период.
+ * "Records": filters in the sidebar, list by day, period total.
  *
- * Фильтрация, поиск и сортировка выполняются на сервере: клиент держит только
- * текущую страницу. Поэтому счётчик «найдено» — это `X-Total-Count`, а не длина
- * загруженного куска.
+ * Filtering, search and sorting run on the server: the client keeps only the
+ * current page. So the "found" counter is `X-Total-Count`, not the length of
+ * the loaded chunk.
  */
 export function RecordsPage() {
   const { openCreate: onAddRecord, openEdit: onEditRecord } = useRecordDialog()
@@ -85,7 +85,7 @@ export function RecordsPage() {
   const [selected, setSelected] = useState<string[]>([])
   const [filterOpen, setFilterOpen] = useState(false)
 
-  /* Текущие фильтры в терминах API: их же получает серверная выгрузка */
+  /* Current filters in API terms: the server-side export receives the same ones */
   const apiFilters = useMemo(
     () => ({
       q: debouncedQuery.trim() || undefined,
@@ -101,13 +101,13 @@ export function RecordsPage() {
     [debouncedQuery, sort, filters],
   )
 
-  /* Первая загрузка и любое изменение фильтров/поиска/сортировки — один запрос */
+  /* First load and any filter/search/sort change — one request */
   useEffect(() => {
     void load(apiFilters)
     setSelected([])
   }, [apiFilters, load])
 
-  /* Группировка по дням: сервер отдаёт плоский список с сортировкой */
+  /* Grouping by day: the server returns a sorted flat list */
   const grouped = useMemo(() => {
     const map = new Map<string, RecordItem[]>()
     records.forEach((item) => {
@@ -118,10 +118,10 @@ export function RecordsPage() {
     return [...map.entries()]
   }, [records])
 
-  /** Курс каждой валюты: единиц валюты за 1 базовую. */
+  /** Rate of each currency: currency units per 1 base unit. */
   const rateMap = useMemo(() => new Map(rates.map((rate) => [rate.code, rate.rate])), [rates])
 
-  /** Итог в базовой валюте: все записи пересчитываются по актуальному курсу */
+  /** Total in the base currency: all records are converted at the current rate */
   const totalInBase = useMemo(() => {
     let sum = 0
     records.forEach((item) => {
@@ -132,7 +132,7 @@ export function RecordsPage() {
   }, [records, rateMap])
   const allSelected = records.length > 0 && selected.length === records.length
 
-  /** Массовое удаление: сервер принимает список id одним запросом */
+  /** Bulk delete: the server accepts a list of ids in one request */
   const removeSelected = async () => {
     if (selected.length === 0) return
     try {
@@ -172,7 +172,7 @@ export function RecordsPage() {
         description: result.skipped ? t('records.importSkipped', { count: result.skipped }) : undefined,
         tone: 'success',
       })
-      // Импорт мог создать счета и категории — обновляем справочники и список.
+      // Import may have created accounts and categories — refresh reference data and the list.
       void useFinanceStore.getState().reloadAccounts()
       void useFinanceStore.getState().reloadCategories()
       void load(apiFilters)
@@ -201,7 +201,7 @@ export function RecordsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-title font-semibold tracking-snug text-fg-primary">{t('records.title')}</h1>
           <div className="flex flex-wrap items-center gap-2">
-            {/* На мобиле фильтры открываются в Sheet: сайдбар скрыт */}
+            {/* On mobile filters open in a Sheet: the sidebar is hidden */}
             <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
               <SheetTrigger asChild>
                 <Button variant="glass" size="sm" className="gap-1.5 md:hidden">
@@ -249,7 +249,7 @@ export function RecordsPage() {
         </div>
       }
     >
-      {/* Тулбар списка */}
+      {/* List toolbar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="min-w-48 flex-1">
           <Input
@@ -327,7 +327,7 @@ export function RecordsPage() {
         )}
 
         {grouped.map(([date, items]) => {
-          // смешанные валюты дня приводятся к базовой — иначе $10 суммируется с 5р как «10»
+          // mixed currencies of the day are converted to base — otherwise $10 would sum with 5 RUB as "10"
           const dayTotal = items.reduce((sum, item) => sum + item.amount / (rateMap.get(item.currency) ?? 1), 0)
           return (
             <section key={date} aria-label={formatDay(date, locale)}>
@@ -357,7 +357,7 @@ export function RecordsPage() {
           )
         })}
 
-        {/* Догрузка: сервер отдаёт страницы по 100 записей */}
+        {/* Load more: the server returns pages of 100 records */}
         {records.length < totals && (
           <div className="border-t border-stroke-subtle px-4 py-3 text-center">
             <Button
@@ -375,7 +375,7 @@ export function RecordsPage() {
   )
 }
 
-/** Строка записи: иконка категории, название, счёт, время, сумма, меню. */
+/** Record row: category icon, name, account, time, amount, menu. */
 function RecordRow({
   item,
   checked,

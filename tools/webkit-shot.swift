@@ -1,5 +1,5 @@
-// Снимок страницы в настоящем WebKit (движок Safari) без Playwright.
-// Использование: swift -module-cache-path ./tools/.mcache tools/webkit-shot.swift <url> <out.png> [w] [h] [scale]
+// Page snapshot in real WebKit (the Safari engine) without Playwright.
+// Usage: swift -module-cache-path ./tools/.mcache tools/webkit-shot.swift <url> <out.png> [w] [h] [scale]
 import AppKit
 import WebKit
 
@@ -34,11 +34,11 @@ final class Shotter: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // Даём время шрифтам и анимациям устояться
+        // Give fonts and animations time to settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             self.webView.evaluateJavaScript("document.fonts.ready.then(() => document.documentElement.scrollHeight)") { result, _ in
                 let pageHeight = (result as? NSNumber)?.doubleValue ?? Double(self.size.height)
-                // Снимаем полную страницу: временно растягиваем вью
+                // Capture the full page: temporarily stretch the view
                 let full = CGSize(width: self.size.width, height: min(max(pageHeight, self.size.height), 6000))
                 self.webView.frame = CGRect(origin: .zero, size: full)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
@@ -50,7 +50,7 @@ final class Shotter: NSObject, WKNavigationDelegate {
                               let tiff = image.tiffRepresentation,
                               let rep = NSBitmapImageRep(data: tiff),
                               let png = rep.representation(using: .png, properties: [:]) else {
-                            print("ошибка снимка: \(error?.localizedDescription ?? "нет изображения")")
+                            print("screenshot error: \(error?.localizedDescription ?? "no image")")
                             exit(1)
                         }
                         try? png.write(to: URL(fileURLWithPath: self.outPath))
@@ -63,7 +63,7 @@ final class Shotter: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        print("навигация не удалась: \(error.localizedDescription)")
+        print("navigation failed: \(error.localizedDescription)")
         exit(1)
     }
 }
@@ -75,7 +75,7 @@ let shotter = Shotter(size: CGSize(width: width, height: height), outPath: outPa
 shotter.start(url)
 
 DispatchQueue.main.asyncAfter(deadline: .now() + 25) {
-    print("таймаут WebKit")
+    print("WebKit timeout")
     exit(1)
 }
 

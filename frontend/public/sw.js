@@ -1,4 +1,4 @@
-/* Web Push: напоминания о списаниях по подпискам. Данные шлёт бэкенд. */
+/* Web Push: reminders about subscription charges. The backend sends the data. */
 self.addEventListener('push', (event) => {
   let data = {}
   try {

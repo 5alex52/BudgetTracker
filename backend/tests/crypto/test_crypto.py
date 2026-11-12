@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
 from src.crypto import service as crypto_service
+from src.crypto.adapters import _btc_tx_delta
 from src.crypto.adapters import parse_avalanche_balances
 from src.crypto.adapters import parse_solana_account
 from src.crypto.adapters import parse_tronscan_account
@@ -636,3 +637,18 @@ async def test_fetch_solana_holdings_rpc_shape(monkeypatch):
     assert holdings == {"SOL": Decimal("1.5"), "USDC": Decimal("12.5")}
     assert [call[1] for call in calls] == ["getBalance", "getTokenAccountsByOwner"]
     assert calls[1][2][1] == {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}
+
+
+def test_btc_tx_delta_sign():
+    """Received outputs minus spent inputs: incoming tx positive, outgoing negative."""
+    address = "bc1qwatched"
+    incoming = {
+        "vin": [{"prevout": {"scriptpubkey_address": "bc1qsender", "value": 50_000}}],
+        "vout": [{"scriptpubkey_address": address, "value": 40_000}],
+    }
+    outgoing = {
+        "vin": [{"prevout": {"scriptpubkey_address": address, "value": 40_000}}],
+        "vout": [{"scriptpubkey_address": "bc1qrecipient", "value": 30_000}],
+    }
+    assert _btc_tx_delta(incoming, address) == 40_000
+    assert _btc_tx_delta(outgoing, address) == -40_000

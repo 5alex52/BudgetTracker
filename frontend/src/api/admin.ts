@@ -1,4 +1,4 @@
-/** Админ-панель: пользователи. */
+/** Admin panel: users. */
 import { request } from './client'
 import type { AdminUserDto, AdminUserPageDto, AdminUserUpdate } from './types'
 

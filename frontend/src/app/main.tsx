@@ -27,9 +27,9 @@ import { RecordDialogProvider } from '../components/records/RecordDialogContext'
 import '../styles/globals.css'
 
 function App() {
-  // Один инстанс модала на всё приложение: его открывают навбар, записи и дашборд.
+  // One modal instance for the whole app: opened by the navbar, records and dashboard.
   const [addOpen, setAddOpen] = useState(false)
-  /** Запись, которую редактируем: null — режим создания */
+  /** Record being edited: null — create mode */
   const [editingRecord, setEditingRecord] = useState<RecordItem | null>(null)
   const openAddRecord = () => {
     setEditingRecord(null)
@@ -40,7 +40,7 @@ function App() {
     setAddOpen(true)
   }
 
-  /** Рабочие экраны — только после входа: сессия проверяется один раз в SessionGate. */
+  /** Working screens — only after login: the session is checked once in SessionGate. */
   const guarded = (page: ReactNode) => <RequireAuth>{page}</RequireAuth>
   const adminOnly = (page: ReactNode) => guarded(<RequireSuperuser>{page}</RequireSuperuser>)
 
@@ -70,7 +70,7 @@ function App() {
                   <Route path="/settings/tags" element={guarded(<SettingsTagsPage />)} />
                   <Route path="/settings/privacy" element={guarded(<SettingsPrivacyPage />)} />
                   <Route path="/admin" element={adminOnly(<AdminPage />)} />
-                  {/* Витрина компонентов: не требует данных и остаётся доступной */}
+                  {/* Component showcase: needs no data and stays available */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
                 <AddRecordDialog
@@ -94,7 +94,7 @@ const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('Failed to find the root element')
 createRoot(rootElement).render(<App />)
 
-// Web Push: воркер регистрируется тихо; на небезопасном origin просто не встанет
+// Web Push: the worker registers silently; on an insecure origin it just won't install
 if ('serviceWorker' in navigator && window.isSecureContext) {
   void navigator.serviceWorker.register('/sw.js').catch(() => undefined)
 }

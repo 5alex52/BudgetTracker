@@ -12,11 +12,11 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
 
 /**
- * Страница по ссылке из письма: `/verify-email?token=…`.
+ * Page opened from the email link: `/verify-email?token=…`.
  *
- * Токен одноразовый, поэтому подтверждение запускается сразу при открытии —
- * повторный клик по ссылке из письма просто покажет «уже подтверждён».
- * После успешного подтверждения происходит автоматический вход.
+ * The token is single-use, so confirmation runs immediately on open —
+ * clicking the email link again just shows "already confirmed".
+ * After successful confirmation the user is logged in automatically.
  */
 export function VerifyEmailPage() {
   const { t } = useI18n()
@@ -40,13 +40,13 @@ export function VerifyEmailPage() {
       .then(() => {
         if (cancelled) return
         setState('ok')
-        // Автоматический вход после подтверждения: перечитываем профиль
+        // Automatic login after confirmation: re-read the profile
         return bootstrap()
       })
       .then(() => {
         if (cancelled) return
         toast({ title: t('verify.success'), description: t('verify.successHint'), tone: 'success' })
-        // Перенаправляем на главную через небольшую задержку, чтобы toast успел показаться
+        // Redirect to the main page after a short delay so the toast has time to show
         setTimeout(() => navigate('/', { replace: true }), 500)
       })
       .catch((caught: unknown) => {

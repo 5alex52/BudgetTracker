@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to BudgetTracker. This document outlines the development workflow and code conventions.
 
-> **Note:** This is a proprietary project. By contributing, you agree that your contributions become the property of the copyright holder.
+> **Note:** Contributions are welcome! By contributing, you agree that your contributions are licensed under the MIT License, the same license as the project.
 
 ## Development Setup
 
@@ -16,8 +16,8 @@ Thank you for your interest in contributing to BudgetTracker. This document outl
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourorg/budgettracker.git
-cd budgettracker
+git clone https://github.com/5alex52/BudgetTracker.git
+cd BudgetTracker
 
 # Copy environment file
 cp .env.example .env
@@ -196,7 +196,7 @@ feat: add multi-currency support
 fix: correct balance calculation for transfers
 refactor: extract currency conversion logic
 docs: update API documentation
-test: add tests for admin subscription grants
+test: add tests for subscription reminders
 ```
 
 ### Pull Request Process
@@ -263,7 +263,7 @@ See `.env.example` for all available options. Critical for production:
 
 - **Architecture questions**: See `AGENTS.md`
 - **API documentation**: http://localhost:8000/docs (after starting the stack)
-- **Issues**: Use GitHub Issues (private repository)
+- **Issues**: Use GitHub Issues
 
 ---
 

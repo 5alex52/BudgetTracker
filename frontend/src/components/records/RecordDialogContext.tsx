@@ -2,12 +2,12 @@ import { createContext, useContext, type ReactNode } from 'react'
 import type { RecordItem } from '@/__shared__/types/models'
 
 /**
- * Доступ к модалу записи из любого места приложения.
+ * Access to the record modal from anywhere in the app.
  *
- * Раньше обработчик передавался пропсом только на «Обзор» и «Записи», поэтому
- * кнопка «+ Запись» в шапке на остальных экранах молчала. Контекст закрывает
- * эту дыру: шапка всегда знает, что открыть, а страницы могут вызвать форму
- * создания или правки откуда угодно — без протягивания пропсов через пять слоёв.
+ * The handler used to be passed as a prop only to Overview and Records, so the
+ * "+ Record" button in the header was silent on other screens. The context closes
+ * that gap: the header always knows what to open, and pages can invoke the create
+ * or edit form from anywhere — without threading props through five layers.
  */
 interface RecordDialogContextValue {
   openCreate: () => void
@@ -29,7 +29,7 @@ export function RecordDialogProvider({
 export function useRecordDialog(): RecordDialogContextValue {
   const context = useContext(RecordDialogContext)
   if (!context) {
-    // Без провайдера кнопки не должны падать: возвращаем безопасные заглушки.
+    // Without a provider buttons must not crash: return safe stubs.
     return { openCreate: () => undefined, openEdit: () => undefined }
   }
   return context

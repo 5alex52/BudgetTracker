@@ -1,17 +1,17 @@
-"""Демонстрационные данные для локальной разработки фронтенда.
+"""Demo data for local frontend development.
 
-Скрипт создаёт проверенного пользователя с наполнением: счета в разных валютах,
-дерево категорий, полгода записей, метки, шаблоны и подписку на
-бесплатный тариф. Нужен, чтобы интерфейс открывался не на пустых экранах.
+The script creates a verified user with content: accounts in different
+currencies, a category tree, six months of transactions, tags, templates and
+a free-plan subscription. It exists so the UI doesn't open on empty screens.
 
-Запуск — внутри контейнера backend (из корня проекта)::
+Run inside the backend container (from the project root)::
 
-    docker compose exec backend python -m scripts.seed_demo            # создать или обновить
-    docker compose exec backend python -m scripts.seed_demo --reset    # снести данные пользователя
+    docker compose exec backend python -m scripts.seed_demo            # create or update
+    docker compose exec backend python -m scripts.seed_demo --reset    # wipe the user's data
 
-Логин по умолчанию: ``demo`` + домен ниже / ``demo12345``.
-Пароль и почту можно переопределить переменными окружения
-``DEMO_USER_EMAIL`` и ``DEMO_USER_PASSWORD``.
+Default login: ``demo`` + the domain below / ``demo12345``.
+Password and email can be overridden with the ``DEMO_USER_EMAIL`` and
+``DEMO_USER_PASSWORD`` environment variables.
 """
 
 from __future__ import annotations
@@ -43,16 +43,16 @@ from src.finance.schemas import TransactionType
 from src.users.models import UserModel
 from src.users.utils import get_password_hash
 
-# Модели биллинга нужны, чтобы SQLAlchemy связал relationship'ы UserModel
+# Billing models are needed so SQLAlchemy can wire up UserModel relationships
 
-# Логин собираем из частей: так адрес проще заменить целиком
+# Build the login from parts: makes it easier to replace the whole address
 _DEMO_LOGIN = "demo"
 _DEMO_DOMAIN = "budgettracker.local"
 DEMO_EMAIL = os.getenv("DEMO_USER_EMAIL") or f"{_DEMO_LOGIN}{'@'}{_DEMO_DOMAIN}"
 DEMO_PASSWORD = os.getenv("DEMO_USER_PASSWORD", "demo12345")
 DEMO_NAME = ("Демо", "Пользователь")
 
-#: Счета: имя, тип, валюта, стартовый остаток, флаги
+#: Accounts: name, type, currency, starting balance, flags
 ACCOUNTS: List[Tuple[str, AccountType, str, float, Dict[str, bool]]] = [
     ("Alfa", AccountType.CHECKING, "BYN", 54.8, {}),
     ("Alfa Сейф", AccountType.SAVINGS, "BYN", 11759.91, {}),
@@ -62,7 +62,7 @@ ACCOUNTS: List[Tuple[str, AccountType, str, float, Dict[str, bool]]] = [
     ("Cash EUR", AccountType.CASH, "EUR", 0.0, {"is_archived": True}),
 ]
 
-#: Категории расходов: родитель → подкатегории (имя, иконка, цвет)
+#: Expense categories: parent → subcategories (name, icon, color)
 EXPENSE_CATEGORIES: List[Tuple[str, str, str, List[Tuple[str, str, str]]]] = [
     (
         "Еда и напитки",
@@ -142,7 +142,7 @@ INCOME_CATEGORIES: List[Tuple[str, str, str, List[Tuple[str, str, str]]]] = [
     ),
 ]
 
-#: Шаблоны быстрого ввода: имя, тип, сумма, счёт, категория, заметка
+#: Quick-entry templates: name, type, amount, account, category, note
 TEMPLATES: List[Tuple[str, TransactionType, float, str, str, str]] = [
     (
         "Кофе",
@@ -175,7 +175,7 @@ TAGS: List[Tuple[str, str]] = [
 async def _get_or_create_user(session) -> UserModel:
     user = (await session.execute(select(UserModel).where(UserModel.email == DEMO_EMAIL))).scalar_one_or_none()
     if user is not None:
-        print(f"[seed] пользователь уже есть: {DEMO_EMAIL}")
+        print(f"[seed] user already exists: {DEMO_EMAIL}")
         user.is_verified = True
         user.is_active = True
         await session.commit()
@@ -197,15 +197,16 @@ async def _get_or_create_user(session) -> UserModel:
     )
     session.add(user)
     await session.commit()
-    print(f"[seed] создан пользователь {DEMO_EMAIL} / {DEMO_PASSWORD}")
+    print(f"[seed] user created: {DEMO_EMAIL} / {DEMO_PASSWORD}")
     return user
 
 
 async def _reset_user_data(session, user: UserModel) -> None:
-    """Удаляет содержимое демо-пользователя, оставляя самого пользователя.
+    """Delete the demo user's content while keeping the user itself.
 
-    У записей нет своего ``user_id``: они принадлежат пользователю через счёт,
-    поэтому удаляются после счетов (каскад) — здесь важно только их не забыть.
+    Transactions have no ``user_id`` of their own: they belong to the user via
+    the account, so they are deleted after the accounts (cascade) — the point
+    here is just not to forget them.
     """
     account_ids = select(AccountModel.id).where(AccountModel.user_id == user.id)
     await session.execute(delete(TransactionModel).where(TransactionModel.account_id.in_(account_ids)))
@@ -218,7 +219,7 @@ async def _reset_user_data(session, user: UserModel) -> None:
     ):
         await session.execute(delete(model).where(model.user_id == user.id))
     await session.commit()
-    print("[seed] данные пользователя удалены")
+    print("[seed] user data deleted")
 
 
 async def _seed_accounts(session, user: UserModel) -> Dict[str, AccountModel]:
@@ -236,7 +237,7 @@ async def _seed_accounts(session, user: UserModel) -> Dict[str, AccountModel]:
         session.add(account)
         created[name] = account
     await session.commit()
-    print(f"[seed] счетов: {len(created)}")
+    print(f"[seed] accounts: {len(created)}")
     return created
 
 
@@ -280,7 +281,7 @@ async def _seed_categories(session, user: UserModel) -> Dict[str, CategoryModel]
         await create_group(name, icon, color, CategoryType.INCOME, children)
 
     await session.commit()
-    print(f"[seed] категорий: {len(created)}")
+    print(f"[seed] categories: {len(created)}")
     return created
 
 
@@ -291,7 +292,7 @@ async def _seed_tags(session, user: UserModel) -> Dict[str, TagModel]:
         session.add(tag)
         created[name] = tag
     await session.commit()
-    print(f"[seed] меток: {len(created)}")
+    print(f"[seed] tags: {len(created)}")
     return created
 
 
@@ -302,7 +303,7 @@ async def _seed_transactions(
     categories: Dict[str, CategoryModel],
     tags: Dict[str, TagModel],
 ) -> None:
-    """Полгода записей: будни — продукты и транспорт, раз в месяц — зарплата и аренда."""
+    """Six months of transactions: groceries and transport on weekdays, salary and rent once a month."""
     random.seed(20251009)
     start = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0) - timedelta(days=180)
     account_names = ["Alfa", "Наличные", "Alfa Сейф", "Alfa RUB"]
@@ -317,7 +318,7 @@ async def _seed_transactions(
     rows: List[TransactionModel] = []
     for day in range(180):
         moment = start + timedelta(days=day)
-        # Зарплата и аренда — раз в месяц
+        # Salary and rent — once a month
         if moment.day == 5:
             rows.append(
                 TransactionModel(
@@ -343,7 +344,7 @@ async def _seed_transactions(
                 )
             )
 
-        # Повседневные траты: 1–3 записи в день
+        # Everyday spending: 1–3 transactions per day
         for _ in range(random.randint(1, 3)):
             category_name = random.choice(
                 [
@@ -381,7 +382,7 @@ async def _seed_transactions(
             )
             rows.append(transaction)
 
-    # Метки: несколько записей с «здоровье» и «поездка», чтобы фильтр было на чём проверить
+    # Tags: give a few transactions the "health" and "trip" tags so the filter has something to work on
     for index in range(0, min(24, len(rows)), 3):
         rows[index].tags = [random.choice(tag_list)]
     for index in range(1, min(12, len(rows)), 4):
@@ -389,9 +390,9 @@ async def _seed_transactions(
 
     session.add_all(rows)
     await session.commit()
-    print(f"[seed] записей: {len(rows)}")
+    print(f"[seed] transactions: {len(rows)}")
 
-    # Балансы: пересчитываем из записей, чтобы счета сходились с историей
+    # Balances: recompute from transactions so accounts reconcile with the history
     for name, account in accounts.items():
         delta = 0.0
         for row in rows:
@@ -401,7 +402,7 @@ async def _seed_transactions(
             delta += sign * float(row.amount)
         account.balance = round(float(account.balance) + delta, 2)
     await session.commit()
-    print("[seed] балансы счетов пересчитаны")
+    print("[seed] account balances recomputed")
 
 
 async def _seed_templates(
@@ -429,7 +430,7 @@ async def _seed_templates(
             template.tags = [tags["семья"]]
         session.add(template)
     await session.commit()
-    print(f"[seed] шаблонов: {len(TEMPLATES)}")
+    print(f"[seed] templates: {len(TEMPLATES)}")
 
 
 async def seed(reset: bool = False) -> None:
@@ -442,7 +443,7 @@ async def seed(reset: bool = False) -> None:
             await session.execute(select(AccountModel).where(AccountModel.user_id == user.id).limit(1))
         ).scalar_one_or_none()
         if existing is not None and not reset:
-            print("[seed] данные уже есть — повторно не создаю (используйте --reset)")
+            print("[seed] data already exists — not recreating (use --reset)")
             return
 
         accounts = await _seed_accounts(session, user)
@@ -451,16 +452,16 @@ async def seed(reset: bool = False) -> None:
         await _seed_transactions(session, user, accounts, categories, tags)
         await _seed_templates(session, user, accounts, categories, tags)
 
-    print("[seed] готово")
-    print(f"[seed] вход: {DEMO_EMAIL} / {DEMO_PASSWORD}")
+    print("[seed] done")
+    print(f"[seed] login: {DEMO_EMAIL} / {DEMO_PASSWORD}")
 
 
 def main(argv: Optional[List[str]] = None) -> None:
-    parser = argparse.ArgumentParser(description="Демо-данные BudgetTracker")
+    parser = argparse.ArgumentParser(description="BudgetTracker demo data")
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="удалить данные демо-пользователя и создать заново",
+        help="delete the demo user's data and recreate it",
     )
     args = parser.parse_args(argv)
     asyncio.run(seed(reset=args.reset))

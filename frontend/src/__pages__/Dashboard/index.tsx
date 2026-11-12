@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/overlays'
 
-/** Границы базового периода: день, неделя или месяц со сдвигом назад. */
+/** Base period boundaries: day, week or month shifted back. */
 function periodBounds(period: 'day' | 'week' | 'month', offset: number) {
   const iso = (date: Date) => date.toISOString().slice(0, 10)
   const now = new Date()
@@ -37,7 +37,7 @@ function periodBounds(period: 'day' | 'week' | 'month', offset: number) {
     return { start: iso(day), end: iso(day), month: day }
   }
   if (period === 'week') {
-    // Неделя начинается с понедельника: getDay() отдаёт 0 для воскресенья
+    // The week starts on Monday: getDay() returns 0 for Sunday
     const shift = (now.getDay() + 6) % 7
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - shift + offset * 7)
     const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
@@ -46,7 +46,7 @@ function periodBounds(period: 'day' | 'week' | 'month', offset: number) {
   return monthBounds(offset)
 }
 
-/** Границы месяца по смещению от текущего: 0 — этот месяц, −1 — прошлый. */
+/** Month boundaries by offset from the current one: 0 — this month, −1 — last. */
 function monthBounds(offset: number) {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth() + offset, 1)
@@ -56,12 +56,12 @@ function monthBounds(offset: number) {
 }
 
 /**
- * «Обзор».
+ * "Overview".
  *
- * Все KPI, графики и структура расходов считаются на сервере:
- * `/analytics/summary` отдаёт итоги и сравнение с предыдущим периодом,
- * `/analytics/timeseries` — линии и столбцы, `/analytics/by-category` — доли.
- * Клиент только раскладывает ответы по виджетам.
+ * All KPIs, charts and the spending breakdown are computed on the server:
+ * `/analytics/summary` returns totals and comparison with the previous period,
+ * `/analytics/timeseries` — lines and bars, `/analytics/by-category` — shares.
+ * The client only lays the responses out into widgets.
  */
 export function DashboardPage() {
   const { t, locale } = useI18n()
@@ -71,15 +71,15 @@ export function DashboardPage() {
   const accounts = useFinanceStore((state) => state.accounts)
   const baseCurrency = useFinanceStore((state) => state.baseCurrency)
 
-  /* Период: по умолчанию текущий месяц, можно выбрать произвольный диапазон */
+  /* Period: current month by default, an arbitrary range can be picked */
   const [range, setRange] = useState<import('react-day-picker').DateRange | undefined>(undefined)
   const [monthOffset, setMonthOffset] = useState(0)
   const [accountDialogOpen, setAccountDialogOpen] = useState(false)
   const [comparison, setComparison] = useState<'cashflow' | 'expense' | 'income'>('cashflow')
-  /** Какие KPI показывать: меню «Настроить» действительно переключает плитки */
+  /** Which KPIs to show: the Customize menu really toggles the tiles */
   const [hiddenKpi, setHiddenKpi] = useState<Array<'balance' | 'cashflow' | 'expenses'>>([])
 
-  /* Базовый период из настроек: день, неделя или месяц */
+  /* Base period from settings: day, week or month */
   const savedPeriod = useAuthStore((state) => state.user?.default_period)
   const period: 'day' | 'week' | 'month' =
     savedPeriod === 'day' || savedPeriod === 'week' ? savedPeriod : 'month'
@@ -101,7 +101,7 @@ export function DashboardPage() {
       ? `${range.from.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')} — ${range.to.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')}`
       : defaultLabel
 
-  /* Четыре независимых запроса: итоги, баланс, денежный поток, структура расходов */
+  /* Four independent requests: totals, balance, cashflow, spending breakdown */
   const summary = useApiQuery(
     () => analyticsApi.getSummary({ startDate, endDate, compare: true }),
     [startDate, endDate],
@@ -139,17 +139,17 @@ export function DashboardPage() {
   const totals = summary.data
   const change = summary.data?.change
 
-  /** Карточки счетов: архивные не показываем. Исключённые из статистики видны
- * в списке, но не влияют на цифры — для этого и существует флаг «исключён». */
+  /** Account cards: archived ones are hidden. Excluded-from-statistics accounts are visible
+ * in the list but don't affect the numbers — that's what the "excluded" flag is for. */
   const cards = useMemo(
     () => accounts.filter((account) => !account.archived).slice(0, 5),
     [accounts],
   )
 
   /*
-   * Баланс «как в банке»: сервер отдаёт остаток на конец выбранного периода,
-   * уже пересчитанный в базовую валюту. Складывать `account.balance` на клиенте
-   * нельзя: у счетов разные валюты, а цифра должна соответствовать периоду.
+   * "Bank-style" balance: the server returns the balance at the end of the selected period,
+   * already converted to the base currency. Summing `account.balance` on the client
+   * is wrong: accounts have different currencies, and the number must match the period.
    */
   const balanceOverview = useApiQuery(
     () => accountsApi.getTotalBalance({ startDate, endDate }),
@@ -158,7 +158,7 @@ export function DashboardPage() {
   const totalBalance = balanceOverview.data?.total ?? 0
 
 
-  /** «Характер расходов»: главная категория, средний день и самый затратный день */
+  /** "Spending character": top category, average day and the most expensive day */
   const spendingStats = useMemo(() => {
     const top = segments[0]
     const expenseTotal = totals?.expense ?? 0
@@ -176,12 +176,12 @@ export function DashboardPage() {
       { label: '', income: 0, expense: 0 },
     )
 
-    // Подсчет транзакций по категориям
+    // Count transactions by category
     const totalTransactions = expenseItems.reduce((sum, item) => sum + item.transactions_count, 0)
     const avgTransaction = totalTransactions > 0 ? Math.abs(expenseTotal) / totalTransactions : 0
     const categoryCount = expenseItems.length
 
-    // Топ-5 категорий с долями
+    // Top 5 categories with shares
     const topCategories = expenseItems.slice(0, 5).map((item) => ({
       name: item.name,
       value: Math.abs(item.total),
@@ -202,14 +202,14 @@ export function DashboardPage() {
     }
   }, [segments, totals, cashflowPoints, startDate, endDate, expenseItems])
 
-  /* Сравнение периодов: тот же денежный поток, но за предыдущий месяц */
+  /* Period comparison: the same cashflow but for the previous month */
   const previousBounds = monthBounds(monthOffset - 1)
   const previousSeries = useApiQuery(
     () => analyticsApi.getTimeseries({ metric: 'cashflow', groupBy: 'day', startDate: previousBounds.start, endDate: previousBounds.end }),
     [previousBounds.start, previousBounds.end],
   )
 
-  /** Линия сравнения: сопоставляем по номеру дня, чтобы периоды наложились */
+  /** Comparison line: match by day number so the periods overlay */
   const comparisonPoints = useMemo(() => {
     const previous = previousSeries.data ? toCashflowPoints(previousSeries.data, locale) : []
     const pick = (point: { income: number; expense: number }) =>
@@ -224,7 +224,7 @@ export function DashboardPage() {
 
   return (
     <AppShell onAddRecord={onAddRecord}>
-      {/* Счёт-карты */}
+      {/* Account cards */}
       <section aria-label={t('nav.accounts')} className="mb-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {cards.map((account) => (
@@ -255,7 +255,7 @@ export function DashboardPage() {
         )}
       </section>
 
-      {/* Тулбар месяца */}
+      {/* Month toolbar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <PeriodPicker
           label={range ? rangeLabel : defaultLabel}
@@ -283,14 +283,14 @@ export function DashboardPage() {
         </Button>
       </div>
 
-      {/* Сбой загрузки: иначе нули в KPI выглядят как настоящие данные */}
+      {/* Load failure: otherwise zeros in KPIs look like real data */}
       <QueryError
         error={summary.error ?? balanceSeries.error ?? cashflowSeries.error ?? expenseStructure.error}
         className="mb-4"
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Обзор: три KPI + линия остатка */}
+        {/* Overview: three KPIs + balance line */}
         <Card className="lg:col-span-2">
           <CardHeader
             title={t('dashboard.overview')}
@@ -309,7 +309,7 @@ export function DashboardPage() {
                       <DropdownMenuItem
                         key={key}
                         onSelect={(event) => {
-                          // Меню закрывается само: не даём ему сбросить выбор
+                          // The menu closes itself: don't let it reset the selection
                           event.preventDefault()
                           setHiddenKpi((prev) =>
                             prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key],
@@ -377,7 +377,7 @@ export function DashboardPage() {
           )}
         </Card>
 
-        {/* Сравнение периодов */}
+        {/* Period comparison */}
         <Card>
           <CardHeader title={t('dashboard.periodComparison')} subtitle={t('dashboard.vsPrevious')} />
           <div className="mt-3">
@@ -406,7 +406,7 @@ export function DashboardPage() {
           )}
         </Card>
 
-        {/* Динамика баланса */}
+        {/* Balance dynamics */}
         <Card>
           <CardHeader
             title={t('dashboard.balanceDynamics')}
@@ -430,7 +430,7 @@ export function DashboardPage() {
           )}
         </Card>
 
-        {/* Денежный поток */}
+        {/* Cashflow */}
         <Card>
           <CardHeader
             title={t('dashboard.cashflowTitle')}
@@ -472,7 +472,7 @@ export function DashboardPage() {
           )}
         </Card>
 
-        {/* Структура расходов */}
+        {/* Spending breakdown */}
         <Card>
           <CardHeader title={t('dashboard.expenseStructure')} subtitle={rangeLabel} />
           {segments.length > 0 ? (
@@ -509,7 +509,7 @@ export function DashboardPage() {
           )}
         </Card>
 
-        {/* Премиум-виджет: содержимое зависит от тарифа */}
+        {/* Premium widget: content depends on the plan */}
         <Card className="lg:col-span-3">
           <div className="flex flex-wrap items-start gap-4">
             <span className="grid size-10 place-items-center rounded-md bg-accent-soft text-accent-on-soft">
@@ -523,7 +523,7 @@ export function DashboardPage() {
           </div>
 
             <div className="mt-4 space-y-5">
-              {/* Метрики */}
+              {/* Metrics */}
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="flex flex-col gap-1">
                   <span className="text-overline uppercase text-fg-tertiary">{t('dashboard.topCategory')}</span>
@@ -556,7 +556,7 @@ export function DashboardPage() {
                 </div>
               </div>
 
-              {/* Разбивка по категориям */}
+              {/* Category breakdown */}
               {spendingStats.topCategories.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">

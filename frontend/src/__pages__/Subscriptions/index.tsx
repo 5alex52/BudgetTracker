@@ -25,7 +25,7 @@ const FREQUENCIES: Array<{ value: ServiceSubFrequency; labelKey: TranslationKey 
   { value: 'yearly', labelKey: 'subs.freqYearly' },
 ]
 
-/** Сервер знает и daily/weekly — UI предлагает только три периода. */
+/** The server also knows daily/weekly — the UI offers only three periods. */
 function normalizeFrequency(value: string): ServiceSubFrequency {
   return value === 'quarterly' || value === 'yearly' ? value : 'monthly'
 }
@@ -80,7 +80,7 @@ function draftFromSub(sub: ServiceSubDto): SubDraft {
   }
 }
 
-/** Форма одной подписки: создание и редактирование в одном диалоге. */
+/** Single subscription form: create and edit in one dialog. */
 function SubDialog({
   open,
   sub,
@@ -99,7 +99,7 @@ function SubDialog({
   const fileInput = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState<SubDraft>(EMPTY_DRAFT)
   const [pending, setPending] = useState(false)
-  // Повторное открытие диалога может быть с другой подпиской — синхронизируем черновик.
+  // Reopening the dialog may be for a different subscription — sync the draft.
   const [lastKey, setLastKey] = useState<string | null>(null)
   const key = open ? String(sub?.id ?? 'new') : null
   if (key !== lastKey) {
@@ -161,7 +161,7 @@ function SubDialog({
         }
       >
         <div className="space-y-4">
-          {/* Иконка: популярные сервисы или своё изображение */}
+          {/* Icon: popular services or a custom image */}
           <Field label={t('subs.icon')}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 text-fg-secondary">
@@ -267,15 +267,15 @@ function SubDialog({
 }
 
 /**
- * Учёт платных подписок: цена в своей валюте, итог — в базовой.
- * Подписка с привязанным счётом списывает себя автоматически: при открытии
- * страницы создаются пропущенные записи-списания, а график показывает суммы.
+ * Paid subscription tracking: price in its own currency, total in the base one.
+ * A subscription with a linked account charges itself automatically: on page open
+ * missed charge records are created, and the chart shows the amounts.
  */
 export function SubscriptionsPage() {
   const { t, locale } = useI18n()
   const { toast } = useToast()
-  /* При каждой загрузке сначала доводим расписание: наступившие даты списания
-     превращаются в записи, затем берём свежий список. */
+  /* On every load, first bring the schedule up to date: due charge dates
+     become records, then we fetch the fresh list. */
   const list = useApiQuery(async () => {
     await serviceSubsApi.collectServiceSubs().catch(() => undefined)
     return serviceSubsApi.listServiceSubs()
@@ -358,7 +358,7 @@ export function SubscriptionsPage() {
       }
     >
       <div className="space-y-4">
-        {/* Итог в базовой валюте */}
+        {/* Total in the base currency */}
         <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
           <div>
             <p className="text-caption text-fg-tertiary">{t('subs.total')}</p>
@@ -371,7 +371,7 @@ export function SubscriptionsPage() {
           <p className="text-caption text-fg-tertiary">{t('subs.count', { count: items.length })}</p>
         </Card>
 
-        {/* График списаний по подпискам */}
+        {/* Charges chart by subscription */}
         {chartPoints.length > 0 && (
           <Card className="p-4">
             <CardHeader title={t('subs.chartTitle')} subtitle={t('subs.chartSubtitle')} />
@@ -379,7 +379,7 @@ export function SubscriptionsPage() {
           </Card>
         )}
 
-        {/* Мои подписки */}
+        {/* My subscriptions */}
         {list.error ? (
           <Card className="flex flex-col items-center gap-2 p-6 text-center">
             <p className="text-label text-fg-secondary">{t('state.error')}</p>
@@ -452,7 +452,7 @@ export function SubscriptionsPage() {
                       </span>
                       <div className="min-w-0">
                         <p className="text-label font-medium text-fg-primary">{t('subs.autoRule')}</p>
-                        {/* без truncate: nowrap-текст распирает карточку за экран на телефоне */}
+                        {/* no truncate: nowrap text pushes the card off-screen on a phone */}
                         <p className="text-caption text-fg-tertiary">
                           {t(FREQUENCIES.find((entry) => entry.value === sub.frequency)?.labelKey ?? 'subs.freqMonthly')}
                           {sub.next_payment_date &&

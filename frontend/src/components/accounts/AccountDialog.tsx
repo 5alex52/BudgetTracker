@@ -13,7 +13,7 @@ import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
 import { ApiError } from '@/api'
 
-/** Типы счетов, которые поддерживает сервис. */
+/** Account types supported by the service. */
 const ACCOUNT_KINDS: AccountKind[] = ['checking', 'savings', 'cash', 'credit_card', 'investment']
 
 const KIND_LABEL_KEY: Record<AccountKind, TranslationKey> = {
@@ -24,7 +24,7 @@ const KIND_LABEL_KEY: Record<AccountKind, TranslationKey> = {
   investment: 'accounts.type.investment',
 }
 
-/** Пустой счёт для формы создания. */
+/** Empty account for the create form. */
 const emptyAccount = (currency: string): Account => ({
   id: '',
   name: '',
@@ -35,12 +35,12 @@ const emptyAccount = (currency: string): Account => ({
 })
 
 /**
- * Форма счёта: создание и редактирование.
+ * Account form: create and edit.
  *
- * Название, тип, валюта и остаток уходят на сервер; маркер цвета живёт только
- * на клиенте (в API такого поля нет) и запоминается в localStorage. Валюта после
- * создания не меняется: остаток уже посчитан в ней, а конвертацию баланса сервис
- * не делает — поле блокируется, чтобы не переписать историю.
+ * Name, type, currency and balance go to the server; the color marker lives only
+ * on the client (the API has no such field) and is remembered in localStorage.
+ * The currency can't change after creation: the balance is already computed in it,
+ * and the service doesn't convert balances — the field is locked so history isn't rewritten.
  */
 export function AccountDialog({
   open,
@@ -50,7 +50,7 @@ export function AccountDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** null — создание нового счёта */
+  /** null — creating a new account */
   account?: Account | null
   onDeleted?: () => void
 }) {
@@ -77,7 +77,7 @@ export function AccountDialog({
   const nameInvalid = touched && !draft.name.trim()
   const balanceValue = Number(String(draft.balance).replace(',', '.'))
 
-  /** Варианты валют: весь каталог справочника. */
+  /** Currency options: the whole catalog. */
   const currencyOptions = useMemo(
     () => currencyCodes().map((code) => ({ value: code, label: code })),
     [currencyCodes],
@@ -95,7 +95,7 @@ export function AccountDialog({
       }
       const balance = Number.isFinite(balanceValue) ? balanceValue : 0
       if (editing && account) {
-        // крипто-счёт: тип/валюту/баланс сервер править не даёт — они живут на странице «Крипто»
+        // crypto account: the server won't let type/currency/balance be edited — they live on the Crypto page
         const payload = draft.crypto
           ? shared
           : { ...shared, type: draft.kind, currency_id: draft.currency, balance }

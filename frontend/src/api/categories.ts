@@ -1,4 +1,4 @@
-/** Категории: дерево, плоский список, счётчики и CRUD. */
+/** Categories: tree, flat list, counters and CRUD. */
 import { request } from './client'
 import type { CategoryCreate, CategoryDto, CategoryNodeDto, CategoryStatDto, CategoryUpdate } from './types'
 

@@ -155,7 +155,7 @@ if let outPath = saveCrop {
                         space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     ctx.interpolationQuality = .high
     // flip: crop from top-down coords into bottom-left origin space
-    // CGImage.cropping(to:) использует origin сверху-слева — y0 берём напрямую
+    // CGImage.cropping(to:) uses a top-left origin — take y0 directly
     let cropRect = CGRect(x: x0, y: y0, width: cw, height: ch)
     if let sub = img.cropping(to: cropRect) {
         ctx.draw(sub, in: CGRect(x: 0, y: 0, width: ow, height: oh))

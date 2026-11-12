@@ -19,14 +19,14 @@ const LOCALES: Array<{ locale: Locale; label: string }> = [
   { locale: 'en', label: 'English' },
 ]
 
-/** Меню пользователя: тема, язык, настройки. Плавающий слой — на стекле. */
+/** User menu: theme, language, settings. A floating layer — on glass. */
 export function UserMenu() {
   const { t, locale, setLocale } = useI18n()
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const signOut = useAuthStore((state) => state.signOut)
 
-  // Инициалы вместо аватара: сервер отдаёт только ссылку на фото, а её может не быть
+  // Initials instead of an avatar: the server only returns a photo link, and it may be absent
   const fullName = user?.fullname || user?.firstname || user?.email || '—'
   const initials =
     (user?.firstname?.[0] ?? '') + (user?.lastname?.[0] ?? '') || fullName.slice(0, 2).toUpperCase()

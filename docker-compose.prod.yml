@@ -1,11 +1,11 @@
-# Production-подобный стек: собранная статика в nginx + backend без autoreload.
-#   cp .env.example .env   # и обязательно задайте SECRET_KEY и POSTGRES_PASSWORD
+# Production-like stack: built static files served by nginx + backend without autoreload.
+#   cp .env.example .env   # and make sure to set SECRET_KEY and POSTGRES_PASSWORD
 #   docker compose -f docker-compose.prod.yml up --build -d
 #
-# Отличается от docker-compose.yml тем, что:
-#  - нет монтирования исходников и autoreload;
-#  - фронтенд раздаётся nginx (стадия production в frontend/Dockerfile), /api проксируется в backend;
-#  - порты postgres/redis не публикуются наружу.
+# Differences from docker-compose.yml:
+#  - no source mounts and no autoreload;
+#  - the frontend is served by nginx (production stage in frontend/Dockerfile), /api is proxied to the backend;
+#  - postgres/redis ports are not published to the host.
 
 name: budgettracker-prod
 
@@ -32,17 +32,24 @@ x-backend-env: &backend-env
   RABBIT_PORT: 5672
   RABBIT_USER: ${RABBIT_USER:-guest}
   RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
-  # CORS в prod-стеке нужен только если фронтенд открывается не через nginx.
-  # По умолчанию адрес совпадает с публикуемым портом frontend ниже.
-  # Кавычки обязательны: без них значение разбирается как невалидный YAML.
+  # CORS in the prod stack is only needed when the frontend is opened outside nginx.
+  # By default the address matches the published frontend port below.
+  # Quotes are required: without them the value parses as invalid YAML.
   CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173"]}'
   CORS_HEADERS: '["Content-Type","Set-Cookie","Access-Control-Allow-Headers","Access-Control-Allow-Origin","Authorization"]'
   CORS_METHODS: '["GET","POST","PUT","PATCH","DELETE","OPTIONS"]'
-  # OAuth и адрес фронтенда для писем/редиректов (провайдеры пока заглушки)
+  # OAuth and frontend URL for emails/redirects
   OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
   OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
   OAUTH_RETURN_URL: ${OAUTH_RETURN_URL:-http://localhost:5173/}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+  # Telegram bot (subscription reminders + Mini App login) and Web Push keys (values in .env)
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+  VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@budgettracker.local}
+  # optional: Etherscan key enables EVM balance-history backfill (current balance works without it)
+  CRYPTO_ETHERSCAN_API_KEY: ${CRYPTO_ETHERSCAN_API_KEY:-}
 
 services:
   postgres:

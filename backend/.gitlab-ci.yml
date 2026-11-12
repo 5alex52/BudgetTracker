@@ -1,8 +1,8 @@
-# Здесь только статические проверки: запуск приложения и тестов идёт через Docker.
+# Static checks only: the app and its tests run through Docker.
 #   docker compose exec backend python -m pytest tests -q
-# (см. корневой README.md). Раньше здесь были pytest с pytest-xdist и pytest-html,
-# которых нет в pyproject.toml, поэтому job падал; теперь проверяется то, что реально
-# объявлено в зависимостях.
+# (see the root README.md). This file used to run pytest with pytest-xdist and
+# pytest-html, which are not in pyproject.toml, so the job failed; now it checks
+# what is actually declared in the dependencies.
 
 image: python:3.13-slim
 

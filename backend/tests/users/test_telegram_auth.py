@@ -68,6 +68,12 @@ def test_expired_init_data_rejected():
         telegram_user_id(init_data, TEST_TOKEN)
 
 
+def test_future_auth_date_rejected():
+    init_data = make_init_data(TEST_TOKEN, 424242, auth_date=int(time.time()) + 3600)
+    with pytest.raises(ValueError):
+        telegram_user_id(init_data, TEST_TOKEN)
+
+
 def test_missing_user_rejected():
     pairs = {"auth_date": str(int(time.time())), "query_id": "q"}
     data_check_string = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
@@ -124,7 +130,7 @@ async def test_telegram_login_linked_account(verified_user_client, session_maker
     assert response.status_code == 200
     body = response.json()
     assert body["access_token"]
-    # Secure cookies не ходят по http://test — кладём токен в jar вручную, как в conftest.
+    # Secure cookies are not sent over http://test — put the token into the jar manually, as in conftest.
     async_client.cookies["access_token"] = body["access_token"]
 
     me = await async_client.get("/api/users/me")

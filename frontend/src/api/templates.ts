@@ -1,4 +1,4 @@
-/** Шаблоны быстрого ввода записей. */
+/** Templates for quick record entry. */
 import { request } from './client'
 import type { TemplateCreate, TemplateDto, TemplateUpdate, TransactionDto } from './types'
 
@@ -18,7 +18,7 @@ export function deleteTemplate(templateId: number): Promise<void> {
   return request<void>(`/finance/templates/${templateId}`, { method: 'DELETE' })
 }
 
-/** Создать запись по шаблону: правила и баланс считает backend. */
+/** Create a record from a template: rules and balance are computed by the backend. */
 export function applyTemplate(templateId: number, date?: string): Promise<TransactionDto> {
   return request<TransactionDto>(`/finance/templates/${templateId}/apply`, { method: 'POST', query: { date } })
 }

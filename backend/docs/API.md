@@ -1,151 +1,151 @@
-# Контракт API под фронтенд «Трекер финансов»
+# API contract for the "Finance Tracker" frontend
 
-Документ составлен по факту того, что реально рисует фронтенд (`frontend/src/__pages__`),
-а не по «хорошо бы иметь». Для каждого экрана перечислено, какие данные он показывает,
-какой эндпоинт это закрывает и существует ли он уже в сервисе.
+This document is based on what the frontend actually renders (`frontend/src/__pages__`),
+not on a wish list. For each screen it lists what data it shows, which endpoint covers it,
+and whether that endpoint already exists in the service.
 
-Обозначения: ✅ — уже было в сервисе, ➕ — добавлено в этой итерации.
+Legend: ✅ — already existed in the service, ➕ — added in this iteration.
 
-Базовые префиксы: `/api/finance` — финансы, `/api/users` — профиль, `/api/analytics` —
-аналитика (отдельное приложение).
-Аутентификация: cookie `access_token` (как в существующем `CurrentUser`), ошибки — стандартные
+Base prefixes: `/api/finance` — finance, `/api/users` — profile, `/api/analytics` —
+analytics (a separate app).
+Authentication: the `access_token` cookie (as in the existing `CurrentUser`), errors — standard
 `401/403/404/422`.
 
 ---
 
-## 1. Экраны и их данные
+## 1. Screens and their data
 
-### 1.1 «Вход» (`/login`)
+### 1.1 "Login" (`/login`)
 
-| Что нужно | Эндпоинт | Статус |
+| Need | Endpoint | Status |
 |---|---|---|
-| Войти по email и паролю | `POST /api/auth/login` | ✅ |
-| Регистрация | `POST /api/auth/register` | ✅ |
-| Подтверждение почты | `POST /api/auth/send-verification-email`, `POST /api/auth/verify-email` | ✅ |
-| Выход | `POST /api/auth/logout` | ✅ |
-| Кто я (шапка, меню пользователя) | `GET /api/users/me` | ➕ |
+| Log in with email and password | `POST /api/auth/login` | ✅ |
+| Registration | `POST /api/auth/register` | ✅ |
+| Email confirmation | `POST /api/auth/send-verification-email`, `POST /api/auth/verify-email` | ✅ |
+| Log out | `POST /api/auth/logout` | ✅ |
+| Who am I (header, user menu) | `GET /api/users/me` | ➕ |
 
-### 1.2 «Обзор» (`/`)
+### 1.2 "Overview" (`/`)
 
-| Что нужно | Эндпоинт | Статус |
+| Need | Endpoint | Status |
 |---|---|---|
-| Карточки счетов с балансами | `GET /api/finance/accounts` | ✅ |
-| Общий баланс в базовой валюте | `GET /api/finance/accounts/balance` | ✅ (учитывает исключённые — исправлено) |
-| Доходы/расходы/нетто за период + сравнение с прошлым | `GET /api/analytics/summary` | ➕ |
-| График денежного потока по дням | `GET /api/analytics/timeseries?metric=cashflow` | ➕ |
-| График баланса | `GET /api/analytics/timeseries?metric=balance` | ➕ |
-| Кольцевая структура расходов | `GET /api/analytics/by-category` | ➕ |
-| Сравнение периодов | `GET /api/analytics/summary?compare=true` | ➕ |
+| Account cards with balances | `GET /api/finance/accounts` | ✅ |
+| Total balance in the base currency | `GET /api/finance/accounts/balance` | ✅ (handling of excluded accounts — fixed) |
+| Income/expense/net for the period + comparison with the previous one | `GET /api/analytics/summary` | ➕ |
+| Daily cashflow chart | `GET /api/analytics/timeseries?metric=cashflow` | ➕ |
+| Balance chart | `GET /api/analytics/timeseries?metric=balance` | ➕ |
+| Expense breakdown donut chart | `GET /api/analytics/by-category` | ➕ |
+| Period comparison | `GET /api/analytics/summary?compare=true` | ➕ |
 
-### 1.3 «Счета» (`/accounts`) и карточка счёта (`/accounts/:id`)
+### 1.3 "Accounts" (`/accounts`) and the account card (`/accounts/:id`)
 
-| Что нужно | Эндпоинт | Статус |
+| Need | Endpoint | Status |
 |---|---|---|
-| Список, в т.ч. архивные | `GET /api/finance/accounts?include_archived=` | ✅ |
-| Создать / изменить / удалить | `POST`, `PATCH`, `DELETE /api/finance/accounts/{id}` | ✅ |
-| Архивировать / вернуть | `POST /api/finance/accounts/{id}/archive` | ✅ |
-| «Исключено из статистики» | `POST /api/finance/accounts/{id}/exclude` | ➕ |
-| Сводка по счёту: доходы, расходы, операции | `GET /api/finance/accounts/{id}/summary` | ➕ |
-| Записи счёта | `GET /api/finance/transactions?account_ids=` | ✅/➕ (мультивыбор) |
-| Экспорт записей счёта | `GET /api/finance/transactions/export?format=&account_ids=` | ➕ |
+| List, including archived | `GET /api/finance/accounts?include_archived=` | ✅ |
+| Create / update / delete | `POST`, `PATCH`, `DELETE /api/finance/accounts/{id}` | ✅ |
+| Archive / restore | `POST /api/finance/accounts/{id}/archive` | ✅ |
+| "Excluded from statistics" | `POST /api/finance/accounts/{id}/exclude` | ➕ |
+| Account summary: income, expenses, transactions | `GET /api/finance/accounts/{id}/summary` | ➕ |
+| Account transactions | `GET /api/finance/transactions?account_ids=` | ✅/➕ (multi-select) |
+| Export account transactions | `GET /api/finance/transactions/export?format=&account_ids=` | ➕ |
 
-«Замок» на карточках счетов (Alfa RUB, Tinkoff) — признак синхронизации с банком. В сервисе
-синхронизации нет, поэтому замка нет: фронтенд его не рисует.
+The "lock" on account cards (Alfa RUB, Tinkoff) indicates bank synchronization. The service
+has no synchronization, so there is no lock: the frontend does not render it.
 
-### 1.4 «Записи» (`/records`)
+### 1.4 "Records" (`/records`)
 
-| Что нужно | Эндпоинт | Статус |
+| Need | Endpoint | Status |
 |---|---|---|
-| Список с фильтрами и пагинацией | `GET /api/finance/transactions` | ✅/➕ (расширен) |
-| Фильтры: счета, категории, валюты, типы — множественным выбором | `account_ids`, `category_ids`, `currency_ids`, `types` | ➕ |
-| Поиск по заметке, категории, счёту | `q` | ➕ |
-| Диапазон суммы | `amount_min`, `amount_max` | ➕ |
-| Сортировка (дата, сумма) | `sort` | ➕ |
-| Общее количество записей для «показать ещё» | заголовок `X-Total-Count` | ➕ |
-| Создать / изменить / удалить | `POST`, `PATCH`, `DELETE` | ✅ |
-| Массовое удаление выбранных | `POST /api/finance/transactions/bulk-delete` | ➕ |
-| Экспорт CSV / JSON за период | `GET /api/finance/transactions/export` | ➕ |
-| Импорт записей из файла выгрузки | `POST /api/finance/transactions/import` | ➕ |
-| Сводка по категориям за период | `GET /api/finance/transactions/summary` | ✅ |
+| List with filters and pagination | `GET /api/finance/transactions` | ✅/➕ (extended) |
+| Filters: accounts, categories, currencies, types — multi-select | `account_ids`, `category_ids`, `currency_ids`, `types` | ➕ |
+| Search by note, category, account | `q` | ➕ |
+| Amount range | `amount_min`, `amount_max` | ➕ |
+| Sorting (date, amount) | `sort` | ➕ |
+| Total record count for "show more" | `X-Total-Count` header | ➕ |
+| Create / update / delete | `POST`, `PATCH`, `DELETE` | ✅ |
+| Bulk delete selected | `POST /api/finance/transactions/bulk-delete` | ➕ |
+| Export CSV / JSON for a period | `GET /api/finance/transactions/export` | ➕ |
+| Import records from an export file | `POST /api/finance/transactions/import` | ➕ |
+| Category summary for the period | `GET /api/finance/transactions/summary` | ✅ |
 
-Карточка записи отдаёт `TransactionWithDetails` — с названием и цветом категории, именем счёта и
-символом валюты: без этого диалог редактирования не заполнить.
+A record card returns `TransactionWithDetails` — with the category name and color, the account name and
+the currency symbol: without these the edit dialog cannot be filled.
 
-### 1.5 «Аналитика» (`/analytics`)
+### 1.5 "Analytics" (`/analytics`)
 
-| Что нужно | Эндпоинт | Статус |
+| Need | Endpoint | Status |
 |---|---|---|
-| Итоги за период и сравнение | `GET /api/analytics/summary` | ➕ |
-| Отчёт «категории × месяцы» | `GET /api/analytics/matrix` | ➕ |
-| Разбивка по категориям и подкатегориям | `GET /api/analytics/by-category` | ➕ |
-| Разбивка по счетам | `GET /api/analytics/by-account` | ➕ |
-| Динамика по дням/неделям/месяцам | `GET /api/analytics/timeseries` | ➕ |
+| Period totals and comparison | `GET /api/analytics/summary` | ➕ |
+| "Categories × months" report | `GET /api/analytics/matrix` | ➕ |
+| Breakdown by categories and subcategories | `GET /api/analytics/by-category` | ➕ |
+| Breakdown by accounts | `GET /api/analytics/by-account` | ➕ |
+| Dynamics by day/week/month | `GET /api/analytics/timeseries` | ➕ |
 
-Аналитика вынесена в отдельное приложение (`src/analytics/`) и живёт под своим префиксом
-`/api/analytics`: это read-model над финансовыми данными, у него нет CRUD и своей записи в БД.
+Analytics lives in a separate app (`src/analytics/`) under its own prefix
+`/api/analytics`: it is a read model over the financial data, with no CRUD and no DB writes of its own.
 
-### 1.6 «Настройки» (`/settings` и разделы)
+### 1.6 "Settings" (`/settings` and its sections)
 
-| Экран | Что нужно | Эндпоинт | Статус |
+| Screen | Need | Endpoint | Status |
 |---|---|---|---|
-| Профиль | Читать и править имя, почту, язык, часовой пояс, базовую валюту | `GET`, `PATCH /api/users/me` | ➕ |
-| Профиль | Сменить пароль | `POST /api/users/me/password` | ➕ |
-| Профиль | Аватар | `PATCH /api/users/me` (поле `photo`) | ➕ |
-| Валюты | Список валют с курсами | `GET /api/finance/currencies` | ✅ |
-| Валюты | Курсы относительно выбранной базовой | `GET /api/finance/currencies/rates?base=BYN` | ➕ |
-| Валюты | Правка курса в справочнике | `PATCH /api/finance/currencies/{code}` | ✅ (только суперпользователь) |
-| Валюты | Личный курс для своих расчётов | `PUT`, `DELETE /api/finance/currencies/{code}/rate` | ➕ |
-| Категории | Дерево: категория → подкатегории со счётчиками | `GET /api/finance/categories/tree` | ➕ |
-| Категории | Сколько записей и на какую сумму | `GET /api/finance/categories/stats` | ➕ |
-| Категории | CRUD, подкатегории через `parent_id` | `GET/POST/PATCH/DELETE /api/finance/categories` | ✅ |
-| Приватность | Скачать свои данные | `GET /api/users/me/export` | ➕ |
-| Приватность | Удалить аккаунт | `DELETE /api/users/me` | ➕ |
-| Метки | Список меток со счётчиками, CRUD | `GET/POST/PATCH/DELETE /api/finance/tags` | ➕ |
-| Шаблоны | Список и CRUD шаблонов быстрого ввода | `GET/POST/PATCH/DELETE /api/finance/templates` | ➕ |
-| Шаблоны | Создать запись по шаблону | `POST /api/finance/templates/{id}/apply` | ➕ |
-| Правила | Список и CRUD правил авто-категоризации | `GET/POST/PATCH/DELETE /api/finance/rules` | ➕ |
-| Правила | Применить правила к существующим записям | `POST /api/finance/rules/apply` | ➕ |
+| Profile | Read and edit name, email, language, timezone, base currency | `GET`, `PATCH /api/users/me` | ➕ |
+| Profile | Change password | `POST /api/users/me/password` | ➕ |
+| Profile | Avatar | `PATCH /api/users/me` (`photo` field) | ➕ |
+| Currencies | Currency list with rates | `GET /api/finance/currencies` | ✅ |
+| Currencies | Rates relative to the selected base | `GET /api/finance/currencies/rates?base=BYN` | ➕ |
+| Currencies | Edit a rate in the catalog | `PATCH /api/finance/currencies/{code}` | ✅ (superuser only) |
+| Currencies | Personal rate for your own calculations | `PUT`, `DELETE /api/finance/currencies/{code}/rate` | ➕ |
+| Categories | Tree: category → subcategories with counters | `GET /api/finance/categories/tree` | ➕ |
+| Categories | How many records and for what amount | `GET /api/finance/categories/stats` | ➕ |
+| Categories | CRUD, subcategories via `parent_id` | `GET/POST/PATCH/DELETE /api/finance/categories` | ✅ |
+| Privacy | Download your data | `GET /api/users/me/export` | ➕ |
+| Privacy | Delete account | `DELETE /api/users/me` | ➕ |
+| Tags | Tag list with counters, CRUD | `GET/POST/PATCH/DELETE /api/finance/tags` | ➕ |
+| Templates | List and CRUD of quick-entry templates | `GET/POST/PATCH/DELETE /api/finance/templates` | ➕ |
+| Templates | Create a record from a template | `POST /api/finance/templates/{id}/apply` | ➕ |
+| Rules | List and CRUD of auto-categorization rules | `GET/POST/PATCH/DELETE /api/finance/rules` | ➕ |
+| Rules | Apply rules to existing records | `POST /api/finance/rules/apply` | ➕ |
 
-### 1.7 Что фронтенд делает сам
+### 1.7 What the frontend does itself
 
-- Экспорт CSV/TSV/XLS/JSON/PDF — сейчас на клиенте из уже загруженных данных, PDF — печатью
-  браузера. Серверный экспорт (`/transactions/export`) нужен только для выгрузки периода,
-  который не влезает в страницу; формат PDF на сервере не делаем (нет генератора в зависимостях).
-- Тема и язык интерфейса — хранятся в `localStorage`; на сервере лежит только предпочтение
-  пользователя (`locale`), чтобы новые устройства стартовали с него.
-- Все графики строятся на клиенте из агрегатов; сервер отдаёт только числа.
+- CSV/TSV/XLS/JSON/PDF export — currently client-side from already loaded data; PDF via browser
+  printing. Server-side export (`/transactions/export`) is only needed for dumping a period
+  that doesn't fit on the page; we don't do PDF on the server (no generator in the dependencies).
+- UI theme and language — stored in `localStorage`; only the user's preference (`locale`)
+  is kept on the server so new devices start with it.
+- All charts are built on the client from aggregates; the server only returns numbers.
 
 ---
 
-## 2. Добавленные эндпоинты: полный список
+## 2. Added endpoints: full list
 
-### Профиль
+### Profile
 
 ```
 GET    /api/users/me                    → User
 PATCH  /api/users/me                    → User           (firstname, lastname, email, photo, timezone,
                                                           locale, theme, base_currency)
 POST   /api/users/me/password           → 204            (old_password, new_password)
-GET    /api/users/me/export             → JSON-архив     (счета, категории, записи, курсы)
-DELETE /api/users/me                    → 204            (тело: {"password": "..."} — каскадное удаление)
+GET    /api/users/me/export             → JSON archive   (accounts, categories, records, rates)
+DELETE /api/users/me                    → 204            (body: {"password": "..."} — cascade delete)
 ```
 
-### Счета
+### Accounts
 
 ```
 POST   /api/finance/accounts/{id}/exclude?is_excluded=true → AccountResponse
 GET    /api/finance/accounts/{id}/summary?start_date&end_date → AccountSummary
-GET    /api/finance/accounts/balance                       → BalanceOverview (без исключённых)
+GET    /api/finance/accounts/balance                       → BalanceOverview (without excluded accounts)
 ```
 
-### Категории
+### Categories
 
 ```
 GET    /api/finance/categories/tree?category_type=expense&start_date&end_date → List[CategoryNode]
 GET    /api/finance/categories/stats?category_type&start_date&end_date        → List[CategoryStat]
 ```
 
-### Записи
+### Records
 
 ```
 GET    /api/finance/transactions?account_ids=1&account_ids=2&category_ids=&currency_ids=&types=&
@@ -154,16 +154,16 @@ GET    /api/finance/transactions?account_ids=1&account_ids=2&category_ids=&curre
                                                           → List[TransactionWithDetails] + X-Total-Count
                                                           sort: date_desc | date_asc | amount_desc | amount_asc
 POST   /api/finance/transactions/bulk-delete              → {deleted: int, missing: [int]}
-                                                          тело: {"ids": [1, 2, 3]}
-GET    /api/finance/transactions/export?format=csv|json&… → файл (до 5000 записей)
+                                                          body: {"ids": [1, 2, 3]}
+GET    /api/finance/transactions/export?format=csv|json&… → file (up to 5000 records)
 POST   /api/finance/transactions/import                   → {created, accounts_created,
                                                           categories_created, skipped, errors[]}
-                                                          тело: {"format": "csv|json", "content": "<файл>"}
-                                                          отсутствует счёт/категория — создаются
-                                                          переводы пропускаются (в выгрузке нет счёта-получателя)
+                                                          body: {"format": "csv|json", "content": "<file>"}
+                                                          missing account/category — created
+                                                          transfers are skipped (the export has no destination account)
 ```
 
-### Аналитика (отдельное приложение, префикс `/api/analytics`)
+### Analytics (separate app, prefix `/api/analytics`)
 
 ```
 GET /api/analytics/summary?start_date&end_date&compare=true      → AnalyticsSummary
@@ -174,39 +174,39 @@ GET /api/analytics/by-account?start_date&end_date
 GET /api/analytics/matrix?months=6&transaction_type=expense&rollup=true&end_date
 ```
 
-### Валюты и личные курсы
+### Currencies and personal rates
 
 ```
 GET /api/finance/currencies/rates?base=BYN                → List[CurrencyRate]
-PUT /api/finance/currencies/{code}/rate                   → CurrencyRate   (тело: {"rate": 2.5})
+PUT /api/finance/currencies/{code}/rate                   → CurrencyRate   (body: {"rate": 2.5})
 DELETE /api/finance/currencies/{code}/rate                → 204
 ```
 
-`base` по умолчанию BYN — как базовая валюта сервиса. Неизвестный код → `400` (молча
-подставлять другую валюту нельзя: курс тогда посчитается неверно).
+`base` defaults to BYN — the service's base currency. An unknown code → `400` (silently
+substituting another currency is not allowed: the rate would then be computed incorrectly).
 
-`/rates` публичный: справочник не является личными данными. Если пользователь авторизован,
-в ответе учитываются его личные курсы — у них `is_custom: true`. `PUT`/`DELETE` требуют входа:
-справочник общий, а личный курс принадлежит пользователю.
+`/rates` is public: the catalog is not personal data. If the user is authenticated,
+the response takes their personal rates into account — those have `is_custom: true`. `PUT`/`DELETE` require login:
+the catalog is shared, while a personal rate belongs to the user.
 
-### Метки
+### Tags
 
 ```
 GET    /api/finance/tags/                → List[TagResponse] (+transactions_count)
 POST   /api/finance/tags/                → TagResponse   (name, color)
 GET    /api/finance/tags/{tag_id}        → TagResponse
 PATCH  /api/finance/tags/{tag_id}        → TagResponse
-DELETE /api/finance/tags/{tag_id}        → 204          (связи с записями уходят, записи остаются)
+DELETE /api/finance/tags/{tag_id}        → 204          (links to records are removed, the records remain)
 
-GET /api/finance/transactions?tag_ids=1&tag_ids=2        → записи хотя бы с одной из меток
-POST /api/finance/transactions/  {"tag_ids": [1, 2]}     → метки вешаются при создании
-PATCH /api/finance/transactions/{id} {"tag_ids": []}     → пустой список снимает все метки
+GET /api/finance/transactions?tag_ids=1&tag_ids=2        → records with at least one of the tags
+POST /api/finance/transactions/  {"tag_ids": [1, 2]}     → tags are attached on creation
+PATCH /api/finance/transactions/{id} {"tag_ids": []}     → an empty list removes all tags
 ```
 
-### Шаблоны быстрого ввода
+### Quick-entry templates
 
 ```
-GET    /api/finance/templates/                 → List[TemplateResponse] (популярные сверху)
+GET    /api/finance/templates/                 → List[TemplateResponse] (most used first)
 POST   /api/finance/templates/                 → TemplateResponse
 GET    /api/finance/templates/{template_id}    → TemplateResponse
 PATCH  /api/finance/templates/{template_id}    → TemplateResponse
@@ -214,13 +214,13 @@ DELETE /api/finance/templates/{template_id}    → 204
 POST   /api/finance/templates/{template_id}/apply?date=…   → TransactionResponse
 ```
 
-`apply` создаёт запись тем же сервисом, что и обычное создание: срабатывают правила и
-пересчитывается баланс счёта, а `usage_count` шаблона увеличивается на единицу.
+`apply` creates a record through the same service as regular creation: rules fire,
+the account balance is recomputed, and the template's `usage_count` is incremented by one.
 
-### Правила авто-категоризации
+### Auto-categorization rules
 
 ```
-GET    /api/finance/rules/              → List[RuleResponse] (по возрастанию priority)
+GET    /api/finance/rules/              → List[RuleResponse] (ascending priority)
 POST   /api/finance/rules/              → RuleResponse
 GET    /api/finance/rules/{rule_id}     → RuleResponse
 PATCH  /api/finance/rules/{rule_id}     → RuleResponse
@@ -228,20 +228,20 @@ DELETE /api/finance/rules/{rule_id}     → 204
 POST   /api/finance/rules/apply?start_date&end_date&dry_run=false → RuleApplyResult
 ```
 
-Условие: `field` = `note` | `amount`, `operator` = `contains` | `equals` | `greater` | `less`.
-Действия (можно несколько сразу): `set_category_id`, `add_tag_id`, `exclude_from_statistics`.
+Condition: `field` = `note` | `amount`, `operator` = `contains` | `equals` | `greater` | `less`.
+Actions (several at once allowed): `set_category_id`, `add_tag_id`, `exclude_from_statistics`.
 
-Правила применяются при создании записи и при вызове `apply`. Скрытые из статистики записи
-остаются в списках — у них `is_excluded: true`, и агрегаты их не учитывают.
+Rules are applied when a record is created and when `apply` is called. Records hidden from statistics
+remain in lists — they have `is_excluded: true`, and aggregates ignore them.
 
 ---
 
-## 3. Форматы ответов
+## 3. Response formats
 
-Все суммы — в базовой валюте пользователя, округление до 2 знаков. Курс берётся из
-личных настроек валют (`user_currency_rates`), а при их отсутствии — из справочника
-`currencies`. Периоды — ISO-8601, `start_date`/`end_date` валидируются через уже
-существующий `normalize_period`.
+All amounts are in the user's base currency, rounded to 2 decimal places. The rate is taken from
+personal currency settings (`user_currency_rates`), or from the `currencies` catalog if none are set.
+Periods are ISO-8601; `start_date`/`end_date` are validated through the existing
+`normalize_period`.
 
 ```jsonc
 // GET /api/analytics/summary?start_date=2025-10-01&end_date=2025-10-31&compare=true
@@ -252,11 +252,11 @@ POST   /api/finance/rules/apply?start_date&end_date&dry_run=false → RuleApplyR
   "expense": 3329.15,
   "net": 8937.92,
   "transactions_count": 148,
-  "previous": {                      // null, если compare=false
+  "previous": {                      // null if compare=false
     "start_date": "...", "end_date": "...",
     "income": 8297.03, "expense": 3510.44, "net": 4786.59, "transactions_count": 121
   },
-  "change": {                        // проценты к предыдущему периоду
+  "change": {                        // percentages relative to the previous period
     "income": 47.85, "expense": -5.17, "net": 86.72
   }
 }
@@ -267,7 +267,7 @@ POST   /api/finance/rules/apply?start_date&end_date&dry_run=false → RuleApplyR
 { "group_by": "day", "metric": "cashflow", "points": [
     { "date": "2025-10-01T00:00:00", "income": 1200.0, "expense": 400.0, "net": 800.0 } ] }
 
-// metric=balance — накопительный остаток по всем счетам на конец интервала
+// metric=balance — cumulative balance across all accounts at the end of the interval
 { "group_by": "day", "metric": "balance", "points": [
     { "date": "2025-10-01T00:00:00", "value": 12600.0 } ] }
 ```
@@ -305,7 +305,7 @@ POST   /api/finance/rules/apply?start_date&end_date&dry_run=false → RuleApplyR
 // GET /api/finance/currencies/rates?base=BYN
 [ { "code": "USD", "name": "US Dollar", "symbol": "$", "rate": 2.97,
     "is_base": false, "is_custom": false } ]
-// rate = «сколько этой валюты за 1 базовую»
+// rate = "how much of this currency per 1 base unit"
 
 // GET /api/finance/tags/
 [ { "id": 4, "name": "Отпуск", "color": "#6366f1", "transactions_count": 12 } ]
@@ -329,105 +329,105 @@ POST   /api/finance/rules/apply?start_date&end_date&dry_run=false → RuleApplyR
 
 ---
 
-## 4. Изменения в существующих эндпоинтах (обратная совместимость сохранена)
+## 4. Changes to existing endpoints (backward compatibility preserved)
 
-| Эндпоинт | Было | Стало |
+| Endpoint | Before | After |
 |---|---|---|
-| `GET /accounts` | `include_archived` | плюс `include_excluded` (по умолчанию `true`) |
-| `GET /accounts/balance` | сумма всех активных счетов | `total` и разбивка `accounts` в базовой валюте; учитываются только активные **и не исключённые из статистики** счета |
-| `GET /transactions` | 5 фильтров, пагинация | плюс мультифильтры, поиск, диапазон суммы, сортировка, `X-Total-Count` |
-| `GET /transactions/{id}` | `TransactionResponse` | `TransactionWithDetails` (диалог редактирования заполняется по этим полям) |
-| `GET /categories` | плоский список | без изменений; дерево — отдельным эндпоинтом |
+| `GET /accounts` | `include_archived` | plus `include_excluded` (default `true`) |
+| `GET /accounts/balance` | sum of all active accounts | `total` and an `accounts` breakdown in the base currency; only active **and not excluded from statistics** accounts are counted |
+| `GET /transactions` | 5 filters, pagination | plus multi-filters, search, amount range, sorting, `X-Total-Count` |
+| `GET /transactions/{id}` | `TransactionResponse` | `TransactionWithDetails` (the edit dialog is filled from these fields) |
+| `GET /categories` | flat list | unchanged; the tree is a separate endpoint |
 
-Новые поля в моделях:
-- миграция `b7c1d2e3f4a5` — `accounts.is_excluded`, `users.base_currency`, `users.locale`, `users.theme`;
-- миграция `ecc55b6d008f` — `transactions.is_excluded`, таблицы `tags`, `transaction_tags`,
+New fields in the models:
+- migration `b7c1d2e3f4a5` — `accounts.is_excluded`, `users.base_currency`, `users.locale`, `users.theme`;
+- migration `ecc55b6d008f` — `transactions.is_excluded`, tables `tags`, `transaction_tags`,
   `templates`, `template_tags`, `rules`, `user_currency_rates`;
 
-Старые фильтры и поля не удалялись: `?account_id=`, `?category_id=`, `?transaction_type=`
-по-прежнему работают рядом с новыми множественными вариантами.
+Old filters and fields were not removed: `?account_id=`, `?category_id=`, `?transaction_type=`
+still work alongside the new multi-value variants.
 
 ---
 
-## 5. Права доступа
+## 5. Access rights
 
-Правило сервиса прежнее: финансовые данные видны только владельцу, справочник валют
-меняет только суперпользователь. Добавленные эндпоинты следуют тем же действиям
-`FinancePermission`:
+The service rule is unchanged: financial data is visible only to its owner, and only a superuser
+can modify the currency catalog. The added endpoints follow the same
+`FinancePermission` actions:
 
-- `me`, `summary`, `tree`, `stats`, `transactions/*`, `tags/*`, `templates/*`, `rules/*` — только
-  аутентифицированный владелец данных (проверка владения остаётся в сервисах через
+- `me`, `summary`, `tree`, `stats`, `transactions/*`, `tags/*`, `templates/*`, `rules/*` — only
+  the authenticated data owner (ownership checks remain in the services via
   `_get_owned_account`/`_get_owned_category`/`ensure_tags_owned`);
-- `analytics/*` — отдельное `AnalyticsPermission`: публичных отчётов нет, все агрегаты считаются
-  по `user_id` из сессии;
-- `currencies/rates` — публично, как и чтение справочника; личные курсы (`PUT`/`DELETE .../rate`)
-  требуют входа;
-- `DELETE /api/users/me` требует подтверждения паролем в теле запроса, чтобы случайный вызов
-  не снёс аккаунт.
+- `analytics/*` — a separate `AnalyticsPermission`: there are no public reports, all aggregates are computed
+  for the `user_id` from the session;
+- `currencies/rates` — public, like reading the catalog; personal rates (`PUT`/`DELETE .../rate`)
+  require login;
+- `DELETE /api/users/me` requires password confirmation in the request body so an accidental call
+  doesn't wipe the account.
 
 ---
 
-## 6. Ошибки
+## 6. Errors
 
-| Код | Когда |
+| Code | When |
 |---|---|
-| `400` | неверный диапазон дат, неизвестная валюта, сумма вне допустимого, неверный пароль, чужая метка/категория в шаблоне или правиле |
-| `401` | нет аутентификации |
-| `403` | чужие данные, правка справочника валют без прав |
-| `404` | счёт/категория/запись не найдены или принадлежат другому пользователю |
-| `409` | категория занята записями, валюта занята счетами, конфликт уникальности (в том числе имя метки) |
-| `422` | схема не прошла валидацию pydantic |
+| `400` | invalid date range, unknown currency, amount out of bounds, wrong password, someone else's tag/category in a template or rule |
+| `401` | not authenticated |
+| `403` | someone else's data, editing the currency catalog without permission |
+| `404` | account/category/record not found or belongs to another user |
+| `409` | category in use by records, currency in use by accounts, uniqueness conflict (including tag name) |
+| `422` | schema failed pydantic validation |
 
 ---
 
-## 7. Что проверено тестами
+## 7. What is covered by tests
 
-Новый код покрыт отдельными наборами; полный прогон — `pytest tests`.
+The new code is covered by dedicated suites; full run — `pytest tests`.
 
 ```
 $ ENVIRONMENT=TEST pytest tests -q
 173 passed
 ```
 
-| Набор | Тестов | Что проверяет |
+| Suite | Tests | What it checks |
 |---|---|---|
-| `tests/analytics/test_analytics.py` | 16 | агрегаты: итоги, сравнение периодов, конвертация валют, исключённые счета и записи, графики денежного потока и остатка, доли категорий и счетов, отчёт «категории × месяцы» |
-| `tests/finance/test_tags.py` | 11 | CRUD меток, уникальность имени, изоляция, привязка к записям, фильтр по меткам, удаление без потери записей |
-| `tests/finance/test_templates.py` | 8 | CRUD шаблонов, применение с пересчётом баланса, копирование меток, валидация ссылок |
-| `tests/finance/test_rules.py` | 16 | операторы условий, авто-категоризация при создании, метки правилом, скрытие из статистики, приоритеты, прогон по существующим записям и dry-run |
-| `tests/finance/test_user_rates.py` | 10 | личный курс в расчётах, изоляция между пользователями, сброс к справочнику, валидация |
-| `tests/finance/test_listing.py`, `test_router_extra.py`, `tests/users/test_profile.py` | 48 | выборки записей, HTTP-уровень, профиль (написаны в предыдущей итерации) |
+| `tests/analytics/test_analytics.py` | 16 | aggregates: totals, period comparison, currency conversion, excluded accounts and records, cashflow and balance charts, category and account shares, the "categories × months" report |
+| `tests/finance/test_tags.py` | 11 | tag CRUD, name uniqueness, isolation, attaching to records, filtering by tags, deletion without losing records |
+| `tests/finance/test_templates.py` | 8 | template CRUD, applying with balance recomputation, copying tags, reference validation |
+| `tests/finance/test_rules.py` | 16 | condition operators, auto-categorization on creation, tagging by rule, hiding from statistics, priorities, running over existing records and dry-run |
+| `tests/finance/test_user_rates.py` | 10 | personal rate in calculations, isolation between users, reset to the catalog, validation |
+| `tests/finance/test_listing.py`, `test_router_extra.py`, `tests/users/test_profile.py` | 48 | record listings, HTTP level, profile (written in the previous iteration) |
 
-Тесты требуют PostgreSQL — тот же, что и остальной набор: база создаётся и удаляется фикстурой
-`test_db`. Миграции проверены на отдельной базе: `alembic upgrade head` → `downgrade base` →
-`upgrade head` проходит без ошибок.
+The tests require PostgreSQL — the same as the rest of the suite: the database is created and dropped by the
+`test_db` fixture. Migrations were verified on a separate database: `alembic upgrade head` → `downgrade base` →
+`upgrade head` passes without errors.
 
 ---
 
-## 8. Что осталось за продуктом
+## 8. What is left out of scope
 
-Из списка, который был здесь раньше, реализовано всё, кроме одного пункта.
+Of the list that used to be here, everything has been implemented except one item.
 
-**Синхронизация с банком** — единственная нереализованная фича. Она требует интеграции с
-банковским API (или агрегатором вроде Plaid): OAuth-подключение, импорт выписок, дедупликация
-операций, фоновые задачи синхронизации. От неё же зависит «замок» на карточке счёта
-В текущей модели данных полей под это нет, и добавлять их «на всякий случай» не стал.
+**Bank synchronization** is the only unimplemented feature. It requires integration with
+a bank API (or an aggregator like Plaid): OAuth connection, statement import, transaction
+deduplication, background sync jobs. The "lock" on the account card also depends on it.
+The current data model has no fields for this, and I chose not to add them "just in case".
 
-Приложение полностью бесплатное: биллинг и платные лимиты удалены, все функции доступны
-каждому пользователю.
+The app is completely free: billing and paid limits have been removed, all features are available
+to every user.
 
-## 9. Соответствие экранов и эндпоинтов
+## 9. Screen-to-endpoint mapping
 
-Сверка того, что фронтенд действительно вызывает после подключения к API
-(мок-данные остались только на витрине компонентов `/design`).
+A cross-check of what the frontend actually calls after being connected to the API
+(mock data remains only in the `/design` component showcase).
 
-| Экран | Запросы |
+| Screen | Requests |
 |---|---|
 | `/login` | `POST /api/auth/login`, `GET /api/users/me` |
-| `/` (Обзор) | `GET /api/finance/accounts/`, `GET /api/analytics/summary`, `GET /api/analytics/timeseries` (balance и cashflow), `GET /api/analytics/by-category` |
+| `/` (Overview) | `GET /api/finance/accounts/`, `GET /api/analytics/summary`, `GET /api/analytics/timeseries` (balance and cashflow), `GET /api/analytics/by-category` |
 | `/accounts` | `GET /api/finance/accounts/`, `POST`, `PATCH /{id}`, `DELETE /{id}` |
-| `/accounts/{id}` | `GET /api/finance/accounts/`, `GET /api/analytics/by-account`, `GET /api/analytics/timeseries?metric=balance`, `GET /api/finance/transactions/?account_ids=…`, `POST /transactions/bulk-delete` (удаление дубликатов) |
-| `/records` | `GET /api/finance/transactions/` (фильтры, сортировка, `X-Total-Count`), `POST`, `PATCH`, `DELETE`, `POST /transactions/bulk-delete`, `GET /transactions/export?format=csv\|json`, `POST /transactions/import` |
+| `/accounts/{id}` | `GET /api/finance/accounts/`, `GET /api/analytics/by-account`, `GET /api/analytics/timeseries?metric=balance`, `GET /api/finance/transactions/?account_ids=…`, `POST /transactions/bulk-delete` (deleting duplicates) |
+| `/records` | `GET /api/finance/transactions/` (filters, sorting, `X-Total-Count`), `POST`, `PATCH`, `DELETE`, `POST /transactions/bulk-delete`, `GET /transactions/export?format=csv\|json`, `POST /transactions/import` |
 | `/analytics` | `GET /api/analytics/matrix`, `/summary`, `/timeseries`, `/by-category`, `/by-account` |
 | `/settings` | `GET`/`PATCH /api/users/me`, `GET /api/finance/currencies/rates` |
 | `/settings/currencies` | `GET /api/finance/currencies/rates`, `PUT`/`DELETE /api/finance/currencies/{code}/rate` |
@@ -437,9 +437,9 @@ $ ENVIRONMENT=TEST pytest tests -q
 | `/settings/rules` | `GET`/`POST`/`PATCH`/`DELETE /api/finance/rules`, `POST /rules/apply` |
 | `/settings/privacy` | `GET /api/users/me/export`, `DELETE /api/users/me` |
 
-Проверки без браузера (нужен поднятый backend с демо-данными):
+Checks without a browser (requires a running backend with demo data):
 
 ```bash
-bash tools/smoke-api.sh          # читающие эндпоинты всех экранов
-python3 tools/smoke_write.py     # запись: запись, метка, шаблон, правило, профиль
+bash tools/smoke-api.sh          # read endpoints of all screens
+python3 tools/smoke_write.py     # writes: record, tag, template, rule, profile
 ```

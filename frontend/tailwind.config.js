@@ -4,7 +4,7 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
-      // Все значения — CSS-переменные из src/styles/theme.css
+      // All values are CSS variables from src/styles/theme.css
       colors: {
         bg: { base: 'var(--bg-base)', elevated: 'var(--bg-elevated)' },
         surface: {

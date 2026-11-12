@@ -155,10 +155,20 @@ class AnalyticsService:
 
     @classmethod
     def _bucket_bounds(cls, group_by: str, start_date: datetime, end_date: datetime) -> List[datetime]:
-        """Bucket boundaries between the start and end of the period."""
+        """Bucket boundaries between the start and end of the period.
+
+        Boundaries must sit on the same grid as the DAO's date_trunc buckets
+        (midnight / Monday / 1st of month), otherwise deltas never match them.
+        """
         step = {"day": timedelta(days=1), "week": timedelta(weeks=1), "month": None}[group_by]
+        midnight = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        if group_by == "week":
+            cursor = midnight - timedelta(days=midnight.weekday())
+        elif group_by == "month":
+            cursor = midnight.replace(day=1)
+        else:
+            cursor = midnight
         bounds: List[datetime] = []
-        cursor = start_date
         while cursor <= end_date:
             bounds.append(cursor)
             if step is not None:

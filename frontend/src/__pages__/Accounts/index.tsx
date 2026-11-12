@@ -30,10 +30,10 @@ const KIND_LABEL: Record<AccountKind, TranslationKey> = {
 }
 
 /**
- * «Счета»: группы по типу счёта, как в референсе, плюс итог группы.
+ * "Accounts": groups by account type, as in the reference, plus a group total.
  *
- * Итог по группе пересчитывается в базовую валюту по действующим курсам:
- * складывать остатки в разных валютах напрямую нельзя.
+ * The group total is converted to the base currency at current rates:
+ * balances in different currencies can't be added directly.
  */
 export function AccountsPage() {
   const { t } = useI18n()
@@ -46,8 +46,8 @@ export function AccountsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
 
-  // Курс справочника — «сколько единиц валюты за 1 базовую», поэтому
-  // остаток счёта переводится в базовую делением на курс.
+  // The catalog rate is "how many currency units per 1 base unit", so
+  // an account balance is converted to base by dividing by the rate.
   const ratesByCode = useMemo(
     () => new Map(rates.map((rate) => [rate.code, rate.base ? 1 : rate.rate])),
     [rates],
@@ -71,10 +71,10 @@ export function AccountsPage() {
     kind,
     items: active.filter((account) => account.kind === kind),
   })).filter((group) => group.items.length > 0)
-  // Архив показывается только в общем списке (тумблер «Архив»), отдельной секцией и тускло
+  // The archive is shown only in the main list (the "Archived" toggle), as a separate dimmed section
   const archivedList = showArchived ? accounts.filter((account) => account.archived) : []
 
-  /** Строка счёта: dimmed — тусклая строка архивной секции. */
+  /** Account row: dimmed — a muted row in the archive section. */
   const renderRow = (account: Account, dimmed: boolean, first: boolean) => (
     <li key={account.id}>
       <div
@@ -179,8 +179,8 @@ export function AccountsPage() {
 
       <div className="space-y-4">
         {groups.map((group) => {
-          // Итог группы — в базовой валюте: остатки разных валют нельзя
-          // складывать напрямую, поэтому каждый переводится по курсу.
+          // Group total in the base currency: balances in different currencies
+          // can't be added directly, so each is converted at its rate.
           const total = group.items.reduce((sum, account) => sum + toBase(account), 0)
           return (
             <Card key={group.kind}>

@@ -1,14 +1,14 @@
 /**
- * Типы ответов и запросов backend — ровно то, что описано в OpenAPI
- * (`/docs` backend-сервиса). Названия полей намеренно совпадают с сервером:
- * мапперы в UI-модели живут отдельно (см. `mappers.ts`), а здесь только контракт.
+ * Backend request/response types — exactly what OpenAPI describes
+ * (`/docs` of the backend service). Field names intentionally match the server:
+ * mappers to UI models live separately (see `mappers.ts`), this is only the contract.
  */
 
 export type TransactionTypeValue = 'income' | 'expense' | 'transfer'
 export type CategoryTypeValue = 'income' | 'expense' | 'transfer'
 export type AccountTypeValue = 'cash' | 'checking' | 'credit_card' | 'savings' | 'investment'
 
-/* ------------------------------- профиль -------------------------------- */
+/* ------------------------------- profile --------------------------------- */
 
 export interface UserDto {
   id: string
@@ -51,7 +51,7 @@ export interface UserProfileUpdate {
   reminder_days_before?: number
 }
 
-/** Код привязки телеграм-бота: пользователь шлёт боту /start <code> */
+/** Telegram bot linking code: the user sends /start <code> to the bot */
 export interface TelegramLinkDto {
   code: string
   bot_username: string | null
@@ -78,7 +78,7 @@ export interface UserExportDto {
   currencies: CurrencyDto[]
 }
 
-/* -------------------------------- счета --------------------------------- */
+/* -------------------------------- accounts ------------------------------- */
 
 export interface AccountDto {
   id: number
@@ -89,7 +89,7 @@ export interface AccountDto {
   balance: number
   is_archived: boolean
   is_excluded: boolean
-  /** Признак криптокошелька: счёт управляется со страницы «Крипто» */
+  /** Crypto wallet flag: the account is managed from the Crypto page */
   crypto_kind?: string | null
   created_at: string
   updated_at: string | null
@@ -128,7 +128,7 @@ export interface AccountSummaryDto {
   end_date: string | null
 }
 
-/** Остаток счёта на конец периода: в валюте счёта и в базовой валюте. */
+/** Account balance at period end: in the account currency and in the base currency. */
 export interface BalanceOverviewAccountDto {
   account_id: number
   name: string
@@ -139,13 +139,13 @@ export interface BalanceOverviewAccountDto {
   is_excluded: boolean
 }
 
-/** Общий баланс приходит уже пересчитанным в базовой валюте пользователя. */
+/** The total balance arrives already converted to the user's base currency. */
 export interface BalanceOverviewDto {
   total: number
   accounts: BalanceOverviewAccountDto[]
 }
 
-/* ------------------------------ категории ------------------------------- */
+/* ------------------------------ categories ------------------------------- */
 
 export interface CategoryDto {
   id: number
@@ -191,7 +191,7 @@ export interface CategoryStatDto {
   total: number
 }
 
-/* -------------------------------- записи -------------------------------- */
+/* -------------------------------- records -------------------------------- */
 
 export interface TagInlineDto {
   id: number
@@ -203,7 +203,7 @@ export interface TransactionDto {
   id: number
   account_id: number
   category_id: number
-  /** Счёт-получатель перевода (только для type=transfer) */
+  /** Transfer destination account (type=transfer only) */
   transfer_account_id: number | null
   amount: number
   currency_id: string
@@ -224,13 +224,13 @@ export interface TransactionWithDetailsDto extends TransactionDto {
   category_color: string
   category_icon: string
   currency_symbol: string
-  /** Название счёта-получателя перевода */
+  /** Name of the transfer destination account */
   transfer_account_name: string | null
 }
 
 export interface TransactionCreate {
   account_id: number
-  /** У перевода категории нет — сервер подставит служебную */
+  /** A transfer has no category — the server substitutes a system one */
   category_id?: number
   transfer_account_id?: number | null
   amount: number
@@ -258,7 +258,7 @@ export interface BulkDeleteResultDto {
   missing: number[]
 }
 
-/** Фильтры списка записей: соответствуют query-параметрам `/finance/transactions/`. */
+/** Record list filters: match the query parameters of `/finance/transactions/`. */
 export interface TransactionFilters {
   account_ids?: number[]
   category_ids?: number[]
@@ -275,7 +275,7 @@ export interface TransactionFilters {
   limit?: number
 }
 
-/* -------------------------------- валюты -------------------------------- */
+/* -------------------------------- currencies ----------------------------- */
 
 export interface CurrencyDto {
   code: string
@@ -294,7 +294,7 @@ export interface CurrencyRateDto {
   is_custom: boolean
 }
 
-/* ------------------------------- аналитика ------------------------------ */
+/* ------------------------------- analytics ------------------------------- */
 
 export interface PeriodTotalsDto {
   start_date: string | null
@@ -373,7 +373,7 @@ export interface MatrixDto {
   rows: MatrixRowDto[]
 }
 
-/* --------------------------- метки, шаблоны ----------------------------- */
+/* --------------------------- tags, templates ----------------------------- */
 
 export interface TagDto {
   id: number
@@ -417,7 +417,7 @@ export interface TemplateCreate {
 
 export type TemplateUpdate = Partial<TemplateCreate>
 
-/* ------------------------------- админка -------------------------------- */
+/* ------------------------------- admin ----------------------------------- */
 
 export interface AdminUserDto {
   id: string
@@ -445,7 +445,7 @@ export interface AdminUserUpdate {
   is_verified?: boolean
 }
 
-/* ---------------------------- подписки сервисов -------------------------- */
+/* ---------------------------- service subscriptions ----------------------- */
 
 export interface ServiceSubChargeDto {
   id: number
@@ -482,7 +482,7 @@ export interface ServiceSubListDto {
   base_currency: string
 }
 
-/** Периодичность списания, которую предлагает UI (сервер знает и daily/weekly). */
+/** Charge frequency offered by the UI (the server also knows daily/weekly). */
 export type ServiceSubFrequency = 'monthly' | 'quarterly' | 'yearly'
 
 export interface ServiceSubCreatePayload {
@@ -495,7 +495,7 @@ export interface ServiceSubCreatePayload {
   frequency?: ServiceSubFrequency
 }
 
-/* ------------------------------- Криптокошельки ------------------------------- */
+/* ------------------------------- Crypto wallets -------------------------------- */
 
 export type CryptoPeriod = '7d' | '30d' | '90d' | '1y' | 'all'
 export type CryptoGroupBy = 'total' | 'asset' | 'wallet'

@@ -7,7 +7,7 @@ export interface NavItem {
   icon: LucideIcon
 }
 
-/** Пункты мобильного таб-бара. */
+/** Mobile tab bar items. */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', labelKey: 'nav.overview', icon: LayoutGrid },
   { to: '/accounts', labelKey: 'nav.accounts', icon: Wallet },

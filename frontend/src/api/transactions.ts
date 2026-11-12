@@ -1,4 +1,4 @@
-/** Записи: список с фильтрами и пагинацией, CRUD, массовое удаление, выгрузка и загрузка. */
+/** Records: list with filters and pagination, CRUD, bulk delete, export and import. */
 import { API_BASE, request, requestWithHeaders } from './client'
 import type {
   BulkDeleteResultDto,
@@ -20,7 +20,7 @@ export interface TransactionImportResultDto {
 
 export interface TransactionListResult {
   items: TransactionWithDetailsDto[]
-  /** Всего записей по фильтру — из заголовка `X-Total-Count` */
+  /** Total records matching the filter — from the `X-Total-Count` header */
   total: number
 }
 
@@ -91,7 +91,7 @@ export function getTransactionSummary(params?: {
   })
 }
 
-/** Ссылка на серверную выгрузку: браузер скачает файл с учётной cookie. */
+/** Link to the server-side export: the browser downloads the file with the session cookie. */
 export function exportTransactionsUrl(
   filters: TransactionFilters & { format?: 'csv' | 'json' },
 ): string {
@@ -111,7 +111,7 @@ export function exportTransactionsUrl(
   return `${API_BASE}/finance/transactions/export${query ? `?${query}` : ''}`
 }
 
-/** Импорт файла выгрузки: отсутствующие счета и категории будут созданы. */
+/** Import an export file: missing accounts and categories will be created. */
 export function importTransactions(
   format: 'csv' | 'json',
   content: string,

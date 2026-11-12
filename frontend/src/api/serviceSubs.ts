@@ -1,4 +1,4 @@
-/** Трекер подписок на сервисы: список с итогом в базовой валюте, CRUD, автосписания. */
+/** Service subscription tracker: list with a base-currency total, CRUD, auto-charges. */
 import { request } from './client'
 import type {
   ServiceSubCreatePayload,
@@ -12,7 +12,7 @@ export function listServiceSubs(): Promise<ServiceSubListDto> {
   return request<ServiceSubListDto>('/finance/service-subs')
 }
 
-/** Создаёт записи для подписок, у которых наступила дата списания. */
+/** Creates records for subscriptions whose charge date has come due. */
 export function collectServiceSubs(): Promise<{ created: number }> {
   return request<{ created: number }>('/finance/service-subs/collect', { method: 'POST' })
 }

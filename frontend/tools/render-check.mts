@@ -1,9 +1,9 @@
 /**
- * Проверка экранных состояний без браузера.
+ * Screen-state checks without a browser.
  *
- * Playwright в проекте не используется, поэтому ключевые состояния
- * (ошибка запроса, форма входа, защита маршрута) рендерим на сервере через
- * тот же код, что уходит в браузер: Vite отдаёт модули, react-dom — разметку.
+ * Playwright is not used in this project, so key states (request error, login
+ * form, route guard) are rendered on the server through the same code that
+ * ships to the browser: Vite serves the modules, react-dom produces the markup.
  *
  *   node tools/render-check.mts
  */
@@ -24,13 +24,13 @@ try {
   const { LoginPage } = await server.ssrLoadModule('/src/__pages__/Login/index.tsx')
   const { RequireAuth } = await server.ssrLoadModule('/src/app/SessionGate.tsx')
   const { useAuthStore } = await server.ssrLoadModule('/src/store/auth.ts')
-  /* Пакет CommonJS: обычный import, ssrLoadModule его не умеет */
+  /* CommonJS package: plain import, ssrLoadModule cannot handle it */
   const router = await import('react-router-dom')
   const { AppRoot } = await server.ssrLoadModule('/src/app/AppRoot.tsx')
   const { ThemeProvider } = await server.ssrLoadModule('/src/hooks/useTheme.tsx')
 
-  /* SSR не ждёт эффектов: страница входа и защита маршрута рендерятся как есть */
-  /* Тот же набор провайдеров, что в main.tsx: тосты, подсказки, тема */
+  /* SSR does not wait for effects: the login page and route guard render as-is */
+  /* Same provider set as main.tsx: toasts, tooltips, theme */
   const withProviders = (node: ReactElement, entries: string[] = ['/records']) =>
     createElement(
       ThemeProvider,
@@ -42,33 +42,33 @@ try {
       ),
     )
 
-  console.log('\n[1] Плашка ошибки запроса')
-  check('без ошибки ничего не рисует', renderToStaticMarkup(createElement(I18nProvider, null, createElement(QueryError, { error: null }))) === '')
+  console.log('\n[1] Request error banner')
+  check('renders nothing without an error', renderToStaticMarkup(createElement(I18nProvider, null, createElement(QueryError, { error: null }))) === '')
   for (const [label, error] of [
-    ['сервер недоступен', new ApiError(0, 'Failed to fetch')],
-    ['сессия истекла', new ApiError(401, 'Not authenticated')],
-    ['ошибка валидации', new ApiError(422, 'Value is not a valid integer')],
+    ['server unavailable', new ApiError(0, 'Failed to fetch')],
+    ['session expired', new ApiError(401, 'Not authenticated')],
+    ['validation error', new ApiError(422, 'Value is not a valid integer')],
   ] as const) {
     const html = renderToStaticMarkup(createElement(I18nProvider, null, createElement(QueryError, { error })))
-    check(`${label}: role=alert и причина`, html.includes('role="alert"'), text(html))
+    check(`${label}: role=alert and a reason`, html.includes('role="alert"'), text(html))
   }
 
-  console.log('\n[2] Страница входа')
+  console.log('\n[2] Login page')
   const loginHtml = renderToStaticMarkup(withProviders(createElement(LoginPage)))
-  check('есть поле логина', /name="login"|id="login"|type="email"/.test(loginHtml) || text(loginHtml).length > 0)
-  check('есть поле пароля', loginHtml.includes('type="password"'))
-  check('есть кнопка входа', loginHtml.includes('type="submit"'))
-  check('подсказка демо-доступа видна в dev', text(loginHtml).toLowerCase().includes('demo') || text(loginHtml).includes('Демо'))
-  check('подсказка админ-доступа видна в dev', text(loginHtml).toLowerCase().includes('admin') || text(loginHtml).includes('Админ'))
+  check('has a login field', /name="login"|id="login"|type="email"/.test(loginHtml) || text(loginHtml).length > 0)
+  check('has a password field', loginHtml.includes('type="password"'))
+  check('has a submit button', loginHtml.includes('type="submit"'))
+  check('demo-access hint visible in dev', text(loginHtml).toLowerCase().includes('demo') || text(loginHtml).includes('Демо'))
+  check('admin-access hint visible in dev', text(loginHtml).toLowerCase().includes('admin') || text(loginHtml).includes('Админ'))
 
-  /* SSR видит начальное состояние стора, поэтому проверяем только «закрыто»:
-     ветку «пользователь вошёл» покрывает сквозная проверка против backend. */
-  console.log('\n[3] Защита маршрута без сессии')
+  /* SSR sees the store's initial state, so we only check the "closed" branch:
+     the "user is signed in" branch is covered by the end-to-end check against the backend. */
+  console.log('\n[3] Route guard without a session')
   useAuthStore.setState({ status: 'anonymous', user: null })
   const guardedHtml = renderToStaticMarkup(
-    withProviders(createElement(RequireAuth, null, createElement('p', null, 'секретный экран'))),
+    withProviders(createElement(RequireAuth, null, createElement('p', null, 'secret screen'))),
   )
-  check('содержимое закрытого экрана не показывается', !guardedHtml.includes('секретный экран'))
+  check('guarded screen content is not shown', !guardedHtml.includes('secret screen'))
 } finally {
   await server.close()
 }

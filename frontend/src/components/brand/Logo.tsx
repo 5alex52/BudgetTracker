@@ -2,17 +2,17 @@ import { useId } from 'react'
 import { cn } from '@/__shared__/utils/cn'
 
 /**
- * Фирменный знак BudgetTracker (кольцо-диаграмма с точкой-акцентом).
+ * BudgetTracker brand mark (a donut chart with an accent dot).
  *
- * Исходники — `frontend/public/brand/logo-dark.svg` и `logo-light.svg`,
- * те же файлы, что подключены фавиконом в `index.html`. Обе версии встроены
- * как React-компоненты (без сетевых запросов и мигания при загрузке);
- * переключение по теме — на CSS, поэтому знак меняется и при системной теме,
- * и при ручном выборе, и при `?theme=` в адресе.
+ * Sources — `frontend/public/brand/logo-dark.svg` and `logo-light.svg`,
+ * the same files used as favicons in `index.html`. Both versions are inlined
+ * as React components (no network requests, no flicker on load);
+ * theme switching is CSS-based, so the mark changes with the system theme,
+ * a manual pick, and `?theme=` in the address.
  */
 export function Logo({ className, size = 32 }: { className?: string; size?: number }) {
-  // Идентификаторы градиентов должны быть уникальны: знак встречается на
-  // странице несколько раз (шапка и подвал), и дубли ломают заливку.
+  // Gradient ids must be unique: the mark appears several times on the page
+  // (header and footer), and duplicates break the fill.
   const id = useId().replace(/:/g, '')
   const darkAccent = `logoRingDark-${id}`
   const lightAccent = `logoRingLight-${id}`
@@ -28,7 +28,7 @@ export function Logo({ className, size = 32 }: { className?: string; size?: numb
       role="img"
       aria-label="BudgetTracker"
     >
-      {/* Тёмная тема — как в `logo-dark.svg` */}
+      {/* Dark theme — as in `logo-dark.svg` */}
       <svg viewBox="0 0 64 64" width={size} height={size} className="hidden dark:block" aria-hidden="true">
         <defs>
           <linearGradient id={darkBg} x1="0" y1="0" x2="0" y2="1">
@@ -73,7 +73,7 @@ export function Logo({ className, size = 32 }: { className?: string; size?: numb
         <circle cx="30" cy="30" r="2" fill="#fff" fillOpacity=".55" />
       </svg>
 
-      {/* Светлая тема — как в `logo-light.svg` */}
+      {/* Light theme — as in `logo-light.svg` */}
       <svg viewBox="0 0 64 64" width={size} height={size} className="block dark:hidden" aria-hidden="true">
         <defs>
           <linearGradient id={lightBg} x1="0" y1="0" x2="0" y2="1">

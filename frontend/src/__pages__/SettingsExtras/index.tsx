@@ -13,7 +13,7 @@ import { FilterSelect } from '@/components/ui/overlays'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
 import { useToast } from '@/components/ui/toast'
 
-/** Цвета меток: сервер хранит hex, палитра фиксирована. */
+/** Tag colors: the server stores hex, the palette is fixed. */
 const TAG_COLORS = [
   '#5b8fd6',
   '#3aa76d',
@@ -21,7 +21,7 @@ const TAG_COLORS = [
   '#e06fa0',
   '#8b6fd6',
   '#d94b4b',
-  // Дополнительные оттенки — те же, что в палитре категорий
+  // Extra shades — the same as in the category palette
   '#c9a227',
   '#7cb342',
   '#009688',
@@ -29,10 +29,10 @@ const TAG_COLORS = [
 ]
 
 /**
- * «Настройки → Метки».
+ * "Settings → Tags".
  *
- * Метка живёт на сервере и связана с записями через `transaction_tags`,
- * поэтому счётчик использования считает сервис, а не клиент.
+ * A tag lives on the server and is linked to records via `transaction_tags`,
+ * so the usage counter is computed by the service, not the client.
  */
 export function SettingsTagsPage() {
   const { t } = useI18n()
@@ -173,11 +173,11 @@ export function SettingsTagsPage() {
 }
 
 /**
- * «Настройки → Шаблоны».
+ * "Settings → Templates".
  *
- * Шаблон хранит сумму, счёт, категорию и метки. Кнопка «Создать запись»
- * вызывает `POST /templates/{id}/apply` — сервис сам создаёт запись и
- * увеличивает счётчик использования.
+ * A template stores amount, account, category and tags. The "Create record" button
+ * calls `POST /templates/{id}/apply` — the service creates the record itself and
+ * increments the usage counter.
  */
 export function SettingsTemplatesPage() {
   const { t } = useI18n()
@@ -381,11 +381,11 @@ export function SettingsTemplatesPage() {
 }
 
 /**
- * «Настройки → Личные данные и конфиденциальность».
+ * "Settings → Personal data & privacy".
  *
- * Выгрузка данных — серверная (`GET /users/me/export`), поэтому в архив попадает
- * всё, включая записи и подписку. Удаление аккаунта требует пароль: без него
- * сервис отвечает 400, и это защита от случайного нажатия.
+ * Data export is server-side (`GET /users/me/export`), so the archive includes
+ * everything, records and subscription included. Account deletion requires a password:
+ * without it the service answers 400 — protection against an accidental click.
  */
 export function SettingsPrivacyPage() {
   const { t } = useI18n()

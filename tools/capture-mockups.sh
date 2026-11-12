@@ -1,6 +1,6 @@
 #!/bin/bash
-# Снимает полный набор макетов: экран × тема × ширина + отдельные состояния.
-# Требует запущенный dev-сервер на 5199 и Node 22+.
+# Captures the full mockup set: screen × theme × width + individual states.
+# Requires a running dev server on 5199 and Node 22+.
 set -u
 
 export PATH=/usr/local/bin:$PATH
@@ -29,16 +29,16 @@ for entry in $SCREENS; do
   done
 done
 
-# Состояния: модал добавления записи (открывается кнопкой в навбаре)
+# States: the add-record modal (opened by the navbar button)
 for theme in dark light; do
   shot "record-modal-desktop-${theme}" "$BASE/?theme=${theme}" 1440 900 "$theme" '[{"clickText":"Запись"},{"wait":700}]'
 done
 
-# Состояния: фильтры в Sheet на мобиле
+# States: filters in a Sheet on mobile
 shot "records-filters-mobile-dark" "$BASE/records?theme=dark" 390 844 dark '[{"clickText":"Мой фильтр"},{"wait":700}]'
 
-# Состояния: вкладка «Продвинутые графики» в аналитике
+# States: the advanced-charts tab in analytics
 shot "analytics-advanced-desktop-dark" "$BASE/analytics?theme=dark" 1440 900 dark '[{"clickText":"Продвинутые"},{"wait":500}]'
 
-echo "ГОТОВО"
+echo "DONE"
 ls -1 "$OUT" | wc -l

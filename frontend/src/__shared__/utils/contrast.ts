@@ -1,10 +1,10 @@
 /**
- * Читаемый цвет текста на произвольной подложке.
+ * Readable text color on an arbitrary background.
  *
- * Нужен там, где фон приходит из данных (цвет счёта, метки, категории): у
- * светлых оттенков белые буквы проваливаются до 2.7:1, у тёмных — наоборот,
- * чёрные. Считаем контраст по WCAG 2.1 и выбираем вариант, который проходит
- * порог, а если не проходит ни один — берём более контрастный.
+ * Needed where the background comes from data (account, tag, category color):
+ * on light shades white letters drop to 2.7:1, on dark ones black does.
+ * We compute WCAG 2.1 contrast and pick the option that passes the threshold;
+ * if neither passes, we take the more contrasting one.
  */
 
 type Rgb = { r: number; g: number; b: number }
@@ -50,7 +50,7 @@ export function contrastRatio(a: string, b: string): number {
 const LIGHT_TEXT = '#ffffff'
 const DARK_TEXT = '#0e1513'
 
-/** Цвет текста поверх подложки: белый или почти чёрный, что читается лучше. */
+/** Text color on top of the background: white or near-black, whichever reads better. */
 export function readableTextOn(background: string): string {
   const white = contrastRatio(background, LIGHT_TEXT)
   const dark = contrastRatio(background, DARK_TEXT)
@@ -58,11 +58,11 @@ export function readableTextOn(background: string): string {
 }
 
 /**
- * Цвета плашки-аватара на основе оттенка из данных.
+ * Avatar chip colors based on a hue from the data.
  *
- * Оттенки приходят из макета и не все одинаково светлые: на #d94b4b ни белый,
- * ни чёрный не дают 4.5:1. Поэтому подложку при необходимости затемняем шагами
- * по 4 %, сохраняя оттенок, и только после этого выбираем цвет буквы.
+ * The hues come from the mockup and are not all equally light: on #d94b4b
+ * neither white nor black reaches 4.5:1. So we darken the background in 4%
+ * steps when needed, preserving the hue, and only then pick the letter color.
  */
 export function chipColors(tint: string): { backgroundColor: string; color: string } {
   const base = parse(tint)
@@ -76,11 +76,11 @@ export function chipColors(tint: string): { backgroundColor: string; color: stri
     b: rgb.b * (1 - amount),
   })
 
-  // 1. Оттенок светлый — на нём лучше тёмные буквы, сам цвет не трогаем.
+  // 1. The hue is light — dark letters read better on it, leave the color as is.
   if (contrastRatio(tint, LIGHT_TEXT) >= 4.5) return { backgroundColor: tint, color: LIGHT_TEXT }
   if (contrastRatio(tint, DARK_TEXT) >= 4.5) return { backgroundColor: tint, color: DARK_TEXT }
 
-  // 2. Иначе уходим в более насыщенный оттенок шагами по 6 % — белые буквы вернутся к порогу.
+  // 2. Otherwise move to a more saturated shade in 6% steps — white letters get back above the threshold.
   for (let step = 1; step <= 7; step += 1) {
     const background = toHex(darken(base, step * 0.06))
     if (contrastRatio(background, LIGHT_TEXT) >= 4.5) return { backgroundColor: background, color: LIGHT_TEXT }
@@ -90,11 +90,11 @@ export function chipColors(tint: string): { backgroundColor: string; color: stri
 }
 
 /**
- * Цвет значка на подложке того же оттенка (`color + 22` — 13 % альфы).
+ * Icon color on a background of the same hue (`color + 22` — 13% alpha).
  *
- * На светлой подложке сам оттенок даёт 2–3:1: значок сливается с плашкой.
- * Поэтому затемняем (в светлой теме) или осветляем (в тёмной) оттенок шагами,
- * пока он не дойдёт до порога: 4.5:1 для текста, 3:1 для графики.
+ * On a light background the hue itself gives 2–3:1: the icon blends into the chip.
+ * So we darken (in the light theme) or lighten (in the dark theme) the hue in steps
+ * until it reaches the threshold: 4.5:1 for text, 3:1 for graphics.
  */
 export function readableOnTint(color: string, options: { dark?: boolean; threshold?: number } = {}): string {
   const { dark = false, threshold = 4.5 } = options
@@ -113,7 +113,7 @@ export function readableOnTint(color: string, options: { dark?: boolean; thresho
       : { r: rgb.r * (1 - amount), g: rgb.g * (1 - amount), b: rgb.b * (1 - amount) }
 
   const tintBackground = (rgb: Rgb): Rgb => ({
-    // подложка — тот же оттенок с альфой 13 % поверх базового фона
+    // background — the same hue at 13% alpha over the base background
     r: (dark ? 24 : 255) * (1 - 0.13) + rgb.r * 0.13,
     g: (dark ? 26 : 255) * (1 - 0.13) + rgb.g * 0.13,
     b: (dark ? 24 : 255) * (1 - 0.13) + rgb.b * 0.13,

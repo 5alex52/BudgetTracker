@@ -33,8 +33,8 @@ function initials(user: AdminUserDto) {
 }
 
 /**
- * Админ-панель: сводка по пользователям и управление ими.
- * Все запросы защищены на сервере — сюда попадают только суперпользователи.
+ * Admin panel: user summary and management.
+ * All requests are protected on the server — only superusers get here.
  */
 export function AdminPage() {
   const { t, locale, number } = useI18n()
@@ -138,7 +138,7 @@ export function AdminPage() {
       }
     >
       <div className="space-y-4">
-        {/* Пользователи */}
+        {/* Users */}
         <Card className="p-0">
           <div className="flex flex-col gap-2 border-b border-stroke-subtle p-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="flex items-center gap-1.5 text-label font-semibold text-fg-primary">
@@ -253,7 +253,7 @@ export function AdminPage() {
         </Card>
       </div>
 
-      {/* Редактирование пользователя */}
+      {/* Edit user */}
       <Dialog open={editFor !== null} onOpenChange={(open) => !open && setEditFor(null)}>
         <DialogContent
           title={t('admin.editTitle')}

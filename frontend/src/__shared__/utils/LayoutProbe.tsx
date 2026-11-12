@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 
 /**
- * QA-зонд раскладки. Включается параметром `?debug=layout`.
+ * Layout QA probe. Enabled with `?debug=layout`.
  *
- * Показывает scrollWidth/clientWidth документа и первый элемент, который шире
- * вьюпорта. Нужен потому, что переполнение по горизонтали скриншотом не видно:
- * `overflow-hidden` на карточках режет контент, и он выглядит «просто обрезанным».
+ * Shows the document's scrollWidth/clientWidth and the first element wider than
+ * the viewport. Needed because horizontal overflow is invisible in screenshots:
+ * `overflow-hidden` on cards clips content and it looks "just cut off".
  */
 export function LayoutProbe() {
   const [info, setInfo] = useState<{ scroll: number; client: number; culprit: string } | null>(null)
@@ -14,8 +14,8 @@ export function LayoutProbe() {
     const measure = () => {
       const doc = document.documentElement
       const viewport = doc.clientWidth
-      // Ищем не «шире вьюпорта» (это режется body), а обрезанный контент:
-      // элементы с overflow, у которых scrollWidth больше clientWidth.
+      // Look not for "wider than viewport" (body clips that) but for clipped content:
+      // elements with overflow where scrollWidth exceeds clientWidth.
       const clipped: string[] = []
       document.querySelectorAll<HTMLElement>('body *').forEach((node) => {
         const style = getComputedStyle(node)
