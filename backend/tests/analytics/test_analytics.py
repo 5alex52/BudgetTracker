@@ -221,8 +221,8 @@ async def test_summary_converts_currency_to_base(user, session_maker, currencies
 
 @pytest.mark.asyncio
 async def test_summary_uses_personal_currency_rate(user, session_maker, currencies):
-    """The user's personal rate takes precedence over the catalog rate: 100 EUR at 2.0 is 200 USD."""
-    await CurrencyService.set_user_rate(code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker)
+    """The user's personal rate takes precedence over the catalog: 100 EUR at 1 EUR = 2 USD is 200 USD."""
+    await CurrencyService.set_user_rate(code="EUR", rate=0.5, user_id=user.id, session_maker=session_maker)
     euro_account = await AccountService.create_for_user(
         schema=AccountCreate(name="Euro", type=AccountType.CASH, currency_id="EUR", balance=0.0),
         user_id=user.id,

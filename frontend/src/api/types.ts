@@ -32,12 +32,6 @@ export interface UserDto {
   last_login_at: string | null
 }
 
-export interface TokenDto {
-  access_token: string
-  refresh_token: string
-  token_type: string
-}
-
 export interface UserProfileUpdate {
   firstname?: string
   lastname?: string

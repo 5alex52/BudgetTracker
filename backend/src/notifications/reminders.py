@@ -73,6 +73,7 @@ async def run_due_reminders(session_maker: async_sessionmaker) -> int:
     from src.config import settings
     from src.finance.models import ServiceSubReminderModel
     from src.finance.models import ServiceSubscriptionModel
+    from src.finance.models import TransactionModel
     from src.users.models import PushSubscriptionModel
     from src.users.models import UserModel
 
@@ -82,12 +83,29 @@ async def run_due_reminders(session_maker: async_sessionmaker) -> int:
         push_rows = (await session.execute(select(PushSubscriptionModel))).scalars().all()
 
         for service_sub, user in subs:
-            if service_sub.next_payment_date is None:
-                continue
             lead = min(max(user.reminder_days_before if user.reminder_days_before is not None else 1, 0), 2)
             now_user = _user_now(user)
+            due = service_sub.next_payment_date
+            if lead == 0:
+                # Auto-billing (collect_due) charges at 00:00 and advances
+                # next_payment_date before the 12:00 reminder window opens.
+                # Today's charge keeps the "due today" reminder alive.
+                day_start = datetime.combine(now_user.date(), time.min)
+                charged_today = await session.scalar(
+                    select(TransactionModel.date)
+                    .where(
+                        TransactionModel.service_sub_id == service_sub.id,
+                        TransactionModel.date >= day_start,
+                        TransactionModel.date < day_start + timedelta(days=1),
+                    )
+                    .limit(1)
+                )
+                if charged_today is not None:
+                    due = charged_today
+            if due is None:
+                continue
             # next_payment_date is stored naive and is treated as the user's wall time
-            due_local = service_sub.next_payment_date.replace(tzinfo=now_user.tzinfo)
+            due_local = due.replace(tzinfo=now_user.tzinfo)
             if not should_remind(now_user, due_local, lead):
                 continue
             due_date = due_local.date()

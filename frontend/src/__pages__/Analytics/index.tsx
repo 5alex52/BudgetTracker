@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, Download, Info } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
+import { toLocalDateISO } from '@/__shared__/utils/format'
 import type { MatrixDto, MatrixRowDto } from '@/api/types'
 import { analyticsApi } from '@/api'
 import {
@@ -158,17 +159,17 @@ export function AnalyticsPage() {
   const [reportOffset, setReportOffset] = useState(0)
   const [range, setRange] = useState<import('react-day-picker').DateRange | undefined>(undefined)
 
-  const startDate = range?.from ? range.from.toISOString().slice(0, 10) : undefined
-  const endDate = range?.to ? range.to.toISOString().slice(0, 10) : undefined
+  const startDate = range?.from ? toLocalDateISO(range.from) : undefined
+  const endDate = range?.to ? toLocalDateISO(range.to) : undefined
 
   /* Report month end: current or shifted back with the arrows. */
   const reportEndDate = useMemo(() => {
-    if (range?.to) return range.to.toISOString().slice(0, 10)
+    if (range?.to) return toLocalDateISO(range.to)
     const date = new Date()
     date.setDate(1)
     date.setMonth(date.getMonth() + reportOffset + 1)
     date.setDate(0)
-    return date.toISOString().slice(0, 10)
+    return toLocalDateISO(date)
   }, [range?.to, reportOffset])
 
   /*

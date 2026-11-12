@@ -14,6 +14,7 @@ import { FilterSelect } from '@/components/ui/overlays'
 import { useToast } from '@/components/ui/toast'
 import { CategoryIcon } from '@/__shared__/utils/category-icon'
 import { cn } from '@/__shared__/utils/cn'
+import { toLocalDateISO } from '@/__shared__/utils/format'
 
 /** Amount parsing: accept "12,50", "12.50" and space thousand separators. */
 function parseAmount(value: string): number | null {
@@ -63,7 +64,7 @@ export function AddRecordDialog({
   const [toAccountId, setToAccountId] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [note, setNote] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(() => toLocalDateISO(new Date()))
   const [time, setTime] = useState(() =>
     new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
   )
@@ -128,7 +129,7 @@ export function AddRecordDialog({
     setToAccountId('')
     setCategoryId('')
     setNote('')
-    setDate(new Date().toISOString().slice(0, 10))
+    setDate(toLocalDateISO(new Date()))
     setTime(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }))
     setTagIds([])
     setMakeTemplate(false)

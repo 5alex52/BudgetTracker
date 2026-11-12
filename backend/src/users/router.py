@@ -29,7 +29,6 @@ from .schemas import SessionInfo
 from .schemas import TelegramAuthRequest
 from .schemas import TelegramLinkInfo
 from .schemas import DeviceInfo
-from .schemas import Token
 from .schemas import User
 from .schemas import UserCreate
 from .schemas import UserExport
@@ -72,7 +71,7 @@ async def login(
     response: Response,
     credentials: OAuth2PasswordRequestForm = Depends(),
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> Token:
+) -> dict:
     return await AuthViewSet.login(
         request=request,
         response=response,
@@ -87,7 +86,7 @@ async def login_telegram(
     response: Response,
     payload: TelegramAuthRequest,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> Token:
+) -> dict:
     """Login from Telegram Mini App via signed initData (no password)."""
     return await AuthViewSet.login_telegram(
         request=request,
@@ -112,7 +111,7 @@ async def refresh_token(
     request: Request,
     response: Response,
     session_maker: async_sessionmaker = Depends(get_async_session_maker),
-) -> Token:
+) -> dict:
     return await AuthViewSet.refresh(request=request, response=response, session_maker=session_maker)
 
 

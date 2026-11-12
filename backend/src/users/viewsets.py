@@ -184,7 +184,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         response: Response,
         credentials: OAuth2PasswordRequestForm,
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
-    ) -> Token:
+    ) -> dict:
         device_info = get_device_info(request.headers.get("User-Agent"))
         token = await cls.service.login(
             credentials=credentials,
@@ -192,7 +192,8 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
             session_maker=session_maker,
         )
         cls._set_session_cookies(response, token)
-        return token
+        # Tokens travel only in httpOnly cookies — never in the JSON body.
+        return {"message": "Logged in successfully"}
 
     @classmethod
     @check_permissions(action="login_telegram")
@@ -202,7 +203,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         response: Response,
         init_data: str,
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
-    ) -> Token:
+    ) -> dict:
         device_info = get_device_info(request.headers.get("User-Agent"))
         token = await cls.service.login_telegram(
             init_data=init_data,
@@ -210,7 +211,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
             session_maker=session_maker,
         )
         cls._set_session_cookies(response, token)
-        return token
+        return {"message": "Logged in successfully"}
 
     @staticmethod
     def _set_session_cookies(response: Response, token: Token) -> None:
@@ -253,7 +254,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
         request: Request,
         response: Response,
         session_maker: async_sessionmaker = Depends(get_async_session_maker),
-    ) -> Token:
+    ) -> dict:
         refresh_token = request.cookies.get("refresh_token")
         if not refresh_token:
             raise HTTPException(
@@ -278,7 +279,7 @@ class AuthViewSet(BaseViewSet[uuid.UUID, UserCreate, UserUpdate]):
             secure=settings.ENVIRONMENT != "LOCAL",
             samesite="strict",
         )
-        return new_token
+        return {"message": "Token refreshed successfully"}
 
     @classmethod
     @check_permissions(action="abort")

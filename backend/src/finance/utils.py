@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime
+from datetime import time
 from datetime import timedelta
 from typing import Optional
 from typing import Tuple
@@ -70,9 +71,16 @@ def to_datetime(value: Optional[Union[datetime, str]]) -> Optional[datetime]:
 def normalize_period(
     start_date: Optional[Union[datetime, str]], end_date: Optional[Union[datetime, str]]
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
-    """Validates and normalizes a date range."""
+    """Validates and normalizes a date range.
+
+    A date-only end (midnight) includes the whole day: records carry daytime
+    timestamps, so the boundary expands to 23:59:59.999999. Explicit end times
+    (e.g. "now") are kept as-is.
+    """
     start_date = to_datetime(start_date)
     end_date = to_datetime(end_date)
+    if end_date is not None and end_date.time() == time(0, 0):
+        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
     if start_date and end_date and start_date > end_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

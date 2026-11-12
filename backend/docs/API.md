@@ -182,8 +182,13 @@ PUT /api/finance/currencies/{code}/rate                   → CurrencyRate   (bo
 DELETE /api/finance/currencies/{code}/rate                → 204
 ```
 
-`base` defaults to BYN — the service's base currency. An unknown code → `400` (silently
+`base` defaults to the user's base currency (USD if unset). An unknown code → `400` (silently
 substituting another currency is not allowed: the rate would then be computed incorrectly).
+
+Rates are **display rates**: how many units of the currency one unit of the base buys.
+`PUT` accepts the same display value the UI shows (e.g. `2.5` EUR per 1 USD) and stores
+its inverse internally; the base currency's own rate is always 1 and cannot be
+overridden (`400`).
 
 `/rates` is public: the catalog is not personal data. If the user is authenticated,
 the response takes their personal rates into account — those have `is_custom: true`. `PUT`/`DELETE` require login:

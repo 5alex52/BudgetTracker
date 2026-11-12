@@ -122,8 +122,8 @@ async def test_balance_overview_uses_base_currency(user, currencies, session_mak
 
 @pytest.mark.asyncio
 async def test_balance_overview_uses_personal_currency_rate(user, currencies, session_maker):
-    """Personal rate 1 EUR = 2 USD gives 200 USD for an account with 100 EUR balance."""
-    await CurrencyService.set_user_rate(code="EUR", rate=2.0, user_id=user.id, session_maker=session_maker)
+    """Personal rate 0.5 EUR per 1 USD (1 EUR = 2 USD) gives 200 USD for a 100 EUR account."""
+    await CurrencyService.set_user_rate(code="EUR", rate=0.5, user_id=user.id, session_maker=session_maker)
     await AccountService.create_for_user(
         schema=AccountCreate(
             name="EUR account",

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
 import { accountsApi, analyticsApi } from '@/api'
 import { toBalancePoints, toCashflowPoints, toDonutSegments } from '@/api/mappers'
+import { toLocalDateISO } from '@/__shared__/utils/format'
 import { useApiQuery } from '@/hooks/useApi'
 import { useAuthStore } from '@/store/auth'
 import { useFinanceStore } from '@/store/finance'
@@ -29,19 +30,18 @@ import {
 
 /** Base period boundaries: day, week or month shifted back. */
 function periodBounds(period: 'day' | 'week' | 'month', offset: number) {
-  const iso = (date: Date) => date.toISOString().slice(0, 10)
   const now = new Date()
 
   if (period === 'day') {
     const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset)
-    return { start: iso(day), end: iso(day), month: day }
+    return { start: toLocalDateISO(day), end: toLocalDateISO(day), month: day }
   }
   if (period === 'week') {
     // The week starts on Monday: getDay() returns 0 for Sunday
     const shift = (now.getDay() + 6) % 7
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - shift + offset * 7)
     const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
-    return { start: iso(monday), end: iso(sunday), month: monday }
+    return { start: toLocalDateISO(monday), end: toLocalDateISO(sunday), month: monday }
   }
   return monthBounds(offset)
 }
@@ -51,8 +51,7 @@ function monthBounds(offset: number) {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth() + offset, 1)
   const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0)
-  const iso = (date: Date) => date.toISOString().slice(0, 10)
-  return { start: iso(start), end: iso(end), month: start }
+  return { start: toLocalDateISO(start), end: toLocalDateISO(end), month: start }
 }
 
 /**
@@ -85,8 +84,8 @@ export function DashboardPage() {
     savedPeriod === 'day' || savedPeriod === 'week' ? savedPeriod : 'month'
 
   const bounds = periodBounds(period, monthOffset)
-  const startDate = range?.from ? range.from.toISOString().slice(0, 10) : bounds.start
-  const endDate = range?.to ? range.to.toISOString().slice(0, 10) : bounds.end
+  const startDate = range?.from ? toLocalDateISO(range.from) : bounds.start
+  const endDate = range?.to ? toLocalDateISO(range.to) : bounds.end
 
   const monthLabel = new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
     month: 'long',
@@ -95,7 +94,7 @@ export function DashboardPage() {
   const defaultLabel =
     period === 'month'
       ? monthLabel
-      : `${new Date(bounds.start).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')} — ${new Date(bounds.end).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')}`
+      : `${new Date(bounds.start + 'T00:00:00').toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')} — ${new Date(bounds.end + 'T00:00:00').toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')}`
   const rangeLabel =
     range?.from && range?.to
       ? `${range.from.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')} — ${range.to.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')}`

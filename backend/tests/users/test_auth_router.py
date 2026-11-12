@@ -18,8 +18,9 @@ async def test_refresh_token(verified_user_client):
     response = await async_client.post("/api/auth/refresh")
 
     assert response.status_code == 200
-    assert "access_token" in response.json()
-    assert "refresh_token" in response.json()
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
+    assert "access_token" not in response.json()
 
 
 @pytest.mark.asyncio

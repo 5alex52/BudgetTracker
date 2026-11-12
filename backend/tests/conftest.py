@@ -183,8 +183,9 @@ async def verified_user_client(
         },
     )
     assert login_response.status_code == 200
-    access_token = login_response.json()["access_token"]
-    refresh_token = login_response.json()["refresh_token"]
+    # Tokens live only in httpOnly cookies (Set-Cookie), never in the JSON body.
+    access_token = login_response.cookies["access_token"]
+    refresh_token = login_response.cookies["refresh_token"]
 
     user = await UserService.get(user_id, session_maker)
     assert user is not None

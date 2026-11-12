@@ -53,3 +53,15 @@ export function debounce<T extends (...args: never[]) => void>(
     timeout = setTimeout(() => func(...args), wait)
   }
 }
+
+/**
+ * Local calendar date as YYYY-MM-DD.
+ *
+ * toISOString() converts to UTC first, so near midnight it can yield the
+ * previous/next day — period boundaries must use the user's local date.
+ */
+export function toLocalDateISO(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}

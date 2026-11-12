@@ -154,3 +154,89 @@ async def test_telegram_unlink(verified_user_client):
     async_client, _, _ = verified_user_client
 
     assert (await async_client.delete("/api/users/me/telegram")).status_code == 204
+
+
+# --- lead=0 after auto-billing ----------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_lead_zero_reminds_after_billing_advanced_the_date(
+    session_maker, user, account, expense_category, currencies, monkeypatch
+):
+    """collect_due bills at 00:00 and advances next_payment_date a period ahead;
+    the "due today" reminder at 12:00 must still fire from today's charge."""
+    from zoneinfo import ZoneInfo
+
+    from sqlalchemy import select
+    from src.config import settings
+    from src.finance.models import ServiceSubReminderModel
+    from src.finance.models import ServiceSubscriptionModel
+    from src.finance.models import TransactionModel
+    from src.finance.schemas import TransactionType
+    from src.notifications import reminders
+    from src.users.models import UserModel
+
+    noon = datetime(2026, 11, 12, 12, 0, tzinfo=ZoneInfo("Europe/Minsk"))
+    monkeypatch.setattr(reminders, "_user_now", lambda _user: noon)
+    monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "test-token")
+    delivered = []
+
+    async def fake_send(channel, target, title, message):
+        delivered.append(message)
+
+    monkeypatch.setattr(reminders, "send_notification", fake_send)
+
+    async with session_maker() as session:
+        db_user = await session.get(UserModel, user.id)
+        db_user.reminder_days_before = 0
+        db_user.telegram_id = 123456789
+        charged = ServiceSubscriptionModel(
+            user_id=user.id,
+            name="Netflix",
+            price=9.99,
+            currency_id="USD",
+            started_at=datetime(2026, 10, 12),
+            account_id=account.id,
+            category_id=expense_category.id,
+            # already billed today at 00:00 — the stored date is a month ahead
+            next_payment_date=datetime(2026, 12, 12),
+        )
+        future = ServiceSubscriptionModel(
+            user_id=user.id,
+            name="Spotify",
+            price=4.99,
+            currency_id="USD",
+            started_at=datetime(2026, 10, 20),
+            next_payment_date=datetime(2026, 12, 20),
+        )
+        session.add_all([charged, future])
+        await session.flush()
+        session.add(
+            TransactionModel(
+                account_id=account.id,
+                category_id=expense_category.id,
+                amount=9.99,
+                currency_id="USD",
+                type=TransactionType.EXPENSE,
+                date=datetime(2026, 11, 12, 0, 0),
+                service_sub_id=charged.id,
+                is_subscription=True,
+            )
+        )
+        await session.commit()
+        charged_id = charged.id
+
+    assert await reminders.run_due_reminders(session_maker) == 1
+    assert len(delivered) == 1
+    assert "Netflix" in delivered[0] and "сегодня" in delivered[0]
+
+    async with session_maker() as session:
+        dedup = (
+            await session.execute(
+                select(ServiceSubReminderModel).where(ServiceSubReminderModel.service_sub_id == charged_id)
+            )
+        ).scalar_one()
+        assert dedup.due_date == datetime(2026, 11, 12).date()
+
+    # second pass: one reminder per due date, the future sub stays silent
+    assert await reminders.run_due_reminders(session_maker) == 0

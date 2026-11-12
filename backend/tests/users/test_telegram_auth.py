@@ -128,10 +128,9 @@ async def test_telegram_login_linked_account(verified_user_client, session_maker
         "/api/auth/telegram", json={"init_data": init_data}, headers={"User-Agent": BROWSER_UA}
     )
     assert response.status_code == 200
-    body = response.json()
-    assert body["access_token"]
+    assert "access_token" not in response.json()
     # Secure cookies are not sent over http://test — put the token into the jar manually, as in conftest.
-    async_client.cookies["access_token"] = body["access_token"]
+    async_client.cookies["access_token"] = response.cookies["access_token"]
 
     me = await async_client.get("/api/users/me")
     assert me.status_code == 200

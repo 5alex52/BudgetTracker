@@ -302,7 +302,12 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
         user_id,
         session_maker: Optional[async_sessionmaker] = None,
     ) -> CurrencyRate:
-        """Personal currency rate: how many base units one unit of the currency costs."""
+        """Personal rate in display semantics: currency units per one base unit.
+
+        The Currencies screen edits the same value get_rates returns, so the
+        input is inverted back to catalog semantics (base units per currency
+        unit) before storing — all consumers convert with the catalog convention.
+        """
         if rate <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rate must be positive")
         maker = _resolve_session_maker(session_maker)
@@ -310,11 +315,28 @@ class CurrencyService(BaseService[CurrencyModel, CurrencyCreate, CurrencyUpdate]
             currency = await cls.dao.find_one_or_none(session, code=code.upper())
             if currency is None:
                 raise _not_found("Currency not found")
-            existing = await UserCurrencyRateDAO.find_one(session, user_id, code)
+            base_code = await cls._user_base_currency(maker, user_id)
+            if currency.code == base_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="The base currency rate is always 1",
+                )
+            # Same resolution as AnalyticsDAO._base_rate: base row, USD fallback, 1.0.
+            base_currency = await cls.dao.find_one_or_none(session, code=base_code)
+            if base_currency is None:
+                base_currency = await cls.dao.find_one_or_none(session, code="USD")
+            base_rate = 1.0
+            if base_currency is not None:
+                override = await UserCurrencyRateDAO.find_one(session, user_id, base_code)
+                candidate = override.rate if override is not None else base_currency.exchange_rate_to_base
+                if candidate and candidate > 0:
+                    base_rate = float(candidate)
+            stored_rate = base_rate / rate
+            existing = await UserCurrencyRateDAO.find_one(session, user_id, currency.code)
             if existing is None:
-                session.add(UserCurrencyRateModel(user_id=user_id, code=currency.code, rate=rate))
+                session.add(UserCurrencyRateModel(user_id=user_id, code=currency.code, rate=stored_rate))
             else:
-                existing.rate = rate
+                existing.rate = stored_rate
             await session.commit()
         return CurrencyRate(
             code=currency.code,
