@@ -6,6 +6,7 @@ import {
   BarChart as RechartsBarChart,
   CartesianGrid,
   Cell,
+  Line,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -75,15 +76,25 @@ const axisProps = {
 
 /* -------------------------------- линейный -------------------------------- */
 
+/** Палитра мультилинийного режима (по активам / кошелькам). */
+const SERIES_COLORS = ['#2ba7d6', '#3aa76d', '#e08a3c', '#d94b4b', '#8b6fd6', '#e06fa0', '#5b8fd6', '#c26bd6']
+
+/** Точка графика: label обязателен, остальное — числовые поля-серии (у одиночного режима — `value`). */
+export type ChartPoint = { label: string } & Record<string, string | number>
+export type ChartSeries = { key: string; name: string }
+
 function LineChartImpl({
   points,
+  series,
   height = 160,
   color = 'var(--accent)',
   showArea = true,
   className,
   ariaLabel,
 }: {
-  points: SeriesPoint[]
+  points: ChartPoint[]
+  /** Мультилинийный режим: одна линия на entry (dataKey — поле точки); без него рисуется `value`. */
+  series?: ChartSeries[]
   height?: number
   color?: string
   showArea?: boolean
@@ -110,16 +121,31 @@ function LineChartImpl({
               content={<ChartTooltip />}
               cursor={{ stroke: 'var(--border-strong)', strokeDasharray: '3 4' }}
             />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke={color}
-              strokeWidth={2}
-              fill={showArea ? `url(#${gradientId})` : 'transparent'}
-              activeDot={{ r: 3.5, strokeWidth: 2, stroke: 'var(--bg-base)', fill: color }}
-              dot={false}
-              isAnimationActive={false}
-            />
+            {series
+              ? series.map((entry, index) => (
+                  <Line
+                    key={entry.key}
+                    type="monotone"
+                    dataKey={entry.key}
+                    name={entry.name}
+                    stroke={SERIES_COLORS[index % SERIES_COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                ))
+              : (
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={color}
+                  strokeWidth={2}
+                  fill={showArea ? `url(#${gradientId})` : 'transparent'}
+                  activeDot={{ r: 3.5, strokeWidth: 2, stroke: 'var(--bg-base)', fill: color }}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              )}
           </AreaChart>
         </ResponsiveContainer>
       </div>

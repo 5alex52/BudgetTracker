@@ -21,7 +21,7 @@ import { useI18n, type TranslationKey } from '@/i18n'
 import { useFinanceStore } from '@/store/finance'
 import { AppShell } from '@/components/layout/AppShell'
 import { Amount, TrendBadge } from '@/components/data/Amount'
-import { LineChart } from '@/components/charts/charts'
+import { LineChart, type ChartPoint, type ChartSeries } from '@/components/charts/charts'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialogs'
@@ -424,14 +424,37 @@ export function CryptoPage() {
   const items = wallets.data?.items ?? []
   const baseCurrency = overview.data?.base_currency ?? 'USD'
 
-  const chartPoints = useMemo(
-    () =>
-      (series.data?.points ?? []).map((point) => ({
-        label: formatDay(point.day, locale),
-        value: Number(point.total_base),
-      })),
-    [series.data, locale],
-  )
+  /** Точки графика: total — одна линия; asset/wallet — по линии на группу (поля точек = ключи серий). */
+  const { chartPoints, chartSeries } = useMemo(() => {
+    const raw = series.data?.points ?? []
+    if (groupBy === 'total') {
+      return {
+        chartPoints: raw.map((point) => ({ label: formatDay(point.day, locale), value: Number(point.total_base) })),
+        chartSeries: undefined as ChartSeries[] | undefined,
+      }
+    }
+    const groupMap = groupBy === 'wallet' ? 'by_wallet' as const : 'by_asset' as const
+    const keys = [...new Set(raw.flatMap((point) => Object.keys(point[groupMap])))].sort()
+    if (groupBy === 'wallet') {
+      const names = new Map((wallets.data?.items ?? []).map((wallet) => [String(wallet.id), wallet.name]))
+      return {
+        chartPoints: raw.map((point) => {
+          const entry: ChartPoint = { label: formatDay(point.day, locale) }
+          for (const key of keys) entry[key] = Number(point.by_wallet[key] ?? 0)
+          return entry
+        }),
+        chartSeries: keys.map((key) => ({ key, name: names.get(key) ?? `#${key}` })),
+      }
+    }
+    return {
+      chartPoints: raw.map((point) => {
+        const entry: ChartPoint = { label: formatDay(point.day, locale) }
+        for (const key of keys) entry[key] = Number(point.by_asset[key] ?? 0)
+        return entry
+      }),
+      chartSeries: keys.map((key) => ({ key, name: key })),
+    }
+  }, [series.data, groupBy, locale, wallets.data])
 
   /** Синхронизация и любая мутация меняют и список, и сводку с графиком. */
   const refresh = () => {
@@ -547,7 +570,13 @@ export function CryptoPage() {
         {chartPoints.length > 0 && (
           <Card className="min-w-0 p-4">
             <CardHeader title={t('crypto.chartTitle')} subtitle={t('crypto.chartSubtitle')} />
-            <LineChart className="mt-3" points={chartPoints} ariaLabel={t('crypto.chartTitle')} height={240} />
+            <LineChart
+              className="mt-3"
+              points={chartPoints}
+              series={chartSeries}
+              ariaLabel={t('crypto.chartTitle')}
+              height={240}
+            />
           </Card>
         )}
 
