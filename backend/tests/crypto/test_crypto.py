@@ -251,9 +251,9 @@ async def test_overview_and_timeseries_math(user, currencies, session_maker):
     series = await CryptoService.timeseries(user.id, "7d", "total", session_maker)
     assert len(series["points"]) == 7
     points = {point["day"]: point for point in series["points"]}
-    # 0 before the first snapshot, then the carried amounts priced per day
+    # days before the first snapshot carry the opening (1 BTC × earliest price 50000)
     for point in series["points"][:5]:
-        assert point["total_base"] == 0.0
+        assert point["total_base"] == pytest.approx(50000.0)
     assert points[yesterday]["total_base"] == pytest.approx(50000.0)
     assert points[yesterday]["by_asset"] == {"BTC": 50000.0}
     assert points[yesterday]["by_wallet"] == {str(wallet.id): 50000.0}

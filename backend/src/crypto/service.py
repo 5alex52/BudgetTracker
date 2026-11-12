@@ -234,14 +234,15 @@ def _daily_amounts(
         current: Dict[Tuple[int, str], Decimal] = {}
         for key, day_rows in by_key.items():
             index = pointers[key]
-            if index == 0 and day_rows[0].day > day:
-                # открытие баланса: до первого снапшота показываем самую раннюю известную сумму
-                current[key] = day_rows[0].amount
-                continue
             while index < len(day_rows) and day_rows[index].day <= day:
-                current[key] = day_rows[index].amount
                 index += 1
             pointers[key] = index
+            if index > 0:
+                # последний снапшот ≤ дня, в том числе перенесённый после последнего
+                current[key] = day_rows[index - 1].amount
+            else:
+                # открытие баланса: до первого снапшота показываем самую раннюю известную сумму
+                current[key] = day_rows[0].amount
         if current:
             result[day] = current
     return result
@@ -298,19 +299,6 @@ async def crypto_daily_value_base(session: AsyncSession, user_id, days: List[dat
     price_days = _days_between(min(days[0], rows[0].day), days[-1])
     prices_map = await prices.cached_daily_prices(session, assets, price_days)
     carried_prices = prices.carry_prices_for_days(prices_map, assets, price_days)
-    # Дни до первой известной цены получают самую раннюю известную цену
-    # (симметрично переносу суммы в _daily_amounts), иначе крипта «выскакивает»
-    # в серии баланса на дне первой цены.
-    opening_prices = None
-    for day in price_days:
-        if day in carried_prices:
-            opening_prices = carried_prices[day]
-            break
-    if opening_prices is not None:
-        for day in price_days:
-            if day in carried_prices:
-                break
-            carried_prices[day] = opening_prices
     amounts = _daily_amounts(rows, days[0], days[-1])
     result: Dict[date, Dict[int, Decimal]] = {}
     for day in days:

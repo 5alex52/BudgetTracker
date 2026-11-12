@@ -176,7 +176,12 @@ async def latest_prices(session: AsyncSession, assets: Sequence[str]) -> Dict[st
 
 
 def carry_prices_for_days(prices: PriceMap, assets: Sequence[str], days: List[date]) -> Dict[date, Dict[str, Decimal]]:
-    """{day: {asset: price}} with the last known price carried into empty days."""
+    """{day: {asset: price}} with the last known price carried into empty days.
+
+    Leading days carry the earliest known price backward (opening price), days
+    after the last one carry the latest forward — otherwise the series would
+    drop to zero outside the cached price range.
+    """
     by_asset: Dict[str, List[Tuple[date, Decimal]]] = {asset: [] for asset in assets}
     for (asset, day), price in sorted(prices.items()):
         if asset in by_asset:
@@ -186,9 +191,12 @@ def carry_prices_for_days(prices: PriceMap, assets: Sequence[str], days: List[da
     for day in days:
         row: Dict[str, Decimal] = {}
         for asset, series in by_asset.items():
-            while pointers[asset] < len(series) and series[pointers[asset]][0] <= day:
-                row[asset] = series[pointers[asset]][1]
-                pointers[asset] += 1
-        if row:
-            result[day] = row
+            if not series:
+                continue
+            index = pointers[asset]
+            while index < len(series) and series[index][0] <= day:
+                index += 1
+            pointers[asset] = index
+            row[asset] = series[index - 1][1] if index > 0 else series[0][1]
+        result[day] = row
     return result
