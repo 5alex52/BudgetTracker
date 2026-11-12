@@ -420,7 +420,7 @@ export function AnalyticsPage() {
           {report.sections.length > 0 && (
             <div className="overflow-x-auto">
               {report.sections.map((section) => (
-                <table key={section.key} className="w-full min-w-[720px] border-collapse text-label">
+                <table key={section.key} className="w-full min-w-[600px] border-collapse text-label sm:min-w-[720px]">
                   <caption className="sr-only">{section.total.name}</caption>
                   <thead>
                     <tr>
@@ -445,7 +445,7 @@ export function AnalyticsPage() {
                     <tr className="group bg-surface-2/40 transition-colors duration-fast hover:bg-surface-2/60">
                       <th
                         scope="row"
-                        className="sticky left-0 z-[1] bg-surface-2/90 px-4 py-2.5 text-left text-label font-semibold text-fg-primary group-hover:bg-surface-2/90"
+                        className="sticky left-0 z-[1] bg-surface-2 px-4 py-2.5 text-left text-label font-semibold text-fg-primary group-hover:bg-surface-2"
                       >
                         <span className="flex items-center gap-2">
                           <span className="grid size-6 shrink-0 place-items-center rounded-pill bg-accent/15 text-accent">

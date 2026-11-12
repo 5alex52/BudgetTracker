@@ -21,7 +21,7 @@ export function TabBar() {
       level="md"
       variant="regular"
       className={cn(
-        'scrollbar-none fixed inset-x-3 bottom-3 z-[var(--z-tabbar)] flex h-[var(--tabbar-h)] items-stretch gap-1 overflow-x-auto rounded-[22px] px-2 md:hidden',
+        'scrollbar-none fixed inset-x-3 bottom-1 z-[var(--z-tabbar)] flex h-[var(--tabbar-h)] items-stretch gap-1 overflow-x-auto rounded-[22px] px-2 md:hidden',
       )}
       style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
       aria-label={t('nav.menu')}

@@ -118,16 +118,18 @@ export function RecordsPage() {
     return [...map.entries()]
   }, [records])
 
+  /** Курс каждой валюты: единиц валюты за 1 базовую. */
+  const rateMap = useMemo(() => new Map(rates.map((rate) => [rate.code, rate.rate])), [rates])
+
   /** Итог в базовой валюте: все записи пересчитываются по актуальному курсу */
   const totalInBase = useMemo(() => {
-    const rateMap = new Map(rates.map((rate) => [rate.code, rate.rate]))
     let sum = 0
     records.forEach((item) => {
       const rate = rateMap.get(item.currency) ?? 1
       sum += item.amount / rate
     })
     return sum
-  }, [records, rates])
+  }, [records, rateMap])
   const allSelected = records.length > 0 && selected.length === records.length
 
   /** Массовое удаление: сервер принимает список id одним запросом */
@@ -325,12 +327,13 @@ export function RecordsPage() {
         )}
 
         {grouped.map(([date, items]) => {
-          const dayTotal = items.reduce((sum, item) => sum + item.amount, 0)
+          // смешанные валюты дня приводятся к базовой — иначе $10 суммируется с 5р как «10»
+          const dayTotal = items.reduce((sum, item) => sum + item.amount / (rateMap.get(item.currency) ?? 1), 0)
           return (
             <section key={date} aria-label={formatDay(date, locale)}>
               <div className="flex items-center justify-between gap-2 bg-surface-2/60 px-4 py-1.5">
                 <h2 className="text-caption font-medium text-fg-secondary">{formatDay(date, locale)}</h2>
-                <Amount value={dayTotal} size="xs" tone="neutral" className="text-fg-tertiary" />
+                <Amount value={dayTotal} currency={baseCurrency} size="xs" tone="neutral" className="text-fg-tertiary" />
               </div>
               <ul>
                 {items.map((item, index) => (
