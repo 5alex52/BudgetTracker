@@ -51,7 +51,7 @@ export function AppShell({ children, sidebar, header, context, onAddRecord }: Ap
 
         <div
           className={cn(
-            'mx-auto flex w-full max-w-container flex-1 items-start gap-[var(--sidebar-gap)] px-4 pb-24 pt-4 md:px-6 md:pb-10',
+            'mx-auto flex w-full max-w-container flex-1 items-start gap-[var(--sidebar-gap)] px-4 pb-24 pt-6 md:px-6 md:pb-10',
           )}
         >
           {sidebar && (

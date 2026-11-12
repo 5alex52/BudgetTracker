@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Archive, Eye, MoreHorizontal, Plus } from 'lucide-react'
+import { Archive, Bitcoin, EyeOff, MoreHorizontal, Plus } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import { useNavigate } from 'react-router-dom'
@@ -66,11 +66,79 @@ export function AccountsPage() {
     setDialogOpen(true)
   }
 
-  const visible = accounts.filter((account) => showArchived || !account.archived)
+  const active = accounts.filter((account) => !account.archived)
   const groups = KIND_ORDER.map((kind) => ({
     kind,
-    items: visible.filter((account) => account.kind === kind),
+    items: active.filter((account) => account.kind === kind),
   })).filter((group) => group.items.length > 0)
+  // Архив показывается только в общем списке (тумблер «Архив»), отдельной секцией и тускло
+  const archivedList = showArchived ? accounts.filter((account) => account.archived) : []
+
+  /** Строка счёта: dimmed — тусклая строка архивной секции. */
+  const renderRow = (account: Account, dimmed: boolean, first: boolean) => (
+    <li key={account.id}>
+      <div
+        className={cn(
+          'flex items-center gap-3 rounded-md px-2 py-2.5 transition-colors duration-fast hover:bg-surface-2/70',
+          !first && 'border-t border-stroke-subtle',
+          dimmed && 'opacity-55',
+        )}
+      >
+        <span
+          className="grid size-8 shrink-0 place-items-center rounded-pill text-caption font-semibold"
+          style={(() => {
+            const chip = chipColors(account.tint)
+            return { backgroundColor: chip.backgroundColor, color: chip.color }
+          })()}
+          aria-hidden="true"
+        >
+          {account.name.slice(0, 1)}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 truncate text-label font-medium text-fg-primary">
+            {account.name}
+            {account.crypto && (
+              <Bitcoin className="size-3.5 shrink-0 text-fg-tertiary" aria-label={t('accounts.cryptoBadge')} />
+            )}
+          </p>
+          <p className="flex flex-wrap items-center gap-1.5 text-caption text-fg-tertiary">
+            {t(KIND_LABEL[account.kind])}
+            {account.excluded && (
+              <span className="inline-flex items-center gap-1 rounded-xs bg-surface-2 px-1.5 py-0.5">
+                <EyeOff className="size-3" aria-hidden="true" />
+                {t('accounts.excluded')}
+              </span>
+            )}
+            {account.archived && (
+              <span className="inline-flex items-center gap-1 rounded-xs bg-surface-2 px-1.5 py-0.5">
+                <Archive className="size-3" aria-hidden="true" />
+                {t('accounts.archived')}
+              </span>
+            )}
+          </p>
+        </div>
+
+        <Amount value={account.balance} currency={account.currency} size="sm" tone="neutral" />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label={t('accounts.rowMenu')}>
+              <MoreHorizontal className="size-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => navigate(`/accounts/${account.id}`)}>
+              {t('accounts.openDetails')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openEdit(account)}>
+              {t('common.edit')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </li>
+  )
 
   return (
     <AppShell
@@ -99,7 +167,7 @@ export function AccountsPage() {
         </p>
       )}
 
-      {!loading && groups.length === 0 && (
+      {!loading && groups.length === 0 && archivedList.length === 0 && (
         <Card>
           <p className="text-label text-fg-secondary">{t('state.empty')}</p>
           <Button size="sm" className="mt-3 gap-1.5" onClick={openCreate}>
@@ -125,76 +193,24 @@ export function AccountsPage() {
               </div>
 
               <ul className="-mx-2">
-                {group.items.map((account, index) => (
-                  <li key={account.id}>
-                    <div
-                      className={cn(
-                        'flex items-center gap-3 rounded-md px-2 py-2.5 transition-colors duration-fast hover:bg-surface-2/70',
-                        index > 0 && 'border-t border-stroke-subtle',
-                      )}
-                    >
-                      <span
-                        className="grid size-8 shrink-0 place-items-center rounded-pill text-caption font-semibold"
-                        style={(() => {
-                          const chip = chipColors(account.tint)
-                          return { backgroundColor: chip.backgroundColor, color: chip.color }
-                        })()}
-                        aria-hidden="true"
-                      >
-                        {account.name.slice(0, 1)}
-                      </span>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-1.5 truncate text-label font-medium text-fg-primary">
-                          {account.name}
-                          {account.crypto && (
-                            <span className="shrink-0 rounded-xs bg-surface-2 px-1.5 py-0.5 text-[11px] text-fg-tertiary">
-                              {t('accounts.cryptoBadge')}
-                            </span>
-                          )}
-                        </p>
-                        <p className="flex flex-wrap items-center gap-1.5 text-caption text-fg-tertiary">
-                          {t(KIND_LABEL[account.kind])}
-                          {account.excluded && (
-                            <span className="inline-flex items-center gap-1 rounded-xs bg-surface-2 px-1.5 py-0.5">
-                              <Eye className="size-3" aria-hidden="true" />
-                              {t('accounts.excluded')}
-                            </span>
-                          )}
-                          {account.archived && (
-                            <span className="inline-flex items-center gap-1 rounded-xs bg-surface-2 px-1.5 py-0.5">
-                              <Archive className="size-3" aria-hidden="true" />
-                              {t('accounts.archived')}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-
-                      <Amount value={account.balance} currency={account.currency} size="sm" tone="neutral" />
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon-sm" aria-label={t('accounts.rowMenu')}>
-                            <MoreHorizontal className="size-4" aria-hidden="true" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => navigate(`/accounts/${account.id}`)}>
-                            {t('accounts.openDetails')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => openEdit(account)}>
-                            {t('common.edit')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </li>
-                ))}
+                {group.items.map((account, index) => renderRow(account, false, index === 0))}
               </ul>
             </Card>
           )
         })}
       </div>
+
+      {archivedList.length > 0 && (
+        <Card className="mt-4">
+          <h2 className="mb-3 text-overline uppercase tracking-wide text-fg-tertiary">
+            {t('accounts.archived')}
+            <span className="ml-1.5 text-fg-tertiary/70">{archivedList.length}</span>
+          </h2>
+          <ul className="-mx-2">
+            {archivedList.map((account, index) => renderRow(account, true, index === 0))}
+          </ul>
+        </Card>
+      )}
 
       <AccountDialog
         open={dialogOpen}

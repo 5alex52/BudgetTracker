@@ -140,7 +140,7 @@
   --glass-brightness: 1.06;
 
   /* прозрачность по вариантам */
-  --glass-bg-regular: rgba(255, 255, 255, 0.6);
+  --glass-bg-regular: rgba(255, 255, 255, 0.78);
   --glass-bg-clear: rgba(255, 255, 255, 0.34);
   --glass-bg-tinted: rgba(37, 99, 235, 0.16);
 
@@ -174,7 +174,7 @@
 }
 
 .dark {
-  --glass-bg-regular: rgba(16, 22, 21, 0.5);
+  --glass-bg-regular: rgba(16, 22, 21, 0.68);
   --glass-bg-clear: rgba(16, 22, 21, 0.3);
   --glass-bg-tinted: rgba(59, 130, 246, 0.22);
 
