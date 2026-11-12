@@ -472,6 +472,10 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             for field, value in update_data.items():
                 setattr(account, field, value)
             await session.commit()
+            # refresh is needed before closing the session: updated_at is computed
+            # on the DB side (onupdate), and without it response serialization
+            # raises DetachedInstanceError → «срабатывает только со второго раза»
+            await session.refresh(account)
         await _invalidate_analytics()
         return account
 
@@ -819,6 +823,8 @@ class CategoryService(BaseService[CategoryModel, CategoryCreate, CategoryUpdate]
             for field, value in update_data.items():
                 setattr(category, field, value)
             await session.commit()
+            # same as accounts: updated_at is server-side onupdate
+            await session.refresh(category)
         await _invalidate_categories()
         return category
 

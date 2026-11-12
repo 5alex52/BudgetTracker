@@ -1,6 +1,8 @@
 import { memo } from 'react'
+import { Bitcoin, EyeOff } from 'lucide-react'
 import type { Account } from '@/__shared__/types/models'
 import { cn } from '@/__shared__/utils/cn'
+import { useI18n } from '@/i18n'
 import { Amount } from './Amount'
 
 /**
@@ -18,6 +20,7 @@ function AccountCardImpl({
   /** Открыть детали счёта: карточка становится ссылкой на /accounts/:id */
   onOpen?: () => void
 }) {
+  const { t } = useI18n()
   return (
     <button
       type="button"
@@ -38,6 +41,12 @@ function AccountCardImpl({
       />
       <span className="flex items-center gap-1.5">
         <span className="truncate text-caption text-fg-secondary">{account.name}</span>
+        {account.crypto && (
+          <Bitcoin className="size-3 shrink-0 text-fg-tertiary" aria-label={t('accounts.cryptoBadge')} />
+        )}
+        {account.excluded && (
+          <EyeOff className="size-3 shrink-0 text-fg-tertiary" aria-label={t('accounts.excluded')} />
+        )}
       </span>
       <Amount value={account.balance} currency={account.currency} tone="neutral" size="sm" className="mt-0.5" />
     </button>
