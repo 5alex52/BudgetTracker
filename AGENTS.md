@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**BudgetTracker** is a free and open-source personal finance management system with multi-currency support and advanced analytics. Built with a modern stack: FastAPI backend, React frontend, PostgreSQL, and Redis.
+**BudgetTracker** is a free, source-available personal finance management system (Apache 2.0 + Commons Clause) with multi-currency support and advanced analytics. Built with a modern stack: FastAPI backend, React frontend, PostgreSQL, and Redis.
 
 ## Architecture
 

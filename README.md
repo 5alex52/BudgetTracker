@@ -4,7 +4,7 @@
 
 ### Personal Finance Management System
 
-[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](./LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19+-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org/)
@@ -44,7 +44,7 @@
 - **Session management**: view active devices and sign out remotely
 - **Admin panel** for user management
 - Budget limits per category
-- Fully free and open-source: every feature is available to everyone
+- Fully free to use: every feature is available to everyone — no paid tiers or limits
 
 ### Crypto
 - **Crypto accounts alongside regular ones** — unified balance and analytics in your base currency
@@ -300,7 +300,14 @@ AI agents can understand the codebase structure, run tests, create migrations, a
 
 ## 📄 License
 
-**MIT License** — see [LICENSE](./LICENSE) for details. You are free to use, copy, modify, and distribute this software, including for commercial purposes, as long as the copyright notice and permission notice are included in all copies or substantial portions of the Software.
+**Apache License 2.0 with the Commons Clause condition** — see [LICENSE](./LICENSE) for the full text.
+
+Copyright 2026 Aleksei Kurkovskii.
+
+- ✅ Free to use, copy, modify, and distribute — for personal projects and inside your company.
+- ❌ **No selling**: the Commons Clause forbids providing the software to third parties for a fee, including paid hosting or consulting/support services whose value derives entirely or substantially from BudgetTracker's functionality.
+
+Because of the Commons Clause, this is a *source-available* license rather than an OSI-approved open-source license.
 
 ## 🙏 Acknowledgments
 

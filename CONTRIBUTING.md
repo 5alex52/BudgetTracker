@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to BudgetTracker. This document outlines the development workflow and code conventions.
 
-> **Note:** Contributions are welcome! By contributing, you agree that your contributions are licensed under the MIT License, the same license as the project.
+> **Note:** Contributions are welcome! By contributing, you agree that your contributions are licensed under the Apache License 2.0 with the Commons Clause condition, the same license as the project.
 
 ## Development Setup
 

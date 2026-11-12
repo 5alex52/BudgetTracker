@@ -5,7 +5,7 @@ material, typography, the grid, components, animations. It is based on 7 referen
 
 > **Note:** this is the original design specification, kept for historical reference. The reference
 > screenshots are not included in the repository, and the premium/locked features mentioned below were
-> never shipped — BudgetTracker is fully free and open-source.
+> never shipped — BudgetTracker is fully free to use (source-available, Apache 2.0 + Commons Clause).
 
 ---
 
