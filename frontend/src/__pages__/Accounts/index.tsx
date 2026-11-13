@@ -181,7 +181,8 @@ export function AccountsPage() {
         {groups.map((group) => {
           // Group total in the base currency: balances in different currencies
           // can't be added directly, so each is converted at its rate.
-          const total = group.items.reduce((sum, account) => sum + toBase(account), 0)
+          // Excluded-from-statistics accounts don't contribute to the total.
+          const total = group.items.reduce((sum, account) => (account.excluded ? sum : sum + toBase(account)), 0)
           return (
             <Card key={group.kind}>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">

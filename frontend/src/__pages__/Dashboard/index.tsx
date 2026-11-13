@@ -139,9 +139,10 @@ export function DashboardPage() {
   const change = summary.data?.change
 
   /** Account cards: archived ones are hidden. Excluded-from-statistics accounts are visible
- * in the list but don't affect the numbers — that's what the "excluded" flag is for. */
+ * in the list but don't affect the numbers — that's what the "excluded" flag is for.
+ * Up to 10 cards: the wide-screen grid has 5 columns, so >5 accounts fill two rows. */
   const cards = useMemo(
-    () => accounts.filter((account) => !account.archived).slice(0, 5),
+    () => accounts.filter((account) => !account.archived).slice(0, 10),
     [accounts],
   )
 
