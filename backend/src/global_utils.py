@@ -1,10 +1,10 @@
+import jwt
 from typing import Optional
 
 from fastapi import HTTPException
 from fastapi import Request
 from fastapi import status
 from fastapi.security.utils import get_authorization_scheme_param
-from jose import jwt
 
 from .config import settings
 from .exceptions import InvalidTokenException

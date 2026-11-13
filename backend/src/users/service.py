@@ -1,3 +1,4 @@
+import jwt
 import logging
 import uuid
 from datetime import datetime
@@ -9,7 +10,6 @@ from typing import Optional
 from fastapi import HTTPException
 from fastapi import status
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import jwt
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.config import settings
