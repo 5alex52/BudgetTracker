@@ -3,7 +3,7 @@
 
 - name: Restart application
   ansible.builtin.command:
-    cmd: docker-compose restart
+    cmd: docker compose -f docker-compose.prod.yml restart
     chdir: "{{ app_dir }}"
   become_user: "{{ app_user }}"
 

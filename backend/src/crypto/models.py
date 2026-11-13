@@ -86,7 +86,6 @@ class CryptoPriceDailyModel(Base):
     """Global (per-user-independent) cache of daily USD prices from CoinGecko."""
 
     __tablename__ = "crypto_price_daily"
-    __table_args__ = (sa.UniqueConstraint("asset_code", "day", name="uq_crypto_price_daily_asset_day"),)
 
     asset_code: Mapped[str] = mapped_column(sa.String(16), primary_key=True)
     day: Mapped[date] = mapped_column(sa.Date, primary_key=True)

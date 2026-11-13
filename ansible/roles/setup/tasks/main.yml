@@ -20,6 +20,11 @@
       - ufw
     state: present
 
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    state: present
+
 - name: Create application user
   ansible.builtin.user:
     name: "{{ app_user }}"
@@ -27,11 +32,6 @@
     system: yes
     shell: /bin/bash
     create_home: yes
-
-- name: Create application group
-  ansible.builtin.group:
-    name: "{{ app_group }}"
-    state: present
 
 - name: Create application directory
   ansible.builtin.file:
@@ -50,10 +50,10 @@
     - "22"    # SSH
     - "80"    # HTTP
     - "443"   # HTTPS
-  when: ansible_distribution == 'Ubuntu'
+  when: ansible_os_family == 'Debian'
 
 - name: Enable UFW
   ansible.builtin.ufw:
     state: enabled
     policy: deny
-  when: ansible_distribution == 'Ubuntu'
+  when: ansible_os_family == 'Debian'

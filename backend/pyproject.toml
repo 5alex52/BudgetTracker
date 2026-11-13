@@ -2,7 +2,7 @@
 name = "BudgetTracker"
 version = "0.1.0"
 description = "BudgetTracker backend service"
-authors = ["Aleksei Kurkovskii <[EMAIL]>"]
+authors = ["Aleksei Kurkovskii"]
 readme = "README.md"
 packages = []
 

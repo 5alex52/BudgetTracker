@@ -94,7 +94,17 @@ async def lifespan(application: FastAPI):
                 pass
 
 
-app = FastAPI(title="BudgetTracker API", version="0.1.0", lifespan=lifespan)
+# Interactive API docs are disabled in production
+_docs_enabled = settings.ENVIRONMENT != "PROD"
+
+app = FastAPI(
+    title="BudgetTracker API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 
 
 app.add_middleware(

@@ -78,13 +78,6 @@ server {
         proxy_request_buffering off;
     }
 
-    # Backend documentation
-    location /docs {
-        proxy_pass http://backend/docs;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
     # Health check
     location /health {
         proxy_pass http://backend/health;

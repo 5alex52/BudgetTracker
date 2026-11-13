@@ -13,6 +13,7 @@ sys.path.insert(0, dirname(dirname(dirname(abspath(__file__)))))
 
 from src.config import settings  # noqa: E402
 from src.database import Base  # noqa: E402
+from src.crypto import models as crypto_models  # noqa: E402, F401
 from src.finance import models as finance_models  # noqa: E402, F401
 from src.users import models as users_models  # noqa: E402, F401
 

@@ -3,7 +3,7 @@
 
 - name: Clone or update repository
   ansible.builtin.git:
-    repo: "https://github.com/yourorg/budgettracker.git"
+    repo: "https://github.com/5alex52/BudgetTracker.git"
     dest: "{{ app_dir }}"
     version: "{{ deploy_version | default('main') }}"
     force: yes
@@ -37,7 +37,7 @@
 
 - name: Build Docker images
   ansible.builtin.command:
-    cmd: docker-compose build
+    cmd: docker compose -f docker-compose.prod.yml build
     chdir: "{{ app_dir }}"
   become_user: "{{ app_user }}"
   when: git_clone.changed
@@ -45,7 +45,7 @@
 
 - name: Start application with Docker Compose
   ansible.builtin.command:
-    cmd: docker-compose up -d
+    cmd: docker compose -f docker-compose.prod.yml up -d --build
     chdir: "{{ app_dir }}"
   become_user: "{{ app_user }}"
   register: docker_up
@@ -60,7 +60,7 @@
 
 - name: Apply database migrations
   ansible.builtin.command:
-    cmd: docker-compose exec -T backend alembic upgrade head
+    cmd: docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
     chdir: "{{ app_dir }}"
   become_user: "{{ app_user }}"
   when: git_clone.changed

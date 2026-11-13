@@ -1,18 +1,20 @@
-# Production-like stack: built static files served by nginx + backend without autoreload.
-#   cp .env.example .env   # and make sure to set SECRET_KEY and POSTGRES_PASSWORD
+# Production stack: built static files served by nginx + backend without autoreload.
+#   cp .env.example .env   # set DOMAIN, SECRET_KEY and POSTGRES_PASSWORD (all required)
 #   docker compose -f docker-compose.prod.yml up --build -d
 #
 # Differences from docker-compose.yml:
 #  - no source mounts and no autoreload;
-#  - the frontend is served by nginx (production stage in frontend/Dockerfile), /api is proxied to the backend;
+#  - the frontend is served by nginx (production stage in frontend/Dockerfile);
+#  - host nginx terminates TLS and proxies / to the frontend and /api/ + /health to the backend;
+#  - backend/frontend ports are bound to 127.0.0.1 only (Docker publishes bypass ufw);
 #  - postgres/redis ports are not published to the host.
 
 name: budgettracker-prod
 
 x-backend-env: &backend-env
-  ENVIRONMENT: ${ENVIRONMENT:-LOCAL}
+  ENVIRONMENT: ${ENVIRONMENT:-PROD}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
-  SECRET_KEY: ${SECRET_KEY:-local-insecure-secret-key}
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required for production (min 32 chars)}
   ALGORITHM: ${ALGORITHM:-HS256}
   ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
   REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
@@ -20,7 +22,7 @@ x-backend-env: &backend-env
   POSTGRES_PORT: 5432
   POSTGRES_DB: ${POSTGRES_DB:-budgettracker}
   POSTGRES_USER: ${POSTGRES_USER:-budget}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budget}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
   TEST_POSTGRES_HOST: postgres
   TEST_POSTGRES_PORT: 5432
   TEST_POSTGRES_DB: ${POSTGRES_DB:-budgettracker}
@@ -32,17 +34,16 @@ x-backend-env: &backend-env
   RABBIT_PORT: 5672
   RABBIT_USER: ${RABBIT_USER:-guest}
   RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
-  # CORS in the prod stack is only needed when the frontend is opened outside nginx.
-  # By default the address matches the published frontend port below.
-  # Quotes are required: without them the value parses as invalid YAML.
-  CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173"]}'
+  # Same-origin deployment behind host nginx: the only allowed origin is the public
+  # https domain. Quotes are required: without them the value parses as invalid YAML.
+  CORS_ORIGINS: '["https://${DOMAIN}"]'
   CORS_HEADERS: '["Content-Type","Set-Cookie","Access-Control-Allow-Headers","Access-Control-Allow-Origin","Authorization"]'
   CORS_METHODS: '["GET","POST","PUT","PATCH","DELETE","OPTIONS"]'
   # OAuth and frontend URL for emails/redirects
   OAUTH_GITHUB_CLIENT_ID: ${OAUTH_GITHUB_CLIENT_ID:-}
   OAUTH_GITHUB_CLIENT_SECRET: ${OAUTH_GITHUB_CLIENT_SECRET:-}
-  OAUTH_RETURN_URL: ${OAUTH_RETURN_URL:-http://localhost:5173/}
-  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+  OAUTH_RETURN_URL: https://${DOMAIN}/
+  FRONTEND_URL: https://${DOMAIN:?DOMAIN is required (your public domain)}
   # Telegram bot (subscription reminders + Mini App login) and Web Push keys (values in .env)
   TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
   VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
@@ -50,6 +51,9 @@ x-backend-env: &backend-env
   VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@budgettracker.local}
   # optional: Etherscan key enables EVM balance-history backfill (current balance works without it)
   CRYPTO_ETHERSCAN_API_KEY: ${CRYPTO_ETHERSCAN_API_KEY:-}
+  # credentials for scripts.seed_admin (docker compose exec backend python -m scripts.seed_admin)
+  ADMIN_USER_EMAIL: ${ADMIN_USER_EMAIL:-}
+  ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:-}
 
 services:
   postgres:
@@ -89,10 +93,14 @@ services:
       dockerfile: Dockerfile
     container_name: budgettracker-prod-backend
     restart: always
-    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers"]
+    # One worker on purpose: background loops (billing, crypto sync, Telegram) must run exactly once.
+    # Proxy headers are trusted from any IP: the backend is only reachable via host nginx on 127.0.0.1.
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips", "*"]
     environment:
       <<: *backend-env
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+    ports:
+      - "127.0.0.1:8000:8000"
     expose:
       - "8000"
     depends_on:
@@ -115,7 +123,7 @@ services:
     container_name: budgettracker-prod-frontend
     restart: always
     ports:
-      - "${FRONTEND_HOST_PORT:-5173}:80"
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-5173}:80"
     depends_on:
       backend:
         condition: service_healthy

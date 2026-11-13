@@ -1,21 +1,22 @@
 #!/bin/bash
 # BudgetTracker automated backup script
 
-set -e
+set -eo pipefail
 
 BACKUP_DIR="{{ backup_dir }}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RETENTION_DAYS={{ backup_retention_days }}
 
-# Create backup directory if it doesn't exist
-mkdir -p $BACKUP_DIR
+# Create backup directory if it doesn't exist (backups contain secrets: keep it private)
+mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
 
 echo "Starting backup at $(date)"
 
 # PostgreSQL backup
 echo "Backing up PostgreSQL database..."
 cd {{ app_dir }}
-docker-compose exec -T db pg_dump -U {{ postgres_user }} {{ postgres_db }} | \
+docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U {{ postgres_user }} {{ postgres_db }} | \
     gzip > $BACKUP_DIR/db_$TIMESTAMP.sql.gz
 
 if [ $? -eq 0 ]; then
@@ -25,18 +26,20 @@ else
     exit 1
 fi
 
-# Redis backup (if persistence enabled)
-if [ -f "{{ app_dir }}/data/redis/dump.rdb" ]; then
+# Redis backup (named volume of the prod compose project)
+REDIS_DUMP=/var/lib/docker/volumes/budgettracker-prod_redis_data/_data/dump.rdb
+if [ -f "$REDIS_DUMP" ]; then
     echo "Backing up Redis data..."
-    docker-compose exec -T redis redis-cli BGSAVE
+    docker compose -f docker-compose.prod.yml exec -T redis redis-cli BGSAVE
     sleep 2
-    cp {{ app_dir }}/data/redis/dump.rdb $BACKUP_DIR/redis_$TIMESTAMP.rdb
+    cp "$REDIS_DUMP" $BACKUP_DIR/redis_$TIMESTAMP.rdb
     echo "Redis backup successful: redis_$TIMESTAMP.rdb"
 fi
 
-# Backup environment file
+# Backup environment file (contains secrets: restrict permissions)
 echo "Backing up environment file..."
 cp {{ app_dir }}/.env $BACKUP_DIR/env_$TIMESTAMP
+chmod 600 $BACKUP_DIR/env_$TIMESTAMP
 echo "Environment backup successful"
 
 # Cleanup old backups

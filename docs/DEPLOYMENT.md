@@ -1,527 +1,215 @@
-# Deployment Guide
+# Production Deployment
 
-This guide covers deploying BudgetTracker to production environments.
+This guide covers deploying BudgetTracker on a single Linux server with Docker Compose
+and a host nginx reverse proxy. Replace `your-domain` and `your-email` with your own
+values everywhere.
 
-## Table of Contents
+## Architecture
 
-- [Prerequisites](#prerequisites)
-- [Environment Configuration](#environment-configuration)
-- [Docker Compose Deployment](#docker-compose-deployment)
-- [Ansible Deployment](#ansible-deployment)
-- [Reverse Proxy Setup](#reverse-proxy-setup)
-- [SSL/TLS Configuration](#ssltls-configuration)
-- [Database Backup](#database-backup)
-- [Monitoring](#monitoring)
-- [Troubleshooting](#troubleshooting)
+```
+Internet → host nginx (TLS, ports 80/443)
+             ├── /            → 127.0.0.1:5173  frontend container (nginx serving the SPA)
+             └── /api/, /health → 127.0.0.1:8000  backend container (FastAPI/uvicorn)
+postgres + redis: internal Docker network only, no published ports
+```
+
+- Both compose ports are bound to `127.0.0.1` only. Docker publishes bypass ufw, so the
+  localhost binding — not the firewall — is what keeps the containers private.
+- A single clean initial migration runs automatically on backend start (the entrypoint
+  runs `alembic upgrade head` when `RUN_MIGRATIONS=true`, the default).
+- Background jobs (subscription billing, crypto sync, Telegram polling/reminders) run
+  in-process. The backend runs `uvicorn --workers 1` **on purpose**: multiple workers
+  would duplicate these loops and race Telegram `getUpdates` offsets. Do not raise it.
+- The backend trusts proxy headers from any IP (`--forwarded-allow-ips '*'`); this is
+  safe because it is only reachable through host nginx. `X-Forwarded-Proto` makes
+  `request.base_url` yield `https://your-domain`, which the GitHub OAuth redirect needs.
 
 ## Prerequisites
 
-### System Requirements
+- Debian 12 or Ubuntu server
+- Docker with the compose plugin, git, ufw
+- A DNS A record pointing `your-domain` to the server's public IP
 
-- **CPU**: 2+ cores (4+ recommended for production)
-- **RAM**: 4GB minimum (8GB recommended)
-- **Storage**: 20GB+ SSD
-- **OS**: Ubuntu 22.04+ or equivalent
-
-### Required Software
-
-- Docker 24.0+
-- Docker Compose 2.20+
-- Nginx or Caddy (for reverse proxy)
-- Certbot or Caddy (for SSL certificates)
-
-## Environment Configuration
-
-### Production Environment Variables
-
-Copy `.env.example` to `.env` and configure:
+## 1. Clone and configure
 
 ```bash
-# Security
-SECRET_KEY=<generate-64-random-chars>
-POSTGRES_PASSWORD=<strong-password>
-
-# Environment
-ENVIRONMENT=PROD
-
-# Database
-POSTGRES_USER=budgettracker
-POSTGRES_DB=budgettracker
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# Backend
-BACKEND_HOST_PORT=8000
-FRONTEND_HOST_PORT=5173
-WORKERS=4
-LOG_LEVEL=INFO
-
-# Frontend
-VITE_API_PROXY_TARGET=http://backend:8000
-VITE_TELEGRAM_SUPPORT_URL=https://t.me/your_support_bot
-```
-
-### Generate Secure Keys
-
-```bash
-# Generate SECRET_KEY
-openssl rand -hex 32
-
-# Generate POSTGRES_PASSWORD
-openssl rand -base64 32
-```
-
-## Docker Compose Deployment
-
-### 1. Clone Repository
-
-```bash
-git clone https://github.com/5alex52/BudgetTracker.git
-cd BudgetTracker
-```
-
-### 2. Configure Environment
-
-```bash
+git clone https://github.com/5alex52/BudgetTracker.git /opt/budgettracker
+cd /opt/budgettracker
 cp .env.example .env
-nano .env  # Edit with your values
 ```
 
-### 3. Build and Start
+Edit `.env` and set at least:
 
 ```bash
-# Build production images
-docker compose -f docker-compose.yml -f docker-compose.prod.yml build
-
-# Start services
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-# Check logs
-docker compose logs -f
+DOMAIN=your-domain
+ENVIRONMENT=PROD
+SECRET_KEY=<output of: openssl rand -hex 32>        # required, min 32 chars
+POSTGRES_PASSWORD=<output of: openssl rand -base64 24>  # required
+POSTGRES_USER=budget
+POSTGRES_DB=budgettracker
 ```
 
-### 4. Apply Database Migrations
+Optional integrations (features stay disabled while the values are empty):
 
 ```bash
-docker compose exec backend alembic upgrade head
+TELEGRAM_BOT_TOKEN=            # from @BotFather
+VAPID_PUBLIC_KEY=              # npx web-push generate-vapid-keys
+VAPID_PRIVATE_KEY=
+OAUTH_GITHUB_CLIENT_ID=        # see "GitHub OAuth" below
+OAUTH_GITHUB_CLIENT_SECRET=
+CRYPTO_ETHERSCAN_API_KEY=      # EVM balance-history backfill
 ```
 
-### 5. Seed Initial Data (Optional)
+`FRONTEND_URL`, `OAUTH_RETURN_URL` and `CORS_ORIGINS` are derived from `DOMAIN` by
+`docker-compose.prod.yml` — no need to set them manually. Then lock the file down:
 
 ```bash
-# Create admin user
-docker compose exec backend python -m scripts.create_admin
-
-# Seed demo data (development only)
-docker compose exec backend python -m scripts.seed_demo
+chmod 600 .env
 ```
 
-### 6. Verify Deployment
+## 2. Host nginx
 
 ```bash
-# Health check
-curl http://localhost:8000/health
-
-# Check services
-docker compose ps
+sudo apt install nginx certbot python3-certbot-nginx
 ```
-
-## Ansible Deployment
-
-Ansible playbooks are located in the `ansible/` directory.
-
-### Inventory Setup
-
-Create `ansible/inventory.yml`:
-
-```yaml
-all:
-  hosts:
-    budgettracker:
-      ansible_host: your-server-ip
-      ansible_user: deploy
-      ansible_ssh_private_key_file: ~/.ssh/id_rsa
-```
-
-### Configure Variables
-
-Edit `ansible/group_vars/all.yml`:
-
-```yaml
----
-app_domain: budgettracker.example.com
-admin_email: admin@example.com
-postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') }}"
-secret_key: "{{ lookup('env', 'SECRET_KEY') }}"
-environment: PROD
-```
-
-### Run Deployment
-
-```bash
-cd ansible
-
-# Install dependencies
-ansible-galaxy install -r requirements.yml
-
-# Run full deployment
-ansible-playbook -i inventory.yml deploy.yml
-
-# Run specific tasks
-ansible-playbook -i inventory.yml deploy.yml --tags "setup"
-ansible-playbook -i inventory.yml deploy.yml --tags "deploy"
-ansible-playbook -i inventory.yml deploy.yml --tags "ssl"
-```
-
-### Ansible Playbook Structure
-
-```
-ansible/
-├── inventory.yml              # Server inventory
-├── group_vars/
-│   └── all.yml               # Global variables
-├── roles/
-│   ├── setup/                # System setup
-│   │   └── tasks/main.yml
-│   ├── docker/               # Docker installation
-│   │   └── tasks/main.yml
-│   ├── app/                  # Application deployment
-│   │   └── tasks/main.yml
-│   ├── nginx/                # Reverse proxy
-│   │   └── tasks/main.yml
-│   └── ssl/                  # SSL certificates
-│       └── tasks/main.yml
-└── deploy.yml                # Main playbook
-```
-
-## Reverse Proxy Setup
-
-### Nginx Configuration
 
 Create `/etc/nginx/sites-available/budgettracker`:
 
 ```nginx
-upstream backend {
-    server 127.0.0.1:8000;
-}
-
-upstream frontend {
-    server 127.0.0.1:5173;
-}
-
 server {
     listen 80;
-    server_name budgettracker.example.com;
-    return 301 https://$server_name$request_uri;
-}
+    server_name your-domain;
 
-server {
-    listen 443 ssl http2;
-    server_name budgettracker.example.com;
+    client_max_body_size 10m;
 
-    ssl_certificate /etc/letsencrypt/live/budgettracker.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/budgettracker.example.com/privkey.pem;
-
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    # Frontend
     location / {
-        proxy_pass http://frontend;
+        proxy_pass http://127.0.0.1:5173;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Backend API
     location /api/ {
-        proxy_pass http://backend;
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support (if needed)
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
     }
 
-    # Health check
     location /health {
-        proxy_pass http://backend/health;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
         access_log off;
     }
 }
 ```
 
-### Caddy Configuration (Alternative)
-
-Create `Caddyfile`:
-
-```
-budgettracker.example.com {
-    reverse_proxy /api/* localhost:8000
-    reverse_proxy /* localhost:5173
-}
-```
-
-## SSL/TLS Configuration
-
-### Using Certbot
+Enable it and open the firewall (keep SSH!):
 
 ```bash
-# Install certbot
-sudo apt install certbot python3-certbot-nginx
-
-# Obtain certificate
-sudo certbot --nginx -d budgettracker.example.com
-
-# Auto-renewal (already configured by certbot)
-sudo systemctl status certbot.timer
+sudo ln -s /etc/nginx/sites-available/budgettracker /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo ufw allow 22/tcp
+sudo ufw allow 80,443/tcp
+sudo ufw enable
 ```
 
-### Manual Certificate Management
+## 3. Free SSL (Let's Encrypt)
 
 ```bash
-# Renew certificate
-sudo certbot renew
-
-# Force renewal
-sudo certbot renew --force-renewal
+sudo certbot --nginx -d your-domain --agree-tos -m your-email
 ```
 
-## Database Backup
+Certbot edits the server block for HTTPS and sets up auto-renewal (systemd timer or
+cron, depending on the distro). Verify: `curl -I https://your-domain`.
 
-### Automated Backups
-
-Create backup script `/usr/local/bin/backup-budgettracker.sh`:
+## 4. Launch
 
 ```bash
-#!/bin/bash
-BACKUP_DIR="/var/backups/budgettracker"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-
-mkdir -p $BACKUP_DIR
-
-# PostgreSQL backup
-docker compose exec -T db pg_dump -U budgettracker budgettracker | \
-    gzip > $BACKUP_DIR/db_$TIMESTAMP.sql.gz
-
-# Redis backup (if persistence enabled)
-docker compose exec -T redis redis-cli BGSAVE
-sleep 2
-cp /var/lib/docker/volumes/budgettracker_redis/_data/dump.rdb \
-   $BACKUP_DIR/redis_$TIMESTAMP.rdb
-
-# Keep last 30 days
-find $BACKUP_DIR -name "*.gz" -mtime +30 -delete
-find $BACKUP_DIR -name "*.rdb" -mtime +30 -delete
-
-echo "Backup completed: $TIMESTAMP"
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-### Cron Job
+Migrations apply automatically on backend start. Check:
 
 ```bash
-# Daily backup at 2 AM
-echo "0 2 * * * /usr/local/bin/backup-budgettracker.sh" | sudo crontab -
+docker compose -f docker-compose.prod.yml ps
+curl https://your-domain/health    # {"status":"ok","environment":"PROD"}
 ```
 
-### Restore from Backup
+## Security checklist
+
+- Only 80/443 are public (ufw); SSH kept on 22.
+- Compose ports are bound to `127.0.0.1`. Verify from an external machine that
+  5432, 6379, 8000 and 5173 are **not** reachable on the server's public IP.
+- `/docs`, `/redoc` and `/openapi.json` are disabled when `ENVIRONMENT=PROD`.
+- A strong `SECRET_KEY` (min 32 chars) is enforced at startup in PROD; compose also
+  refuses to start without `SECRET_KEY`, `POSTGRES_PASSWORD` and `DOMAIN`.
+
+## Optional seeding
 
 ```bash
-# Stop services
-docker compose stop backend
+# Superuser (management account, no demo data)
+docker compose -f docker-compose.prod.yml exec \
+    -e ADMIN_USER_EMAIL=your-email -e ADMIN_USER_PASSWORD='strong-password' \
+    backend python -m scripts.seed_admin
 
-# Restore database
-gunzip -c db_20261104_120000.sql.gz | docker compose exec -T db psql -U budgettracker budgettracker
-
-# Start services
-docker compose start backend
+# Demo data (6 accounts, 25 categories, ~387 transactions).
+# Requires the currency catalog, which the initial migration seeds.
+docker compose -f docker-compose.prod.yml exec backend python -m scripts.seed_demo
 ```
 
-## Monitoring
+## GitHub OAuth
 
-### Docker Logs
+1. Create an OAuth App at <https://github.com/settings/developers>:
+   - Homepage URL: `https://your-domain`
+   - Authorization callback URL: `https://your-domain/api/auth/oauth/github/callback`
+2. Put the credentials into `.env`:
+
+   ```bash
+   OAUTH_GITHUB_CLIENT_ID=...
+   OAUTH_GITHUB_CLIENT_SECRET=...
+   ```
+
+3. Restart the backend: `docker compose -f docker-compose.prod.yml restart backend`
+
+Empty values disable the GitHub login button.
+
+## Telegram Mini App (optional)
+
+Set `TELEGRAM_BOT_TOKEN` in `.env` and restart the backend. In @BotFather use
+`/setmenubutton` to point the bot's menu button at `https://your-domain`. Users must
+first link their Telegram account in Settings before reminders and Mini App login work.
+
+## Updates and backups
+
+Update:
 
 ```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f backend
-docker compose logs -f db
+cd /opt/budgettracker
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-### Resource Monitoring
+Back up the database through the `postgres` service (data lives in the named volume
+`budgettracker-prod_postgres_data`):
 
 ```bash
-# Container stats
-docker stats
-
-# Disk usage
-docker system df
-
-# Volume usage
-docker volume ls
+docker compose -f docker-compose.prod.yml exec -T postgres \
+    pg_dump -U budget budgettracker | gzip > backup_$(date +%Y%m%d).sql.gz
 ```
 
-### Health Checks
+Restore:
 
 ```bash
-# Backend health
-curl http://localhost:8000/health
-
-# Database connectivity
-docker compose exec db pg_isready -U budgettracker
-
-# Redis connectivity
-docker compose exec redis redis-cli ping
+gunzip -c backup_YYYYMMDD.sql.gz | docker compose -f docker-compose.prod.yml exec -T \
+    postgres psql -U budget budgettracker
 ```
 
-### Application Metrics
-
-```bash
-# Database query stats
-docker compose exec db psql -U budgettracker -c "SELECT * FROM pg_stat_activity;"
-
-# Redis info
-docker compose exec redis redis-cli INFO
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### Backend won't start
-
-```bash
-# Check logs
-docker compose logs backend
-
-# Common causes:
-# - Database not ready (wait 10 seconds)
-# - Invalid environment variables
-# - Port already in use
-```
-
-#### Database connection errors
-
-```bash
-# Check database status
-docker compose ps db
-
-# Restart database
-docker compose restart db
-
-# Check connection
-docker compose exec backend python -c "from src.database import engine; print(engine)"
-```
-
-#### Frontend build errors
-
-```bash
-# Rebuild frontend
-docker compose build frontend
-
-# Clear cache
-docker compose down
-docker volume rm budgettracker_frontend_node_modules
-docker compose up -d
-```
-
-#### Migration errors
-
-```bash
-# Check current migration
-docker compose exec backend alembic current
-
-# View migration history
-docker compose exec backend alembic history
-
-# Rollback last migration
-docker compose exec backend alembic downgrade -1
-
-# Re-apply
-docker compose exec backend alembic upgrade head
-```
-
-### Logs Location
-
-```bash
-# Docker logs
-/var/lib/docker/containers/*/
-docker compose logs > /tmp/budgettracker.log
-
-# Application logs (if configured)
-docker compose exec backend cat /app/logs/app.log
-```
-
-### Performance Tuning
-
-#### Backend Workers
-
-Edit `.env`:
-
-```bash
-WORKERS=8  # Increase for high traffic
-```
-
-#### Database Connection Pool
-
-Edit `backend/src/config.py`:
-
-```python
-DATABASE_POOL_SIZE = 20  # Increase for more connections
-DATABASE_MAX_OVERFLOW = 10
-```
-
-#### Redis Memory
-
-Edit `docker-compose.yml`:
-
-```yaml
-redis:
-  command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
-```
-
-### Security Checklist
-
-- [ ] Change default `SECRET_KEY`
-- [ ] Change default `POSTGRES_PASSWORD`
-- [ ] Set `ENVIRONMENT=PROD`
-- [ ] Enable HTTPS/SSL
-- [ ] Configure firewall (UFW/iptables)
-- [ ] Set up automated backups
-- [ ] Enable database connection encryption
-- [ ] Review CORS origins
-- [ ] Set up rate limiting (future feature)
-- [ ] Enable fail2ban for SSH
-
-## Production Checklist
-
-Before going live:
-
-1. ✅ Configure production environment variables
-2. ✅ Set up SSL certificates
-3. ✅ Configure reverse proxy
-4. ✅ Set up automated backups
-5. ✅ Enable monitoring
-6. ✅ Test disaster recovery
-7. ✅ Configure log rotation
-8. ✅ Set up alerts
-9. ✅ Review security settings
-10. ✅ Load test the application
-
----
-
-**Need help?** Contact support@budgettracker.local
+Automated deployment and backups are also available via Ansible (`ansible/`):
+configure `inventory.yml` and `group_vars/` (domain, vault secrets), then run
+`ansible-playbook -i inventory.yml deploy.yml`. It installs Docker, renders `.env`,
+deploys the prod compose stack, sets up host nginx + Let's Encrypt and a nightly
+`pg_dump` cron job with retention.
