@@ -467,6 +467,13 @@ class AuthService:
                     device_type=device_info.device_type,
                 ),
             )
+            # Admin panel shows this; every login path funnels through here.
+            # users.last_login_at is a naive DateTime column, so store UTC without tzinfo.
+            await UserDAO.update(
+                session,
+                UserModel.id == user_id,
+                obj_in={"last_login_at": datetime.now(timezone.utc).replace(tzinfo=None)},
+            )
             await session.commit()
         return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 

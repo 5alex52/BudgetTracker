@@ -139,7 +139,7 @@ export function AccountsPage() {
         <Amount value={account.balance} currency={account.currency} size="sm" tone="neutral" />
 
         {!dimmed && (
-          <span className="flex items-center">
+          <span className="hidden items-center sm:flex">
             <Button
               variant="ghost"
               size="icon-sm"
@@ -174,6 +174,16 @@ export function AccountsPage() {
             <DropdownMenuItem onSelect={() => openEdit(account)}>
               {t('common.edit')}
             </DropdownMenuItem>
+            {!dimmed && (
+              <>
+                <DropdownMenuItem className="sm:hidden" disabled={first} onSelect={() => move(account, -1)}>
+                  {t('accounts.moveUp')}
+                </DropdownMenuItem>
+                <DropdownMenuItem className="sm:hidden" disabled={last} onSelect={() => move(account, 1)}>
+                  {t('accounts.moveDown')}
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

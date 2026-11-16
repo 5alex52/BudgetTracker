@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, Settings, ShieldCheck } from 'lucide-react'
+import { Settings, ShieldCheck } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { useAuthStore } from '@/store/auth'
 import { Sheet, SheetContent } from '@/components/ui/dialogs'
@@ -30,14 +30,6 @@ export function MoreSheet({ children }: { children: ReactNode }) {
       </button>
       <SheetContent side="bottom" title={t('common.more')}>
         <div className="flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => go('/imports')}
-            className="flex h-12 items-center gap-3 rounded-md px-3 text-body text-fg-primary"
-          >
-            <Download className="size-5 text-fg-tertiary" aria-hidden="true" />
-            {t('nav.imports')}
-          </button>
           {user?.is_superuser && (
             <button
               type="button"
