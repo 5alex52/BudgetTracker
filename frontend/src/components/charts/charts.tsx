@@ -79,8 +79,9 @@ const axisProps = {
 /** Palette for multi-line mode (by asset / wallet). */
 const SERIES_COLORS = ['#2ba7d6', '#3aa76d', '#e08a3c', '#d94b4b', '#8b6fd6', '#e06fa0', '#5b8fd6', '#c26bd6']
 
-/** Chart point: label is required, the rest are numeric series fields (single mode uses `value`). */
-export type ChartPoint = { label: string } & Record<string, string | number>
+/** Chart point: label is required, the rest are numeric series fields (single mode uses `value`).
+ * `null` means "no data": recharts breaks the line there instead of drawing zero. */
+export type ChartPoint = { label: string } & Record<string, string | number | null>
 export type ChartSeries = { key: string; name: string }
 
 function LineChartImpl({
@@ -89,6 +90,7 @@ function LineChartImpl({
   height = 160,
   color = 'var(--accent)',
   showArea = true,
+  dashedKey,
   className,
   ariaLabel,
 }: {
@@ -98,6 +100,8 @@ function LineChartImpl({
   height?: number
   color?: string
   showArea?: boolean
+  /** Dashed extra line (dataKey is a point field): e.g. the flat forecast tail of the balance. */
+  dashedKey?: string
   className?: string
   ariaLabel: string
 }) {
@@ -146,6 +150,17 @@ function LineChartImpl({
                   isAnimationActive={false}
                 />
               )}
+            {dashedKey && !series && (
+              <Line
+                type="linear"
+                dataKey={dashedKey}
+                stroke={color}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                isAnimationActive={false}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

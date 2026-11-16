@@ -117,11 +117,31 @@ export function DashboardPage() {
     () => analyticsApi.getByCategory({ type: 'expense', startDate, endDate }),
     [startDate, endDate],
   )
+  const byAccount = useApiQuery(
+    () => analyticsApi.getByAccount({ startDate, endDate }),
+    [startDate, endDate],
+  )
 
   const balancePoints = useMemo(
     () => (balanceSeries.data ? toBalancePoints(balanceSeries.data, locale) : []),
     [balanceSeries.data, locale],
   )
+  /* The future is not drawn: after today — a dashed flat line at the level of the current balance */
+  const balanceChart = useMemo(() => {
+    const raw = balanceSeries.data?.points ?? []
+    if (!raw.length) return []
+    const today = toLocalDateISO(new Date())
+    let current: number | null = null
+    return raw.map((point, index) => {
+      const past = point.date.slice(0, 10) <= today
+      if (past && point.value != null) current = point.value
+      return {
+        label: balancePoints[index]?.label ?? String(index + 1),
+        value: past ? (point.value ?? 0) : null,
+        forecast: past ? null : current,
+      }
+    })
+  }, [balanceSeries.data, balancePoints])
   const cashflowPoints = useMemo(
     () => (cashflowSeries.data ? toCashflowPoints(cashflowSeries.data, locale) : []),
     [cashflowSeries.data, locale],
@@ -133,6 +153,14 @@ export function DashboardPage() {
   const expenseItems = useMemo(
     () => (expenseStructure.data ? expenseStructure.data.items : []),
     [expenseStructure.data],
+  )
+  /** Expenses by account for the period: only non-zero, from largest to smallest */
+  const accountExpenses = useMemo(
+    () =>
+      (byAccount.data?.items ?? [])
+        .filter((item) => item.expense > 0)
+        .sort((a, b) => b.expense - a.expense),
+    [byAccount.data],
   )
 
   const totals = summary.data
@@ -271,21 +299,11 @@ export function DashboardPage() {
             setMonthOffset((value) => value + 1)
           }}
         />
-        <Button
-          variant="glass"
-          size="sm"
-          pill
-          className="gap-1.5"
-          onClick={() => setAccountDialogOpen(true)}
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          {t('dashboard.addCard')}
-        </Button>
       </div>
 
       {/* Load failure: otherwise zeros in KPIs look like real data */}
       <QueryError
-        error={summary.error ?? balanceSeries.error ?? cashflowSeries.error ?? expenseStructure.error}
+        error={summary.error ?? balanceSeries.error ?? cashflowSeries.error ?? expenseStructure.error ?? byAccount.error}
         className="mb-4"
       />
 
@@ -366,7 +384,8 @@ export function DashboardPage() {
           {balancePoints.length > 1 ? (
             <LineChart
               className="mt-2"
-              points={balancePoints}
+              points={balanceChart}
+              dashedKey="forecast"
               ariaLabel={`${t('dashboard.balance')} ${rangeLabel}`}
               height={140}
             />
@@ -505,6 +524,25 @@ export function DashboardPage() {
           ) : (
             <p className="mt-3 text-caption text-fg-tertiary">
               {expenseStructure.loading ? t('state.loading') : t('state.empty')}
+            </p>
+          )}
+        </Card>
+
+        {/* Spending by account */}
+        <Card>
+          <CardHeader title={t('dashboard.expenseByAccount')} subtitle={rangeLabel} />
+          {accountExpenses.length > 0 ? (
+            <ul className="mt-3 space-y-1.5">
+              {accountExpenses.map((item) => (
+                <li key={item.account_id} className="flex items-center gap-2 text-caption">
+                  <span className="min-w-0 flex-1 truncate text-fg-secondary">{item.name}</span>
+                  <Amount value={-item.expense} size="xs" tone="negative" />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-caption text-fg-tertiary">
+              {byAccount.loading ? t('state.loading') : t('state.empty')}
             </p>
           )}
         </Card>

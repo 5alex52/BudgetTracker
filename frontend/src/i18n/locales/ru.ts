@@ -82,7 +82,6 @@ export const ru = {
   'autoRules.deleted': 'Платёж удалён',
   'autoRules.deleteTitle': 'Удалить регулярный платёж?',
   'autoRules.chartTitle': 'Списания по расписанию',
-  'nav.investments': 'Инвестиции',
   'nav.imports': 'Импорты',
   'nav.addRecord': 'Запись',
   'nav.settings': 'Настройки',
@@ -119,7 +118,7 @@ export const ru = {
 
   // ------------------------------- дашборд ---------------------------------
   'dashboard.addAccount': 'Добавить счёт',
-  'dashboard.addCard': 'Добавить счёт',
+  'dashboard.expenseByAccount': 'Расход по счетам',
   'dashboard.monthPrev': 'Предыдущий месяц',
   'dashboard.monthNext': 'Следующий месяц',
   'dashboard.overview': 'Обзор',

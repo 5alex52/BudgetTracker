@@ -79,7 +79,6 @@ export const en: Translations = {
   'autoRules.deleted': 'Payment deleted',
   'autoRules.deleteTitle': 'Delete regular payment?',
   'autoRules.chartTitle': 'Scheduled charges',
-  'nav.investments': 'Investments',
   'nav.imports': 'Imports',
   'nav.addRecord': 'Record',
   'nav.settings': 'Settings',
@@ -114,7 +113,7 @@ export const en: Translations = {
   'login.language': 'Language',
 
   'dashboard.addAccount': 'Add account',
-  'dashboard.addCard': 'Add account',
+  'dashboard.expenseByAccount': 'Spending by account',
   'dashboard.monthPrev': 'Previous month',
   'dashboard.monthNext': 'Next month',
   'dashboard.overview': 'Overview',

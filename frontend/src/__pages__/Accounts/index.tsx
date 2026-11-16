@@ -68,6 +68,9 @@ export function AccountsPage() {
   }
 
   const active = accounts.filter((account) => !account.archived)
+  // Edges of the full active list: ↑/↓ are disabled only there, since moves cross groups
+  const firstActiveId = active[0]?.id
+  const lastActiveId = active[active.length - 1]?.id
   const groups = KIND_ORDER.map((kind) => ({
     kind,
     items: active.filter((account) => account.kind === kind),
@@ -75,9 +78,10 @@ export function AccountsPage() {
   // The archive is shown only in the main list (the "Archived" toggle), as a separate dimmed section
   const archivedList = showArchived ? accounts.filter((account) => account.archived) : []
 
-  /** Swap the account with its neighbour within the group and persist the order. */
+  /** Swap the account with its neighbour in the full active list — the order is shared
+   * with the dashboard, so moves may cross group boundaries. */
   const move = (account: Account, dir: -1 | 1) => {
-    const siblings = accounts.filter((item) => !item.archived && item.kind === account.kind)
+    const siblings = accounts.filter((item) => !item.archived)
     const neighbour = siblings[siblings.findIndex((item) => item.id === account.id) + dir]
     if (!neighbour) return
     const ids = accounts.map((item) => item.id)
@@ -230,8 +234,8 @@ export function AccountsPage() {
               </div>
 
               <ul className="-mx-2">
-                {group.items.map((account, index) =>
-                  renderRow(account, false, index === 0, index === group.items.length - 1),
+                {group.items.map((account) =>
+                  renderRow(account, false, account.id === firstActiveId, account.id === lastActiveId),
                 )}
               </ul>
             </Card>
