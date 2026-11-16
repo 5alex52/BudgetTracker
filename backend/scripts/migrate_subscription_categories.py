@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import redis.asyncio as aioredis  # noqa: E402
 from sqlalchemy import func  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy import update  # noqa: E402
@@ -30,6 +31,7 @@ from sqlalchemy import update  # noqa: E402
 import src.finance.models  # noqa: F401,E402 — register the mappers
 import src.users.models  # noqa: F401,E402
 from src.cache import Cache  # noqa: E402
+from src.config import settings  # noqa: E402
 from src.database import async_session_maker  # noqa: E402
 from src.finance.models import CategoryModel  # noqa: E402
 from src.finance.models import ServiceSubscriptionModel  # noqa: E402
@@ -40,6 +42,20 @@ from src.finance.service_subs import SUBSCRIPTION_LEAF  # noqa: E402
 from src.finance.service_subs import SUBSCRIPTION_ROOT  # noqa: E402
 from src.finance.service_subs import ServiceSubService  # noqa: E402
 from src.users.models import UserModel  # noqa: E402
+
+
+async def _connect_cache() -> aioredis.Redis | None:
+    """Wire the app cache: the script runs outside the app startup, so it is off by default."""
+    client = aioredis.Redis(
+        host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0, decode_responses=True, socket_connect_timeout=2
+    )
+    try:
+        await client.ping()
+    except Exception:  # noqa: BLE001 — no cache is not a reason to fail the migration
+        await client.aclose()
+        return None
+    Cache.configure(client)
+    return client
 
 
 async def _existing_target(session, user_id) -> int | None:
@@ -153,8 +169,11 @@ async def main(apply: bool) -> None:
             await session.commit()
 
     if apply:
+        client = await _connect_cache()
         await Cache.delete_scope("categories")
         await Cache.delete_scope("analytics")
+        if client is not None:
+            await client.aclose()
     print(f"Done ({'applied' if apply else 'dry run'}): {moved} subscriptions, {removed} empty categories removed")
 
 
