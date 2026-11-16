@@ -65,6 +65,11 @@ CHARGES_SHOWN = 12
 COLLECT_INTERVAL_SECONDS = 60
 
 
+#: The standard tree node every subscription charge is filed under.
+SUBSCRIPTION_ROOT = "Связь и подписки"
+SUBSCRIPTION_LEAF = "Подписки"
+
+
 class ServiceSubDAO:
     model = ServiceSubscriptionModel
 
@@ -143,15 +148,19 @@ class ServiceSubService:
     dao = ServiceSubDAO
 
     @classmethod
-    async def _ensure_category(cls, session: AsyncSession, name: str, user_id, session_maker) -> int:
-        """Expense category named after the service; created on first attach."""
-        existing = (
+    async def _subscription_category(cls, session: AsyncSession, user_id, session_maker) -> int:
+        """The shared «Связь и подписки → Подписки» category auto-charges land in.
+
+        Every subscription used to get its own top-level category named after the
+        service, which littered the tree; one subcategory covers them all now.
+        """
+        leaf = (
             (
                 await session.execute(
                     select(CategoryModel)
                     .where(
                         CategoryModel.user_id == user_id,
-                        CategoryModel.name == name,
+                        CategoryModel.name == SUBSCRIPTION_LEAF,
                         CategoryModel.type == CategoryType.EXPENSE,
                     )
                     .limit(1)
@@ -160,14 +169,42 @@ class ServiceSubService:
             .scalars()
             .first()
         )
-        if existing is not None:
-            return existing.id
-        category = await CategoryService.create_for_user(
-            schema=CategoryCreate(name=name, type=CategoryType.EXPENSE),
-            user_id=user_id,
-            session_maker=session_maker,
+        if leaf is not None:
+            return leaf.id
+        root = (
+            (
+                await session.execute(
+                    select(CategoryModel)
+                    .where(
+                        CategoryModel.user_id == user_id,
+                        CategoryModel.name == SUBSCRIPTION_ROOT,
+                        CategoryModel.parent_id.is_(None),
+                        CategoryModel.type == CategoryType.EXPENSE,
+                    )
+                    .limit(1)
+                )
+            )
+            .scalars()
+            .first()
         )
-        return category.id
+        if root is None:
+            root = await CategoryService.create_for_user(
+                CategoryCreate(name=SUBSCRIPTION_ROOT, type=CategoryType.EXPENSE, icon="smartphone", color="#c26bd6"),
+                user_id,
+                session_maker,
+            )
+        leaf = await CategoryService.create_for_user(
+            CategoryCreate(
+                name=SUBSCRIPTION_LEAF,
+                type=CategoryType.EXPENSE,
+                parent_id=root.id,
+                icon="book",
+                color="#5b8fd6",
+            ),
+            user_id,
+            session_maker,
+        )
+        return leaf.id
 
     @classmethod
     async def _checked_account(cls, session: AsyncSession, account_id: int, user_id) -> None:
@@ -228,7 +265,7 @@ class ServiceSubService:
             next_due = None
             if schema.account_id is not None:
                 await cls._checked_account(session, schema.account_id, user_id)
-                category_id = await cls._ensure_category(session, schema.name, user_id, session_maker)
+                category_id = await cls._subscription_category(session, user_id, session_maker)
                 # Bill from the start date itself: collect() catches up every
                 # passed month, so the first record appears right away.
                 next_due = schema.started_at
@@ -289,9 +326,7 @@ class ServiceSubService:
                     data["next_payment_date"] = None
                 else:
                     await cls._checked_account(session, account_id, user_id)
-                    name = data.get("name", sub.name)
-                    if sub.account_id != account_id or sub.category_id is None or "name" in data:
-                        data["category_id"] = await cls._ensure_category(session, name, user_id, session_maker)
+                    data["category_id"] = await cls._subscription_category(session, user_id, session_maker)
                     if sub.next_payment_date is None or "started_at" in data:
                         data["next_payment_date"] = data.get("started_at", sub.started_at)
             for field, value in data.items():

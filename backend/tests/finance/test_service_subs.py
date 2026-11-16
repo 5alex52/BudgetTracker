@@ -115,7 +115,7 @@ async def test_attaching_account_schedules_charges(user, currencies, account, se
                 await session.execute(
                     select(CategoryModel).where(
                         CategoryModel.user_id == user.id,
-                        CategoryModel.name == "Netflix",
+                        CategoryModel.name == "Подписки",
                         CategoryModel.type == CategoryType.EXPENSE,
                     )
                 )
@@ -123,7 +123,13 @@ async def test_attaching_account_schedules_charges(user, currencies, account, se
             .scalars()
             .one()
         )
-        assert category is not None
+        parent = await session.get(CategoryModel, category.parent_id)
+        assert parent is not None and parent.name == "Связь и подписки"
+        # No per-service category: the charge lands in the shared subcategory.
+        per_service = await session.scalar(
+            select(CategoryModel.id).where(CategoryModel.user_id == user.id, CategoryModel.name == "Netflix")
+        )
+        assert per_service is None
 
 
 @pytest.mark.asyncio
