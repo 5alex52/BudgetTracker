@@ -311,6 +311,12 @@ class ServiceSubscriptionModel(Base):
     price: Mapped[float] = mapped_column(sa.Numeric(12, 2), nullable=False)
     currency_id: Mapped[str] = mapped_column(sa.String(3), sa.ForeignKey("currencies.code"), index=True)
     started_at: Mapped[datetime] = mapped_column(sa.DateTime, nullable=False)
+    #: How often the service is paid; the rule (when an account is attached) bills at this rate
+    frequency: Mapped[SubscriptionFrequency] = mapped_column(
+        sa.Enum(SubscriptionFrequency, name="subscription_frequency", values_callable=_enum_values),
+        default=SubscriptionFrequency.MONTHLY,
+        nullable=False,
+    )
     #: Auto-charge wiring: account to bill, the service's expense category, next due date
     account_id: Mapped[Optional[int]] = mapped_column(
         sa.Integer, sa.ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True

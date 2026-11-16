@@ -128,11 +128,15 @@ def _to_response(sub: ServiceSubscriptionModel, base_code: str, base_rate: float
         started_at=sub.started_at,
         account_id=sub.account_id,
         next_payment_date=sub.next_payment_date,
-        frequency=sub.rule.frequency.value if sub.rule is not None else "monthly",
+        frequency=sub.frequency.value,
         rule_active=sub.rule.is_active if sub.rule is not None else None,
         created_at=sub.created_at,
         updated_at=sub.updated_at,
     )
+
+
+#: Fraction of a month a single payment covers, by billing frequency.
+MONTH_FRACTION = {"daily": 12 / 365.25, "weekly": 12 / 52.18, "monthly": 1.0, "quarterly": 1 / 3, "yearly": 1 / 12}
 
 
 class ServiceSubService:
@@ -204,7 +208,8 @@ class ServiceSubService:
                         )
                 for item in items:
                     item.charges = buckets.get(item.id, [])
-        total = round(sum(item.price_base for item in items), 2)
+        # The total is monthly: a quarterly payment is a third of a month, a yearly one a twelfth.
+        total = round(sum(item.price_base * MONTH_FRACTION.get(item.frequency, 1.0) for item in items), 2)
         return ServiceSubList(items=items, total_base=total, base_currency=base_code)
 
     @classmethod
@@ -228,8 +233,6 @@ class ServiceSubService:
                 # passed month, so the first record appears right away.
                 next_due = schema.started_at
             values = {**schema.model_dump(), "user_id": user_id}
-            # frequency belongs to the billing rule, not the subscription table
-            values.pop("frequency")
             values["category_id"] = category_id
             values["next_payment_date"] = next_due
             sub = await cls.dao.create(session, values)
@@ -271,8 +274,10 @@ class ServiceSubService:
                 raise _not_found()
             data = schema.model_dump(exclude_unset=True)
             rule_active = data.pop("rule_active", None)
-            # frequency belongs to the billing rule, not the subscription table
-            frequency = data.pop("frequency", None)
+            # Also stored on the subscription: a total needs it even without a billing rule.
+            frequency = data.get("frequency")
+            if "frequency" in data and frequency is None:
+                data.pop("frequency")  # explicit null keeps the current frequency
             currency = data.get("currency_id", sub.currency_id)
             if await CurrencyDAO.find_one_or_none(session, code=currency) is None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown currency")
@@ -304,7 +309,7 @@ class ServiceSubService:
                 if rule is None:
                     rule = ServiceSubRuleModel(
                         service_sub_id=sub.id,
-                        frequency=SubscriptionFrequency.MONTHLY,
+                        frequency=sub.frequency,
                         next_payment_date=sub.next_payment_date or sub.started_at,
                         is_active=True,
                     )

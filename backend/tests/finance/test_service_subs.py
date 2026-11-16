@@ -42,6 +42,28 @@ async def test_service_sub_total_in_base_currency(user, currencies, session_make
 
 
 @pytest.mark.asyncio
+async def test_total_is_monthly_equivalent_for_quarterly_and_yearly(user, currencies, session_maker):
+    def sub(name, price, frequency):
+        return ServiceSubCreate(name=name, price=price, currency_id="USD", started_at=START, frequency=frequency)
+
+    await ServiceSubService.create_for_user(sub("Netflix", 10.0, SubscriptionFrequency.MONTHLY), user.id, session_maker)
+    await ServiceSubService.create_for_user(
+        sub("Hosting", 30.0, SubscriptionFrequency.QUARTERLY), user.id, session_maker
+    )
+    await ServiceSubService.create_for_user(sub("Domain", 120.0, SubscriptionFrequency.YEARLY), user.id, session_maker)
+
+    listing = await ServiceSubService.list_for_user(user.id, session_maker)
+
+    # 10 + 30/3 + 120/12, and the frequency survives without an attached account
+    assert listing.total_base == pytest.approx(30.0)
+    assert {item.name: item.frequency for item in listing.items} == {
+        "Netflix": "monthly",
+        "Hosting": "quarterly",
+        "Domain": "yearly",
+    }
+
+
+@pytest.mark.asyncio
 async def test_update_price_and_delete(user, currencies, session_maker):
     created = await ServiceSubService.create_for_user(_create("Xbox", 5.0, "USD"), user.id, session_maker)
 
