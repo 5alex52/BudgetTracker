@@ -401,3 +401,12 @@
     fill: currentColor;
   }
 }
+
+/* iOS Safari zooms the page when focusing inputs with font-size < 16px. */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

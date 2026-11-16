@@ -46,6 +46,7 @@ interface FinanceState {
   /** Reset reference data: logout and user switch */
   clearData: () => void
   reloadAccounts: () => Promise<void>
+  reorderAccounts: (ids: Array<string | number>) => Promise<void>
   reloadCategories: () => Promise<void>
   reloadTags: () => Promise<void>
   reloadTemplates: () => Promise<void>
@@ -146,6 +147,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     const list = await accountsApi.listAccounts({ includeArchived: true, includeExcluded: true })
     // Bump the revision: account amounts changed, so reports are stale too
     set({ accounts: list.map(toAccount), revision: get().revision + 1 })
+  },
+
+  reorderAccounts: async (ids) => {
+    await accountsApi.reorderAccounts(ids)
+    await get().reloadAccounts()
   },
 
   reloadCategories: async () => {

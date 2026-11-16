@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Archive, Bitcoin, EyeOff, MoreHorizontal, Plus } from 'lucide-react'
+import { Archive, Bitcoin, ChevronDown, ChevronUp, EyeOff, MoreHorizontal, Plus } from 'lucide-react'
 import { useI18n, type TranslationKey } from '@/i18n'
 import { cn } from '@/__shared__/utils/cn'
 import { useNavigate } from 'react-router-dom'
@@ -42,6 +42,7 @@ export function AccountsPage() {
   const baseCurrency = useFinanceStore((state) => state.baseCurrency)
   const rates = useFinanceStore((state) => state.rates)
   const loading = useFinanceStore((state) => state.loading)
+  const reorderAccounts = useFinanceStore((state) => state.reorderAccounts)
   const [showArchived, setShowArchived] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
@@ -74,8 +75,20 @@ export function AccountsPage() {
   // The archive is shown only in the main list (the "Archived" toggle), as a separate dimmed section
   const archivedList = showArchived ? accounts.filter((account) => account.archived) : []
 
+  /** Swap the account with its neighbour within the group and persist the order. */
+  const move = (account: Account, dir: -1 | 1) => {
+    const siblings = accounts.filter((item) => !item.archived && item.kind === account.kind)
+    const neighbour = siblings[siblings.findIndex((item) => item.id === account.id) + dir]
+    if (!neighbour) return
+    const ids = accounts.map((item) => item.id)
+    const from = ids.indexOf(account.id)
+    const to = ids.indexOf(neighbour.id)
+    ;[ids[from], ids[to]] = [ids[to], ids[from]]
+    void reorderAccounts(ids)
+  }
+
   /** Account row: dimmed — a muted row in the archive section. */
-  const renderRow = (account: Account, dimmed: boolean, first: boolean) => (
+  const renderRow = (account: Account, dimmed: boolean, first: boolean, last = false) => (
     <li key={account.id}>
       <div
         className={cn(
@@ -120,6 +133,29 @@ export function AccountsPage() {
         </div>
 
         <Amount value={account.balance} currency={account.currency} size="sm" tone="neutral" />
+
+        {!dimmed && (
+          <span className="flex items-center">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={first}
+              aria-label={t('accounts.moveUp')}
+              onClick={() => move(account, -1)}
+            >
+              <ChevronUp className="size-4" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={last}
+              aria-label={t('accounts.moveDown')}
+              onClick={() => move(account, 1)}
+            >
+              <ChevronDown className="size-4" aria-hidden="true" />
+            </Button>
+          </span>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -194,7 +230,9 @@ export function AccountsPage() {
               </div>
 
               <ul className="-mx-2">
-                {group.items.map((account, index) => renderRow(account, false, index === 0))}
+                {group.items.map((account, index) =>
+                  renderRow(account, false, index === 0, index === group.items.length - 1),
+                )}
               </ul>
             </Card>
           )

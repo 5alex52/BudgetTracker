@@ -18,6 +18,11 @@ export function listAccounts(params?: { includeArchived?: boolean; includeExclud
   })
 }
 
+/** Persist the display order of accounts (ids in the desired order). */
+export function reorderAccounts(ids: Array<string | number>): Promise<void> {
+  return request<void>('/finance/accounts/reorder', { method: 'POST', body: { ids: ids.map(Number) } })
+}
+
 export function getAccount(accountId: string | number): Promise<AccountDto> {
   return request<AccountDto>(`/finance/accounts/${accountId}`)
 }

@@ -63,9 +63,14 @@ class AccountDAO(BaseDAO[AccountModel, AccountCreate, AccountUpdate]):
             stmt = stmt.where(cls.model.is_archived.is_(False))
         if not include_excluded:
             stmt = stmt.where(cls.model.is_excluded.is_(False))
-        stmt = stmt.order_by(cls.model.id).offset(offset).limit(limit)
+        stmt = stmt.order_by(cls.model.sort_order, cls.model.id).offset(offset).limit(limit)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+    @classmethod
+    async def next_sort_order(cls, session: AsyncSession, user_id) -> int:
+        result = await session.execute(select(func.max(cls.model.sort_order)).where(cls.model.user_id == user_id))
+        return (result.scalar() or 0) + 1
 
     @classmethod
     def statistics_stmt(cls, user_id) -> Select:

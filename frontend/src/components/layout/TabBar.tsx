@@ -36,7 +36,7 @@ export function TabBar() {
               'flex flex-1 min-w-[4rem] flex-col items-center justify-center gap-1 rounded-md text-[11px] leading-4 transition-colors duration-base ease-out',
               isActive
                 ? 'text-accent'
-                : 'text-fg-secondary hover:text-fg-primary',
+                : 'text-fg-secondary',
             )
           }
         >

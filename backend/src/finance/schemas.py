@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
 from typing import List
 from typing import Optional
 
@@ -64,6 +65,12 @@ class AccountUpdate(BaseModel):
     is_excluded: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AccountReorder(BaseModel):
+    """Account ids in the desired display order."""
+
+    ids: List[int]
 
 
 class AccountResponse(AccountBase):

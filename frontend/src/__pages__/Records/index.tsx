@@ -448,7 +448,7 @@ function RecordRow({
 
       <Amount value={item.amount} currency={item.currency} size="sm" className="shrink-0" />
 
-      <span className="hidden sm:block">
+      <span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label={t('records.rowMenu')}>

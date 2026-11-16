@@ -152,6 +152,8 @@ export const en: Translations = {
   'accounts.type.cash': 'Cash',
   'accounts.type.general': 'General account',
   'accounts.rowMenu': 'Account actions',
+  'accounts.moveUp': 'Move up',
+  'accounts.moveDown': 'Move down',
 
   'records.title': 'Records',
   'records.myFilter': 'My filter',

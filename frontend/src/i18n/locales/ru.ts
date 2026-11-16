@@ -158,6 +158,8 @@ export const ru = {
   'accounts.type.cash': 'Наличные',
   'accounts.type.general': 'Общий счет',
   'accounts.rowMenu': 'Действия со счётом',
+  'accounts.moveUp': 'Переместить выше',
+  'accounts.moveDown': 'Переместить ниже',
 
   // -------------------------------- записи ---------------------------------
   'records.title': 'Записи',

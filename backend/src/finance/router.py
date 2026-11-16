@@ -20,6 +20,7 @@ from src.users.schemas import User
 
 from .dependencies import CurrentUser
 from .schemas import AccountCreate
+from .schemas import AccountReorder
 from .schemas import AccountResponse
 from .schemas import AccountSummary
 from .schemas import AccountUpdate
@@ -128,6 +129,17 @@ async def create_account(
 ) -> AccountResponse:
     """Create an account."""
     return await AccountViewSet.create(request=request, obj_data=account_data, user=user, session_maker=session_maker)
+
+
+@accounts_router.post("/reorder", status_code=status.HTTP_200_OK)
+async def reorder_accounts(
+    request: Request,
+    ids: AccountReorder,
+    user: CurrentUser,
+    session_maker: async_sessionmaker = Depends(get_async_session_maker),
+) -> None:
+    """Set the display order of accounts."""
+    await AccountViewSet.reorder(request=request, ids=ids, user=user, session_maker=session_maker)
 
 
 @accounts_router.patch("/{account_id}", status_code=status.HTTP_200_OK, response_model=AccountResponse)

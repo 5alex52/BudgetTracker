@@ -53,6 +53,8 @@ class AccountModel(Base):
     is_archived: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
     #: Excluded from statistics: account lives on, operations are visible, but it does not affect totals or charts
     is_excluded: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
+    #: User-defined display order within the account list (lower = earlier)
+    sort_order: Mapped[int] = mapped_column(sa.Integer, default=0, server_default="0", nullable=False)
     #: Set for crypto-wallet accounts (trust/telegram/manual): balance is maintained by sync,
     #: the wallet's extra fields live in crypto_* tables and are editable only from the crypto page
     crypto_kind: Mapped[Optional[str]] = mapped_column(

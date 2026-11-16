@@ -9,6 +9,8 @@ from typing import Optional
 
 from fastapi import HTTPException
 from fastapi import status
+
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -461,7 +463,14 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
         maker = _resolve_session_maker(session_maker)
         async with maker() as session:
             await _get_currency(session, schema.currency_id)
-            account = await cls.dao.create(session, {**schema.model_dump(), "user_id": user_id})
+            account = await cls.dao.create(
+                session,
+                {
+                    **schema.model_dump(),
+                    "user_id": user_id,
+                    "sort_order": await cls.dao.next_sort_order(session, user_id),
+                },
+            )
             if account is None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -470,6 +479,30 @@ class AccountService(BaseService[AccountModel, AccountCreate, AccountUpdate]):
             await session.commit()
         await _invalidate_analytics()
         return account
+
+    @classmethod
+    async def reorder_for_user(
+        cls,
+        ids: List[int],
+        user_id,
+        session_maker: Optional[async_sessionmaker] = None,
+    ) -> None:
+        """Persist the user's display order: ids are stored in the given order."""
+        maker = _resolve_session_maker(session_maker)
+        async with maker() as session:
+            result = await session.execute(
+                select(AccountModel).where(
+                    AccountModel.user_id == user_id,
+                    AccountModel.id.in_(ids),
+                )
+            )
+            accounts = list(result.scalars().all())
+            if len(accounts) != len(set(ids)):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+            by_id = {account.id: account for account in accounts}
+            for position, account_id in enumerate(ids):
+                by_id[account_id].sort_order = position
+            await session.commit()
 
     @classmethod
     async def update_for_user(

@@ -16,6 +16,7 @@ from .models import SubscriptionModel
 from .models import TransactionModel
 from .permissions import FinancePermission
 from .schemas import AccountCreate
+from .schemas import AccountReorder
 from .schemas import AccountSummary
 from .schemas import AccountUpdate
 from .schemas import BalanceOverview
@@ -87,6 +88,18 @@ class AccountViewSet(BaseViewSet[int, AccountCreate, AccountUpdate]):
         **kwargs,
     ) -> AccountModel:
         return await cls.service.create_for_user(schema=obj_data, user_id=user.id, session_maker=session_maker)
+
+    @classmethod
+    @check_permissions(action="update_account")
+    async def reorder(
+        cls,
+        ids: AccountReorder,
+        user: User,
+        session_maker: async_sessionmaker = Depends(get_async_session_maker),
+        **kwargs,
+    ) -> None:
+        """Set the display order of accounts to match the given id list."""
+        await cls.service.reorder_for_user(ids=ids.ids, user_id=user.id, session_maker=session_maker)
 
     @classmethod
     @check_permissions(action="update_account")

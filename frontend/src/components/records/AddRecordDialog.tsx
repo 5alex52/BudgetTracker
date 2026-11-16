@@ -266,6 +266,7 @@ export function AddRecordDialog({
             <div className={cn('flex gap-2', accent.chip)}>
               <SegmentedControl
                 aria-label={t('recordForm.type')}
+                className="flex w-full [&>button]:flex-1 [&>button]:min-w-0 [&>button]:truncate"
                 value={type}
                 onValueChange={(value) => setType(value as TransactionTypeValue)}
                 items={[
